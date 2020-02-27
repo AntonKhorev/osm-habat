@@ -20,9 +20,63 @@
 // https://api.openstreetmap.org/api/0.6/user/10659315
 
 const fs=require('fs')
+const path=require('path')
 const https=require('https')
+const expat=require('node-expat')
+const sanitize=require('sanitize-filename')
+
+function processUserChangesetsMetadata(inputStream,endCallback) {
+	function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
+		return text
+			.replace(/&/g,'&amp;')
+			.replace(/</g,'&lt;')
+			.replace(/"/g,'&quot;')
+			.replace(/\t/g,'&#x9;')
+			.replace(/\n/g,'&#xA;')
+			.replace(/\r/g,'&#xD;')
+	}
+	const parser=new expat.Parser()
+	let changesetStream
+	let uid
+	const changesetIds=[]
+	parser.on('startElement',(name,attrs)=>{
+		if (name=='changeset' && attrs.id) {
+			const dirName=path.join('changesets',sanitize(attrs.id))
+			fs.mkdirSync(dirName,{recursive:true})
+			changesetStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
+			changesetStream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+			changesetStream.write('<osm version="0.6" generator="osm-caser">\n')
+			changesetStream.write("<changeset")
+			for (const attr in attrs) {
+				changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+			}
+			changesetStream.write(">\n")
+			if (attrs.uid) uid=attrs.uid
+			changesetIds.push(attrs.id)
+		}
+		if (!changesetStream) return
+		if (name=='tag') {
+			changesetStream.write("  <tag")
+			for (const attr in attrs) {
+				changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+			}
+			changesetStream.write("/>\n")
+		}
+	})
+	parser.on('endElement',(name)=>{
+		if (name=='changeset') {
+			changesetStream.end("</changeset>\n</osm>\n")
+			changesetStream=undefined
+		}
+	})
+	parser.on('end',()=>{
+		endCallback(uid,changesetIds)
+	})
+	inputStream.pipe(parser)
+}
 
 function addUser(userName) {
+	// TODO check if already added
 	// only doable by fetching changesets by display_name
 	const apiUrl=`https://api.openstreetmap.org/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`
 	console.log(`GET ${apiUrl}`)
@@ -31,9 +85,11 @@ function addUser(userName) {
 			console.log(`cannot find user ${userName}`)
 			return process.exit(1)
 		}
-		res.pipe(fs.createWriteStream('output'))
+		processUserChangesetsMetadata(res,(uid,changesetIds)=>{
+			console.log(`about to add user #${uid} with currently read ${changesetIds.length} changesets metadata`)
+		})
+		//res.pipe(fs.createWriteStream('output'))
 	})
-
 	//https.get(url,function(response){
 	//	response.pipe(fs.createWriteStream(filename)).on('finish',singleCallback)
 	//})
