@@ -25,6 +25,13 @@ const https=require('https')
 const expat=require('node-expat')
 const sanitize=require('sanitize-filename')
 
+function apiGet(call,...args) {
+	const apiUrl=`https://api.openstreetmap.org`
+	const getUrl=apiUrl+call
+	console.log(`GET ${getUrl}`)
+	https.get(getUrl,...args)
+}
+
 function processUserChangesetsMetadata(inputStream,endCallback) {
 	function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
 		return text
@@ -41,7 +48,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 	const changesetIds=[]
 	parser.on('startElement',(name,attrs)=>{
 		if (name=='changeset' && attrs.id) {
-			const dirName=path.join('changesets',sanitize(attrs.id))
+			const dirName=path.join('changeset',sanitize(attrs.id))
 			fs.mkdirSync(dirName,{recursive:true})
 			changesetStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
 			changesetStream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
@@ -78,17 +85,23 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 function addUser(userName) {
 	// TODO check if already added
 	// only doable by fetching changesets by display_name
-	const apiUrl=`https://api.openstreetmap.org/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`
-	console.log(`GET ${apiUrl}`)
-	https.get(apiUrl,res=>{
+	apiGet(`/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`,res=>{
 		if (res.statusCode!=200) {
 			console.log(`cannot find user ${userName}`)
 			return process.exit(1)
 		}
 		processUserChangesetsMetadata(res,(uid,changesetIds)=>{
 			console.log(`about to add user #${uid} with currently read ${changesetIds.length} changesets metadata`)
+			const dirName=path.join('user',sanitize(uid))
+			fs.mkdirSync(dirName,{recursive:true})
+			fs.writeFileSync(path.join(dirName,'changesets.txt'),changesetIds.join('\n')+'\n')
+			apiGet(`/api/0.6/user/${uid}`,res=>{
+				const userStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
+				res.pipe(userStream).on('finish',()=>{
+					console.log(`wrote user #${uid} metadata`)
+				})
+			})
 		})
-		//res.pipe(fs.createWriteStream('output'))
 	})
 	//https.get(url,function(response){
 	//	response.pipe(fs.createWriteStream(filename)).on('finish',singleCallback)
