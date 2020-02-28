@@ -108,6 +108,33 @@ function addUser(userName) {
 	//})
 }
 
+function reportUser(uid) {
+	const dirName=path.join('user',sanitize(uid))
+	const metaFilename=path.join(dirName,'meta.xml')
+	const changesetsString=fs.readFileSync(path.join(dirName,'changesets.txt'),'utf8')
+	const changesets=[]
+	for (const id of changesetsString.split('\n')) {
+		if (id!='') changesets.push(id)
+	}
+	const parser=new expat.Parser()
+	let displayName
+	let changesetsCount
+	parser.on('startElement',(name,attrs)=>{
+		if (name=='user') {
+			displayName=attrs.display_name
+		} else if (name=='changesets') {
+			changesetsCount=attrs.count
+		}
+	})
+	parser.on('end',()=>{
+		console.log(`# User #${uid} [${displayName}](https://www.openstreetmap.org/user/${encodeURIComponent(displayName)})`)
+		console.log()
+		console.log(`* last update was on ${fs.statSync(metaFilename).mtime}`)
+		console.log(`* downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
+	})
+	fs.createReadStream(metaFilename).pipe(parser)
+}
+
 const cmd=process.argv[2]
 if (cmd=='add') {
 	const userString=process.argv[3]
@@ -134,6 +161,13 @@ if (cmd=='add') {
 		console.log(`invalid add argument ${userString}`)
 		return process.exit(1)
 	}
+} else if (cmd=='report') {
+	const uid=process.argv[3]
+	if (uid===undefined) {
+		console.log('missing report argument')
+		return process.exit(1)
+	}
+	reportUser(uid)
 } else {
 	console.log('invalid or missing command; available commands: add')
 	return process.exit(1)
