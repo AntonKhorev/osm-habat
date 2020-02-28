@@ -42,44 +42,42 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 			.replace(/\n/g,'&#xA;')
 			.replace(/\r/g,'&#xD;')
 	}
-	const parser=new expat.Parser()
 	let changesetStream
 	let uid
 	const changesetIds=[]
-	parser.on('startElement',(name,attrs)=>{
-		if (name=='changeset' && attrs.id) {
-			const dirName=path.join('changeset',sanitize(attrs.id))
-			fs.mkdirSync(dirName,{recursive:true})
-			changesetStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
-			changesetStream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
-			changesetStream.write('<osm version="0.6" generator="osm-caser">\n')
-			changesetStream.write("<changeset")
-			for (const attr in attrs) {
-				changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+	inputStream.pipe(
+		(new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='changeset' && attrs.id) {
+				const dirName=path.join('changeset',sanitize(attrs.id))
+				fs.mkdirSync(dirName,{recursive:true})
+				changesetStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
+				changesetStream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+				changesetStream.write('<osm version="0.6" generator="osm-caser">\n')
+				changesetStream.write("<changeset")
+				for (const attr in attrs) {
+					changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+				}
+				changesetStream.write(">\n")
+				if (attrs.uid) uid=attrs.uid
+				changesetIds.push(attrs.id)
 			}
-			changesetStream.write(">\n")
-			if (attrs.uid) uid=attrs.uid
-			changesetIds.push(attrs.id)
-		}
-		if (!changesetStream) return
-		if (name=='tag') {
-			changesetStream.write("  <tag")
-			for (const attr in attrs) {
-				changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+			if (!changesetStream) return
+			if (name=='tag') {
+				changesetStream.write("  <tag")
+				for (const attr in attrs) {
+					changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+				}
+				changesetStream.write("/>\n")
 			}
-			changesetStream.write("/>\n")
-		}
-	})
-	parser.on('endElement',(name)=>{
-		if (name=='changeset') {
-			changesetStream.end("</changeset>\n</osm>\n")
-			changesetStream=undefined
-		}
-	})
-	parser.on('end',()=>{
-		endCallback(uid,changesetIds)
-	})
-	inputStream.pipe(parser)
+		}).on('endElement',(name)=>{
+			if (name=='changeset') {
+				changesetStream.end("</changeset>\n</osm>\n")
+				changesetStream=undefined
+			}
+		}).on('end',()=>{
+			endCallback(uid,changesetIds)
+		})
+	)
 }
 
 function addUser(userName) {
@@ -116,23 +114,22 @@ function reportUser(uid) {
 	for (const id of changesetsString.split('\n')) {
 		if (id!='') changesets.push(id)
 	}
-	const parser=new expat.Parser()
 	let displayName
 	let changesetsCount
-	parser.on('startElement',(name,attrs)=>{
-		if (name=='user') {
-			displayName=attrs.display_name
-		} else if (name=='changesets') {
-			changesetsCount=attrs.count
-		}
-	})
-	parser.on('end',()=>{
-		console.log(`# User #${uid} [${displayName}](https://www.openstreetmap.org/user/${encodeURIComponent(displayName)})`)
-		console.log()
-		console.log(`* last update was on ${fs.statSync(metaFilename).mtime}`)
-		console.log(`* downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
-	})
-	fs.createReadStream(metaFilename).pipe(parser)
+	fs.createReadStream(metaFilename).pipe(
+		(new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='user') {
+				displayName=attrs.display_name
+			} else if (name=='changesets') {
+				changesetsCount=attrs.count
+			}
+		}).on('end',()=>{
+			console.log(`# User #${uid} [${displayName}](https://www.openstreetmap.org/user/${encodeURIComponent(displayName)})`)
+			console.log()
+			console.log(`* last update was on ${fs.statSync(metaFilename).mtime}`)
+			console.log(`* downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
+		})
+	)
 }
 
 const cmd=process.argv[2]
