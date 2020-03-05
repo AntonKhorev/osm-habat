@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "node-expat": "^2.3.18",
+    "open": "^7.0.2",
     "sanitize-filename": "^1.6.3"
   }
 }
