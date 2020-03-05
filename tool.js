@@ -127,6 +127,15 @@ function reportUser(uid) {
 	let changesetsCount
 	let currentYear,currentMonth
 	let dateString
+	const createdBys={}
+	const reportEditors=()=>{
+		console.log(x`<h2>Editors</h2>\n`)
+		console.log(x`<dl>`)
+		for (const editor in createdBys) {
+			console.log(x`<dt>${editor} <dd>${createdBys[editor]} changesets`)
+		}
+		console.log(x`</dl>`)
+	}
 	const reportChangeset=(i)=>{
 		if (i==0) {
 			process.stdout.write(x`<dl>`)
@@ -134,13 +143,17 @@ function reportUser(uid) {
 		if (i>=changesets.length) {
 			process.stdout.write(x`\n<dt>${dateString} <dd> first known changeset`)
 			process.stdout.write(x`\n</dl>\n`)
+			reportEditors()
 			return
 		}
 		const id=changesets[i]
+		let createdBy
 		fs.createReadStream(path.join('changeset',id,'meta.xml')).pipe(
 			(new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='changeset') {
 					dateString=attrs.created_at
+				} else if (name=='tag') {
+					if (attrs.k=='created_by') createdBy=attrs.v
 				}
 			}).on('end',()=>{
 				const date=new Date(dateString)
@@ -153,6 +166,8 @@ function reportUser(uid) {
 					process.stdout.write(x`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 				}
 				process.stdout.write(x` <a href="https://www.openstreetmap.org/changeset/${id}">${id}</a>`)
+				if (!createdBy) createdBy='unknown'
+				createdBys[createdBy]=(createdBys[createdBy]||0)+1
 				reportChangeset(i+1)
 			})
 		)
