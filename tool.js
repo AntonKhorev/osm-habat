@@ -126,16 +126,17 @@ function reportUser(uid) {
 	let displayName
 	let changesetsCount
 	let currentYear,currentMonth
+	let dateString
 	const reportChangeset=(i)=>{
 		if (i==0) {
 			process.stdout.write(x`<dl>`)
 		}
 		if (i>=changesets.length) {
+			process.stdout.write(x`\n<dt>${dateString} <dd> first known changeset`)
 			process.stdout.write(x`\n</dl>\n`)
 			return
 		}
 		const id=changesets[i]
-		let dateString
 		fs.createReadStream(path.join('changeset',id,'meta.xml')).pipe(
 			(new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='changeset') {
@@ -143,6 +144,9 @@ function reportUser(uid) {
 				}
 			}).on('end',()=>{
 				const date=new Date(dateString)
+				if (i==0) {
+					process.stdout.write(x`\n<dt>${dateString} <dd> last known changeset`)
+				}
 				if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
 					currentYear=date.getFullYear()
 					currentMonth=date.getMonth()
