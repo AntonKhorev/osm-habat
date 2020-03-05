@@ -116,6 +116,31 @@ function reportUser(uid) {
 	}
 	let displayName
 	let changesetsCount
+	let currentYear,currentMonth
+	const reportChangeset=(i)=>{
+		if (i>=changesets.length) {
+			process.stdout.write(`\n`)
+			return
+		}
+		const id=changesets[i]
+		let dateString
+		fs.createReadStream(path.join('changeset',id,'meta.xml')).pipe(
+			(new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='changeset') {
+					dateString=attrs.created_at
+				}
+			}).on('end',()=>{
+				const date=new Date(dateString)
+				if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
+					currentYear=date.getFullYear()
+					currentMonth=date.getMonth()
+					process.stdout.write(`\n* ${currentYear}-${String(currentMonth+1).padStart(2,'0')}:`)
+				}
+				process.stdout.write(` [${id}](https://www.openstreetmap.org/changeset/${id})`)
+				reportChangeset(i+1)
+			})
+		)
+	}
 	fs.createReadStream(metaFilename).pipe(
 		(new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='user') {
@@ -128,6 +153,10 @@ function reportUser(uid) {
 			console.log()
 			console.log(`* last update was on ${fs.statSync(metaFilename).mtime}`)
 			console.log(`* downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
+			console.log()
+			console.log(`## Changesets`)
+			console.log()
+			reportChangeset(0)
 		})
 	)
 }
