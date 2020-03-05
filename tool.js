@@ -106,12 +106,6 @@ class User {
 		}
 		return this._changesets
 	}
-	requestMetadata(callback) {
-		apiGet(`/api/0.6/user/${this.uid}`,res=>{
-			const userStream=fs.createWriteStream(path.join(this.dirName,'meta.xml'))
-			res.pipe(userStream).on('finish',callback)
-		})
-	}
 	mergeChangesets(changesets2) {
 		const changesets1=this.changesets
 		const resultingChangesets=[]
@@ -131,6 +125,36 @@ class User {
 		}
 		this._changesets=resultingChangesets
 		fs.writeFileSync(path.join(this.dirName,'changesets.txt'),this._changesets.join('\n')+'\n')
+	}
+	requestMetadata(callback) {
+		apiGet(`/api/0.6/user/${this.uid}`,res=>{
+			const userStream=fs.createWriteStream(path.join(this.dirName,'meta.xml'))
+			res.pipe(userStream).on('finish',callback)
+		})
+	}
+	readMetadata() {
+		(new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='user') {
+				this._displayName=attrs.display_name
+			} else if (name=='changesets') {
+				this._changesetsCount=Number(attrs.count)
+			}
+		}).parse(fs.readFileSync(path.join(this.dirName,'meta.xml'),'utf8'))
+	}
+	get displayName() {
+		if (this._displayName!==undefined) return this._displayName
+		this.readMetadata()
+		return this._displayName
+	}
+	get changesetsCount() {
+		if (this._changesetsCount!==undefined) return this._changesetsCount
+		this.readMetadata()
+		return this._changesetsCount
+	}
+	get updateTimestamp() {
+		if (this._updateTimestamp!==undefined) return this._updateTimestamp
+		this._updateTimestamp=fs.statSync(path.join(this.dirName,'meta.xml')).mtime
+		return this._updateTimestamp
 	}
 }
 
@@ -168,15 +192,7 @@ function updateUser(uid) {
 }
 
 function reportUser(uid) {
-	const dirName=path.join('user',sanitize(uid))
-	const metaFilename=path.join(dirName,'meta.xml')
-	const changesetsString=fs.readFileSync(path.join(dirName,'changesets.txt'),'utf8')
-	const changesets=[]
-	for (const id of changesetsString.split('\n')) {
-		if (id!='') changesets.push(id)
-	}
-	let displayName
-	let changesetsCount
+	const user=new User(uid)
 	let currentYear,currentMonth
 	let dateString
 	const createdBys={}
@@ -192,15 +208,15 @@ function reportUser(uid) {
 		if (i==0) {
 			process.stdout.write(x`<dl>`)
 		}
-		if (i>=changesets.length) {
+		if (i>=user.changesets.length) {
 			process.stdout.write(x`\n<dt>${dateString} <dd> first known changeset`)
 			process.stdout.write(x`\n</dl>\n`)
 			reportEditors()
 			return
 		}
-		const id=changesets[i]
+		const id=user.changesets[i]
 		let createdBy
-		fs.createReadStream(path.join('changeset',id,'meta.xml')).pipe(
+		fs.createReadStream(path.join('changeset',String(id),'meta.xml')).pipe(
 			(new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='changeset') {
 					dateString=attrs.created_at
@@ -224,23 +240,13 @@ function reportUser(uid) {
 			})
 		)
 	}
-	fs.createReadStream(metaFilename).pipe(
-		(new expat.Parser()).on('startElement',(name,attrs)=>{
-			if (name=='user') {
-				displayName=attrs.display_name
-			} else if (name=='changesets') {
-				changesetsCount=attrs.count
-			}
-		}).on('end',()=>{
-			console.log(x`<h1>User #${uid} <a href="https://www.openstreetmap.org/user/${encodeURIComponent(displayName)}">${displayName}</a></h1>`)
-			console.log(x`<ul>`)
-			console.log(x`<li>last update was on ${fs.statSync(metaFilename).mtime}`)
-			console.log(x`<li>downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
-			console.log(x`</ul>`)
-			console.log(x`<h2>Changesets</h2>`)
-			reportChangeset(0)
-		})
-	)
+	console.log(x`<h1>User #${user.uid} <a href="https://www.openstreetmap.org/user/${encodeURIComponent(user.displayName)}">${user.displayName}</a></h1>`)
+	console.log(x`<ul>`)
+	console.log(x`<li>last update was on ${user.updateTimestamp}`)
+	console.log(x`<li>downloaded metadata of ${user.changesets.length}/${user.changesetsCount} changesets`)
+	console.log(x`</ul>`)
+	console.log(x`<h2>Changesets</h2>`)
+	reportChangeset(0)
 }
 
 const cmd=process.argv[2]
