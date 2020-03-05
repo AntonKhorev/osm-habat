@@ -25,6 +25,24 @@ const https=require('https')
 const expat=require('node-expat')
 const sanitize=require('sanitize-filename')
 
+function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
+	return String(text)
+		.replace(/&/g,'&amp;')
+		.replace(/</g,'&lt;')
+		.replace(/"/g,'&quot;')
+		.replace(/\t/g,'&#x9;')
+		.replace(/\n/g,'&#xA;')
+		.replace(/\r/g,'&#xD;')
+}
+
+function x(strings,...unescapedStrings) {
+	let result=strings[0]
+	for (let i=0;i<unescapedStrings.length;i++) {
+		result+=xmlEscape(unescapedStrings[i])+strings[i+1]
+	}
+	return result
+}
+
 function apiGet(call,...args) {
 	const apiUrl=`https://api.openstreetmap.org`
 	const getUrl=apiUrl+call
@@ -33,15 +51,6 @@ function apiGet(call,...args) {
 }
 
 function processUserChangesetsMetadata(inputStream,endCallback) {
-	function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
-		return text
-			.replace(/&/g,'&amp;')
-			.replace(/</g,'&lt;')
-			.replace(/"/g,'&quot;')
-			.replace(/\t/g,'&#x9;')
-			.replace(/\n/g,'&#xA;')
-			.replace(/\r/g,'&#xD;')
-	}
 	let changesetStream
 	let uid
 	const changesetIds=[]
@@ -118,8 +127,11 @@ function reportUser(uid) {
 	let changesetsCount
 	let currentYear,currentMonth
 	const reportChangeset=(i)=>{
+		if (i==0) {
+			process.stdout.write(x`<dl>`)
+		}
 		if (i>=changesets.length) {
-			process.stdout.write(`\n`)
+			process.stdout.write(x`\n</dl>\n`)
 			return
 		}
 		const id=changesets[i]
@@ -134,9 +146,9 @@ function reportUser(uid) {
 				if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
 					currentYear=date.getFullYear()
 					currentMonth=date.getMonth()
-					process.stdout.write(`\n* ${currentYear}-${String(currentMonth+1).padStart(2,'0')}:`)
+					process.stdout.write(x`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 				}
-				process.stdout.write(` [${id}](https://www.openstreetmap.org/changeset/${id})`)
+				process.stdout.write(x` <a href="https://www.openstreetmap.org/changeset/${id}">${id}</a>`)
 				reportChangeset(i+1)
 			})
 		)
@@ -149,13 +161,12 @@ function reportUser(uid) {
 				changesetsCount=attrs.count
 			}
 		}).on('end',()=>{
-			console.log(`# User #${uid} [${displayName}](https://www.openstreetmap.org/user/${encodeURIComponent(displayName)})`)
-			console.log()
-			console.log(`* last update was on ${fs.statSync(metaFilename).mtime}`)
-			console.log(`* downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
-			console.log()
-			console.log(`## Changesets`)
-			console.log()
+			console.log(x`<h1>User #${uid} <a href="https://www.openstreetmap.org/user/${encodeURIComponent(displayName)}">${displayName}</a></h1>`)
+			console.log(x`<ul>`)
+			console.log(x`<li>last update was on ${fs.statSync(metaFilename).mtime}`)
+			console.log(x`<li>downloaded metadata of ${changesets.length}/${changesetsCount} changesets`)
+			console.log(x`</ul>`)
+			console.log(x`<h2>Changesets</h2>`)
 			reportChangeset(0)
 		})
 	)
