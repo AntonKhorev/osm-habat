@@ -68,7 +68,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 				}
 				changesetStream.write(">\n")
 				if (attrs.uid) uid=attrs.uid
-				changesetIds.push(attrs.id)
+				changesetIds.push(Number(attrs.id))
 			}
 			if (!changesetStream) return
 			if (name=='tag') {
@@ -89,8 +89,52 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 	)
 }
 
+class User {
+	constructor(uid) {
+		this.uid=uid
+		this.dirName=path.join('user',sanitize(uid))
+		fs.mkdirSync(this.dirName,{recursive:true})
+	}
+	get changesets() {
+		if (this._changesets!==undefined) return this._changesets
+		const filename=path.join(this.dirName,'changesets.txt')
+		if (!fs.existsSync(filename)) return this._changesets=[]
+		const changesetsString=fs.readFileSync(filename,'utf8')
+		this._changesets=[]
+		for (const id of changesetsString.split('\n')) {
+			if (id!='') this._changesets.push(Number(id))
+		}
+		return this._changesets
+	}
+	requestMetadata(callback) {
+		apiGet(`/api/0.6/user/${this.uid}`,res=>{
+			const userStream=fs.createWriteStream(path.join(this.dirName,'meta.xml'))
+			res.pipe(userStream).on('finish',callback)
+		})
+	}
+	mergeChangesets(changesets2) {
+		const changesets1=this.changesets
+		const resultingChangesets=[]
+		for (let i1=0,i2=0;i1<changesets1.length||i2<changesets2.length;) {
+			if (i1>=changesets1.length) {
+				resultingChangesets.push(changesets2[i2++])
+			} else if (i2>=changesets2.length) {
+				resultingChangesets.push(changesets1[i1++])
+			} else if (changesets1[i1]>changesets2[i2]) {
+				resultingChangesets.push(changesets1[i1++])
+			} else if (changesets1[i1]<changesets2[i2]) {
+				resultingChangesets.push(changesets2[i2++])
+			} else {
+				resultingChangesets.push(changesets1[i1++])
+				i2++
+			}
+		}
+		this._changesets=resultingChangesets
+		fs.writeFileSync(path.join(this.dirName,'changesets.txt'),this._changesets.join('\n')+'\n')
+	}
+}
+
 function addUser(userName) {
-	// TODO check if already added
 	// only doable by fetching changesets by display_name
 	apiGet(`/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`,res=>{
 		if (res.statusCode!=200) {
@@ -98,21 +142,29 @@ function addUser(userName) {
 			return process.exit(1)
 		}
 		processUserChangesetsMetadata(res,(uid,changesetIds)=>{
+			const user=new User(uid)
 			console.log(`about to add user #${uid} with currently read ${changesetIds.length} changesets metadata`)
-			const dirName=path.join('user',sanitize(uid))
-			fs.mkdirSync(dirName,{recursive:true})
-			fs.writeFileSync(path.join(dirName,'changesets.txt'),changesetIds.join('\n')+'\n')
-			apiGet(`/api/0.6/user/${uid}`,res=>{
-				const userStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
-				res.pipe(userStream).on('finish',()=>{
-					console.log(`wrote user #${uid} metadata`)
-				})
+			user.mergeChangesets(changesetIds)
+			user.requestMetadata(()=>{
+				console.log(`wrote user #${uid} metadata`)
 			})
 		})
 	})
-	//https.get(url,function(response){
-	//	response.pipe(fs.createWriteStream(filename)).on('finish',singleCallback)
-	//})
+}
+
+function updateUser(uid) {
+	const user=new User(uid)
+	user.requestMetadata(()=>{
+		console.log(`rewrote user #${uid} metadata`)
+	})
+	/*
+	apiGet(`/api/0.6/user/${uid}`,res=>{
+		const userStream=fs.createWriteStream(metaFilename)
+		res.pipe(userStream).on('finish',()=>{
+			console.log(`wrote user #${uid} metadata`)
+		})
+	})
+	*/
 }
 
 function reportUser(uid) {
@@ -217,6 +269,13 @@ if (cmd=='add') {
 		console.log(`invalid add argument ${userString}`)
 		return process.exit(1)
 	}
+} else if (cmd=='update') {
+	const uid=process.argv[3]
+	if (uid===undefined) {
+		console.log('missing update argument')
+		return process.exit(1)
+	}
+	updateUser(uid)
 } else if (cmd=='report') {
 	const uid=process.argv[3]
 	if (uid===undefined) {
