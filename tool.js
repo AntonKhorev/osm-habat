@@ -7,21 +7,8 @@
 // get changeset data
 // https://api.openstreetmap.org/api/0.6/changeset/80065151/download
 
-// get 100 latest changesets by user
-// contains changeset metadata w/o comments
-// https://api.openstreetmap.org/api/0.6/changesets?user=10659315
-
-// get next 100 changesets                                                        vvvvvvvvvvvvvvvvvvvv this is created_at="2020-01-23T18:32:43Z" value of last returned changeset
-// https://api.openstreetmap.org/api/0.6/changesets?user=10659315&time=2001-01-01,2020-01-23T18:32:43Z
-
-// repeat until get empty result
-
-// get user details by user id
-// https://api.openstreetmap.org/api/0.6/user/10659315
-
 const fs=require('fs')
 const path=require('path')
-const https=require('https')
 const expat=require('node-expat')
 const sanitize=require('sanitize-filename')
 
@@ -41,13 +28,6 @@ function x(strings,...unescapedStrings) {
 		result+=xmlEscape(unescapedStrings[i])+strings[i+1]
 	}
 	return result
-}
-
-function apiGet(call,...args) {
-	const apiUrl=`https://api.openstreetmap.org`
-	const getUrl=apiUrl+call
-	console.log(`GET ${getUrl}`)
-	https.get(getUrl,...args)
 }
 
 function processUserChangesetsMetadata(inputStream,endCallback) {
@@ -88,75 +68,6 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 			endCallback(uid,changesetIds,lastCreatedAt)
 		})
 	)
-}
-
-class User {
-	constructor(uid) {
-		this.uid=uid
-		this.dirName=path.join('user',sanitize(uid))
-		fs.mkdirSync(this.dirName,{recursive:true})
-	}
-	get changesets() {
-		if (this._changesets!==undefined) return this._changesets
-		const filename=path.join(this.dirName,'changesets.txt')
-		if (!fs.existsSync(filename)) return this._changesets=[]
-		const changesetsString=fs.readFileSync(filename,'utf8')
-		this._changesets=[]
-		for (const id of changesetsString.split('\n')) {
-			if (id!='') this._changesets.push(Number(id))
-		}
-		return this._changesets
-	}
-	mergeChangesets(changesets2) {
-		const changesets1=this.changesets
-		const resultingChangesets=[]
-		for (let i1=0,i2=0;i1<changesets1.length||i2<changesets2.length;) {
-			if (i1>=changesets1.length) {
-				resultingChangesets.push(changesets2[i2++])
-			} else if (i2>=changesets2.length) {
-				resultingChangesets.push(changesets1[i1++])
-			} else if (changesets1[i1]>changesets2[i2]) {
-				resultingChangesets.push(changesets1[i1++])
-			} else if (changesets1[i1]<changesets2[i2]) {
-				resultingChangesets.push(changesets2[i2++])
-			} else {
-				resultingChangesets.push(changesets1[i1++])
-				i2++
-			}
-		}
-		this._changesets=resultingChangesets
-		fs.writeFileSync(path.join(this.dirName,'changesets.txt'),this._changesets.join('\n')+'\n')
-	}
-	requestMetadata(callback) {
-		apiGet(`/api/0.6/user/${this.uid}`,res=>{
-			const userStream=fs.createWriteStream(path.join(this.dirName,'meta.xml'))
-			res.pipe(userStream).on('finish',callback)
-		})
-	}
-	readMetadata() {
-		(new expat.Parser()).on('startElement',(name,attrs)=>{
-			if (name=='user') {
-				this._displayName=attrs.display_name
-			} else if (name=='changesets') {
-				this._changesetsCount=Number(attrs.count)
-			}
-		}).parse(fs.readFileSync(path.join(this.dirName,'meta.xml'),'utf8'))
-	}
-	get displayName() {
-		if (this._displayName!==undefined) return this._displayName
-		this.readMetadata()
-		return this._displayName
-	}
-	get changesetsCount() {
-		if (this._changesetsCount!==undefined) return this._changesetsCount
-		this.readMetadata()
-		return this._changesetsCount
-	}
-	get updateTimestamp() {
-		if (this._updateTimestamp!==undefined) return this._updateTimestamp
-		this._updateTimestamp=fs.statSync(path.join(this.dirName,'meta.xml')).mtime
-		return this._updateTimestamp
-	}
 }
 
 function addUser(userName) {
