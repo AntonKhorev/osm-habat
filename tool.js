@@ -52,7 +52,7 @@ function apiGet(call,...args) {
 
 function processUserChangesetsMetadata(inputStream,endCallback) {
 	let changesetStream
-	let uid
+	let uid,lastCreatedAt
 	const changesetIds=[]
 	inputStream.pipe(
 		(new expat.Parser()).on('startElement',(name,attrs)=>{
@@ -67,7 +67,8 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 					changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
 				}
 				changesetStream.write(">\n")
-				if (attrs.uid) uid=attrs.uid
+				if (attrs.uid) uid=attrs.uid // TODO fail somehow if not present
+				if (attrs.created_at) lastCreatedAt=attrs.created_at
 				changesetIds.push(Number(attrs.id))
 			}
 			if (!changesetStream) return
@@ -84,7 +85,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 				changesetStream=undefined
 			}
 		}).on('end',()=>{
-			endCallback(uid,changesetIds)
+			endCallback(uid,changesetIds,lastCreatedAt)
 		})
 	)
 }
@@ -165,10 +166,10 @@ function addUser(userName) {
 			console.log(`cannot find user ${userName}`)
 			return process.exit(1)
 		}
-		processUserChangesetsMetadata(res,(uid,changesetIds)=>{
+		processUserChangesetsMetadata(res,(uid,changesets)=>{
 			const user=new User(uid)
-			console.log(`about to add user #${uid} with currently read ${changesetIds.length} changesets metadata`)
-			user.mergeChangesets(changesetIds)
+			console.log(`about to add user #${uid} with currently read ${changesets.length} changesets metadata`)
+			user.mergeChangesets(changesets)
 			user.requestMetadata(()=>{
 				console.log(`wrote user #${uid} metadata`)
 			})
@@ -178,17 +179,32 @@ function addUser(userName) {
 
 function updateUser(uid) {
 	const user=new User(uid)
+	const requestChangesets=(timestamp)=>{
+		const nChangesetsToRequest=user.changesetsCount-user.changesets.length
+		if (nChangesetsToRequest<=0) {
+			console.log('got all changesets metadata')
+			return
+		}
+		let requestPath=`/api/0.6/changesets?user=${encodeURIComponent(uid)}`
+		if (timestamp!==undefined) {
+			requestPath+=`&time=2001-01-01,${encodeURIComponent(timestamp)}`
+		}
+		apiGet(requestPath,res=>{
+			if (res.statusCode!=200) {
+				console.log(`cannot read changesets metadata for user ${uid}`)
+				return process.exit(1)
+			}
+			processUserChangesetsMetadata(res,(uid,changesets,timestamp)=>{
+				user.mergeChangesets(changesets)
+				if (changesets.length==0 || timestamp===undefined) return
+				requestChangesets(timestamp)
+			})
+		})
+	}
 	user.requestMetadata(()=>{
 		console.log(`rewrote user #${uid} metadata`)
+		requestChangesets()
 	})
-	/*
-	apiGet(`/api/0.6/user/${uid}`,res=>{
-		const userStream=fs.createWriteStream(metaFilename)
-		res.pipe(userStream).on('finish',()=>{
-			console.log(`wrote user #${uid} metadata`)
-		})
-	})
-	*/
 }
 
 function reportUser(uid) {
