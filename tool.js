@@ -12,23 +12,9 @@ const path=require('path')
 const expat=require('node-expat')
 const sanitize=require('sanitize-filename')
 
-function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
-	return String(text)
-		.replace(/&/g,'&amp;')
-		.replace(/</g,'&lt;')
-		.replace(/"/g,'&quot;')
-		.replace(/\t/g,'&#x9;')
-		.replace(/\n/g,'&#xA;')
-		.replace(/\r/g,'&#xD;')
-}
-
-function x(strings,...unescapedStrings) {
-	let result=strings[0]
-	for (let i=0;i<unescapedStrings.length;i++) {
-		result+=xmlEscape(unescapedStrings[i])+strings[i+1]
-	}
-	return result
-}
+const e=require('./escape')
+const osm=require('./osm')
+const User=require('./user')
 
 function processUserChangesetsMetadata(inputStream,endCallback) {
 	let changesetStream
@@ -44,7 +30,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 				changesetStream.write('<osm version="0.6" generator="osm-caser">\n')
 				changesetStream.write("<changeset")
 				for (const attr in attrs) {
-					changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+					changesetStream.write(e.x` ${attr}="${attrs[attr]}"`)
 				}
 				changesetStream.write(">\n")
 				if (attrs.uid) uid=attrs.uid // TODO fail somehow if not present
@@ -55,7 +41,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 			if (name=='tag') {
 				changesetStream.write("  <tag")
 				for (const attr in attrs) {
-					changesetStream.write(` ${attr}="${xmlEscape(attrs[attr])}"`)
+					changesetStream.write(e.x` ${attr}="${attrs[attr]}"`)
 				}
 				changesetStream.write("/>\n")
 			}
@@ -72,7 +58,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 
 function addUser(userName) {
 	// only doable by fetching changesets by display_name
-	apiGet(`/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`,res=>{
+	osm.apiGet(`/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`,res=>{
 		if (res.statusCode!=200) {
 			console.log(`cannot find user ${userName}`)
 			return process.exit(1)
@@ -100,7 +86,7 @@ function updateUser(uid) {
 		if (timestamp!==undefined) {
 			requestPath+=`&time=2001-01-01,${encodeURIComponent(timestamp)}`
 		}
-		apiGet(requestPath,res=>{
+		osm.apiGet(requestPath,res=>{
 			if (res.statusCode!=200) {
 				console.log(`cannot read changesets metadata for user ${uid}`)
 				return process.exit(1)

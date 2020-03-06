@@ -27,3 +27,21 @@ exports.h=(strings,...values)=>{
 		}
 	})
 }
+
+function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
+	return String(text)
+		.replace(/&/g,'&amp;')
+		.replace(/</g,'&lt;')
+		.replace(/"/g,'&quot;')
+		.replace(/\t/g,'&#x9;')
+		.replace(/\n/g,'&#xA;')
+		.replace(/\r/g,'&#xD;')
+}
+
+exports.x=(strings,...values)=>{
+	let result=strings[0]
+	for (let i=0;i<values.length;i++) {
+		result+=xmlEscape(values[i])+strings[i+1]
+	}
+	return result
+}
