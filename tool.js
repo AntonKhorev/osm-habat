@@ -118,64 +118,6 @@ function updateUser(uid) {
 	})
 }
 
-function reportUser(uid) {
-	const user=new User(uid)
-	let currentYear,currentMonth
-	let dateString
-	const createdBys={}
-	const reportEditors=()=>{
-		console.log(x`<h2>Editors</h2>\n`)
-		console.log(x`<dl>`)
-		for (const editor in createdBys) {
-			console.log(x`<dt>${editor} <dd>${createdBys[editor]} changesets`)
-		}
-		console.log(x`</dl>`)
-	}
-	const reportChangeset=(i)=>{
-		if (i==0) {
-			process.stdout.write(x`<dl>`)
-		}
-		if (i>=user.changesets.length) {
-			process.stdout.write(x`\n<dt>${dateString} <dd> first known changeset`)
-			process.stdout.write(x`\n</dl>\n`)
-			reportEditors()
-			return
-		}
-		const id=user.changesets[i]
-		let createdBy
-		fs.createReadStream(path.join('changeset',String(id),'meta.xml')).pipe(
-			(new expat.Parser()).on('startElement',(name,attrs)=>{
-				if (name=='changeset') {
-					dateString=attrs.created_at
-				} else if (name=='tag') {
-					if (attrs.k=='created_by') createdBy=attrs.v
-				}
-			}).on('end',()=>{
-				const date=new Date(dateString)
-				if (i==0) {
-					process.stdout.write(x`\n<dt>${dateString} <dd> last known changeset`)
-				}
-				if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
-					currentYear=date.getFullYear()
-					currentMonth=date.getMonth()
-					process.stdout.write(x`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
-				}
-				process.stdout.write(x` <a href="https://www.openstreetmap.org/changeset/${id}">${id}</a>`)
-				if (!createdBy) createdBy='unknown'
-				createdBys[createdBy]=(createdBys[createdBy]||0)+1
-				reportChangeset(i+1)
-			})
-		)
-	}
-	console.log(x`<h1>User #${user.uid} <a href="https://www.openstreetmap.org/user/${encodeURIComponent(user.displayName)}">${user.displayName}</a></h1>`)
-	console.log(x`<ul>`)
-	console.log(x`<li>last update was on ${user.updateTimestamp}`)
-	console.log(x`<li>downloaded metadata of ${user.changesets.length}/${user.changesetsCount} changesets`)
-	console.log(x`</ul>`)
-	console.log(x`<h2>Changesets</h2>`)
-	reportChangeset(0)
-}
-
 const cmd=process.argv[2]
 if (cmd=='add') {
 	const userString=process.argv[3]
@@ -209,13 +151,6 @@ if (cmd=='add') {
 		return process.exit(1)
 	}
 	updateUser(uid)
-} else if (cmd=='report') {
-	const uid=process.argv[3]
-	if (uid===undefined) {
-		console.log('missing report argument')
-		return process.exit(1)
-	}
-	reportUser(uid)
 } else {
 	console.log('invalid or missing command; available commands: add')
 	return process.exit(1)

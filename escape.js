@@ -4,8 +4,7 @@
 exports.h=(strings,...values)=>{
 	return strings.reduce((r,s,i)=>{
 		let v=values[i-1]
-		switch (r.slice(-1)) {
-		case '=':
+		if (r.slice(-1)=='=') {
 			if (v===false) {
 				return r.replace(/\s+[a-zA-Z0-9-]+=$/,'')+s // TODO more permitting attr name regexp
 			} else if (v===true) {
@@ -22,10 +21,9 @@ exports.h=(strings,...values)=>{
 				v=v.replace(/"/g,'&quot;')
 				return r+'"'+v+'"'+s
 			}
-		case '>':
+		} else {
 			v=String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 			return r+v+s
 		}
-		throw new Error("invalid character before substitution")
 	})
 }

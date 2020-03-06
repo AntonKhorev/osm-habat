@@ -9,7 +9,9 @@ class User {
 	constructor(uid) {
 		this.uid=uid
 		this.dirName=path.join('user',sanitize(uid))
-		fs.mkdirSync(this.dirName,{recursive:true})
+	}
+	get exists() {
+		return fs.existsSync(this.dirName)
 	}
 	get changesets() {
 		if (this._changesets!==undefined) return this._changesets
@@ -40,12 +42,15 @@ class User {
 			}
 		}
 		this._changesets=resultingChangesets
+		fs.mkdirSync(this.dirName,{recursive:true})
 		fs.writeFileSync(path.join(this.dirName,'changesets.txt'),this._changesets.join('\n')+'\n')
 	}
 	requestMetadata(callback) {
 		osm.apiGet(`/api/0.6/user/${this.uid}`,res=>{
-			const userStream=fs.createWriteStream(path.join(this.dirName,'meta.xml'))
-			res.pipe(userStream).on('finish',callback)
+			fs.mkdirSync(this.dirName,{recursive:true})
+			res.pipe(
+				fs.createWriteStream(path.join(this.dirName,'meta.xml'))
+			).on('finish',callback)
 		})
 	}
 	readMetadata() {
