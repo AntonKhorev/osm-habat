@@ -84,10 +84,15 @@ function reportUser(response,user,callback) {
 			})
 		)
 	}
-	response.write(e.h`<h1>User #${user.uid} <a href=${'https://www.openstreetmap.org/user/'+encodeURIComponent(user.displayName)}>${user.displayName}</a></h1>\n`)
+	const encodedName=encodeURIComponent(user.displayName)
+	const cEscapedName=user.displayName.replace(/\\/g,'\\\\').replace(/"/g,'\\"')
+	response.write(e.h`<h1>User #${user.uid} <a href=${'https://www.openstreetmap.org/user/'+encodedName}>${user.displayName}</a></h1>\n`)
 	response.write(e.h`<ul>\n`)
 	response.write(e.h`<li>last update was on ${user.updateTimestamp}\n`)
 	response.write(e.h`<li>downloaded metadata of ${user.changesets.length}/${user.changesetsCount} changesets\n`)
+	const hdycHref=`http://hdyc.neis-one.org/?`+encodedName
+	const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"users":[{"label":"${cEscapedName}","value":"${cEscapedName}"}],"date__gte":[{"label":"","value":""}]}`)
+	response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</li>\n`)
 	response.write(e.h`</ul>\n`)
 	response.write(e.h`<h2>Changesets</h2>\n`)
 	reportChangeset(0)
