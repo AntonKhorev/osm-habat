@@ -35,9 +35,23 @@ function respondTail(response) {
 	response.end()
 }
 
+function parseUserChangesetMetadata(user,makeParser,callback) {
+	const rec=(i)=>{
+		if (i>=user.changesets.length) {
+			callback()
+			return
+		}
+		const id=user.changesets[i]
+		const parser=makeParser(i).on('end',()=>{
+			rec(i+1)
+		})
+		fs.createReadStream(path.join('changeset',String(id),'meta.xml')).pipe(parser)
+	}
+	rec(0)
+}
+
 function reportUser(response,user,callback) {
 	let currentYear,currentMonth
-	let dateString
 	const createdBys={}
 	const changesetsWithComments=[]
 	const reportEnd=()=>{
@@ -58,46 +72,11 @@ function reportUser(response,user,callback) {
 		}
 		response.write(`\n`)
 		response.write(`</dl>\n`)
+		response.write(`<h2>Areas</h2>\n`)
+		response.write(`<ul>\n`)
+		response.write(e.h`<li><a href=bbox.osm>bbox josm file</a>\n`)
+		response.write(`</ul>\n`)
 		callback()
-	}
-	const reportChangeset=(i)=>{
-		if (i==0) {
-			response.write(`<dl>`)
-		}
-		if (i>=user.changesets.length) {
-			response.write(e.h`\n<dt>${dateString} <dd>first known changeset`)
-			response.write(`\n</dl>\n`)
-			reportEnd()
-			return
-		}
-		const id=user.changesets[i]
-		let createdBy
-		fs.createReadStream(path.join('changeset',String(id),'meta.xml')).pipe(
-			(new expat.Parser()).on('startElement',(name,attrs)=>{
-				if (name=='changeset') {
-					dateString=attrs.created_at
-					if (attrs.comments_count!='0') {
-						changesetsWithComments.push(id)
-					}
-				} else if (name=='tag') {
-					if (attrs.k=='created_by') createdBy=attrs.v
-				}
-			}).on('end',()=>{
-				const date=new Date(dateString)
-				if (i==0) {
-					response.write(e.h`\n<dt>${dateString} <dd>last known changeset`)
-				}
-				if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
-					currentYear=date.getFullYear()
-					currentMonth=date.getMonth()
-					response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
-				}
-				response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
-				if (!createdBy) createdBy='unknown'
-				createdBys[createdBy]=(createdBys[createdBy]||0)+1
-				reportChangeset(i+1)
-			})
-		)
 	}
 	const encodedName=encodeURIComponent(user.displayName)
 	const cEscapedName=user.displayName.replace(/\\/g,'\\\\').replace(/"/g,'\\"')
@@ -110,7 +89,62 @@ function reportUser(response,user,callback) {
 	response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
 	response.write(e.h`</ul>\n`)
 	response.write(e.h`<h2>Changesets</h2>\n`)
-	reportChangeset(0)
+	parseUserChangesetMetadata(user,i=>{
+		const id=user.changesets[i]
+		let dateString
+		return (new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='changeset') {
+				dateString=attrs.created_at
+				if (attrs.comments_count!='0') {
+					changesetsWithComments.push(id)
+				}
+			} else if (name=='tag') {
+				if (attrs.k=='created_by') createdBy=attrs.v
+			}
+		}).on('end',()=>{
+			const date=new Date(dateString)
+			if (i==0) {
+				response.write(e.h`<dl>\n<dt>${dateString} <dd>last known changeset`)
+			}
+			if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
+				currentYear=date.getFullYear()
+				currentMonth=date.getMonth()
+				response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
+			}
+			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
+			if (!createdBy) createdBy='unknown'
+			createdBys[createdBy]=(createdBys[createdBy]||0)+1
+			if (i>=user.changesets.length-1) {
+				response.write(e.h`\n<dt>${dateString} <dd>first known changeset`)
+				response.write(`\n</dl>\n`)
+			}
+		})
+	},reportEnd)
+}
+
+function respondBbox(response,user) {
+	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
+	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
+	response.write(`<osm version="0.6" generator="osm-caser" download="never" upload="never">\n`)
+	parseUserChangesetMetadata(user,i=>(new expat.Parser()),()=>{
+		response.end(`</osm>\n`)
+	})
+}
+
+function matchUser(response,match) {
+	const [,uid]=match
+	if (!/^[1-9]\d*$/.test(uid)) {
+		response.writeHead(404)
+		response.end('User not found')
+		return
+	}
+	const user=new User(uid)
+	if (!user.exists) {
+		response.writeHead(404)
+		response.end('User not found')
+		return
+	}
+	return user
 }
 
 const server=http.createServer((request,response)=>{
@@ -137,22 +171,16 @@ const server=http.createServer((request,response)=>{
 			respondTail(response)
 		})
 	} else if (match=path.match(new RegExp('^/user/([^/]*)/$'))) {
-		const [,uid]=match
-		if (!/^[1-9]\d*$/.test(uid)) {
-			response.writeHead(404)
-			response.end('User not found')
-			return
-		}
-		const user=new User(uid)
-		if (!user.exists) {
-			response.writeHead(404)
-			response.end('User not found')
-			return
-		}
+		const user=matchUser(response,match)
+		if (!user) return
 		respondHead(response,'user '+user.displayName)
 		reportUser(response,user,()=>{
 			respondTail(response)
 		})
+	} else if (match=path.match(new RegExp('^/user/([^/]*)/bbox.osm$'))) {
+		const user=matchUser(response,match)
+		if (!user) return
+		respondBbox(response,user)
 	} else {
 		response.writeHead(404)
 		response.end('Route not defined')
