@@ -39,12 +39,24 @@ function reportUser(response,user,callback) {
 	let currentYear,currentMonth
 	let dateString
 	const createdBys={}
-	const reportEditors=()=>{
+	const changesetsWithComments=[]
+	const reportEnd=()=>{
 		response.write(`<h2>Editors</h2>\n`)
 		response.write(`<dl>\n`)
 		for (const editor in createdBys) {
 			response.write(e.h`<dt>${editor} <dd>${createdBys[editor]} changesets\n`)
 		}
+		response.write(`</dl>\n`)
+		response.write(`<h2>Comments</h2>\n`)
+		response.write(`<dl>\n`)
+		response.write(`<dt>Changesets with comments <dd>`)
+		if (changesetsWithComments.length==0) {
+			response.write(`none`)
+		}
+		for (const id of changesetsWithComments) {
+			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
+		}
+		response.write(`\n`)
 		response.write(`</dl>\n`)
 		callback()
 	}
@@ -55,7 +67,7 @@ function reportUser(response,user,callback) {
 		if (i>=user.changesets.length) {
 			response.write(e.h`\n<dt>${dateString} <dd>first known changeset`)
 			response.write(`\n</dl>\n`)
-			reportEditors()
+			reportEnd()
 			return
 		}
 		const id=user.changesets[i]
@@ -64,6 +76,9 @@ function reportUser(response,user,callback) {
 			(new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='changeset') {
 					dateString=attrs.created_at
+					if (attrs.comments_count!='0') {
+						changesetsWithComments.push(id)
+					}
 				} else if (name=='tag') {
 					if (attrs.k=='created_by') createdBy=attrs.v
 				}
