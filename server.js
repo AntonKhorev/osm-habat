@@ -126,7 +126,21 @@ function respondBbox(response,user) {
 	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-caser" download="never" upload="never">\n`)
-	parseUserChangesetMetadata(user,i=>(new expat.Parser()),()=>{
+	parseUserChangesetMetadata(user,i=>(new expat.Parser()).on('startElement',(name,attrs)=>{
+		if (name=='changeset') {
+			response.write(e.x`  <node id="-${i*4+1}" lat="${attrs.min_lat}" lon="${attrs.min_lon}" />\n`)
+			response.write(e.x`  <node id="-${i*4+2}" lat="${attrs.max_lat}" lon="${attrs.min_lon}" />\n`)
+			response.write(e.x`  <node id="-${i*4+3}" lat="${attrs.max_lat}" lon="${attrs.max_lon}" />\n`)
+			response.write(e.x`  <node id="-${i*4+4}" lat="${attrs.min_lat}" lon="${attrs.max_lon}" />\n`)
+		}
+	}),()=>{
+		for (let i=0;i<user.changesets.length;i++) {
+			response.write(e.x`  <way id="-${i+1}">\n`)
+			for (let j=0;j<=4;j++) {
+				response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
+			}
+			response.write(e.x`  </way>\n`)
+		}
 		response.end(`</osm>\n`)
 	})
 }
