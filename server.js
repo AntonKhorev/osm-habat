@@ -51,11 +51,66 @@ function parseUserChangesetMetadata(user,makeParser,callback) {
 	rec(0)
 }
 
+function parseUserChangesetData(user,makeParser,callback) {
+	const rec=(i)=>{
+		if (i<0) {
+			callback()
+			return
+		}
+		const id=user.changesets[i]
+		const filename=path.join('changeset',sanitize(String(id)),'data.xml')
+		if (fs.existsSync(filename)) {
+			const parser=makeParser(i).on('end',()=>{
+				rec(i-1)
+			})
+			fs.createReadStream(filename).pipe(parser)
+		} else {
+			rec(i-1)
+		}
+	}
+	rec(user.changesets.length-1) // have to go backwards because changesets are stored backwards
+}
+
 function reportUser(response,user,callback) {
 	let currentYear,currentMonth
 	const createdBys={}
 	const sources={}
 	const changesetsWithComments=[]
+	const reportChanges=()=>{
+		response.write(`<h2>Changes</h2>\n`)
+		const OUT=-1, CRE=0, MOD=1, DEL=2
+		let mode=OUT
+		let nodeChanges=[0,0,0]
+		let wayChanges=[0,0,0]
+		let relationChanges=[0,0,0]
+		let nParsed=0
+		parseUserChangesetData(user,i=>{
+			nParsed++
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				switch (name) {
+				case 'create': mode=CRE; break
+				case 'modify': mode=MOD; break
+				case 'delete': mode=DEL; break
+				case 'node': nodeChanges[mode]++; break
+				case 'way': wayChanges[mode]++; break
+				case 'relation': relationChanges[mode]++; break
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=OUT
+				}
+			})
+		},()=>{
+			response.write(`<dl>\n`)
+			response.write(e.h`<dt>downloaded and parsed changesets <dd>${nParsed}\n`)
+			const ddChanges=a=>e.h`<dd>created ${a[CRE]}, modified ${a[MOD]}, deleted ${a[DEL]}\n`
+			response.write(`<dt>nodes `+ddChanges(nodeChanges))
+			response.write(`<dt>ways `+ddChanges(wayChanges))
+			response.write(`<dt>relations `+ddChanges(relationChanges))
+			response.write(`</dl>\n`)
+			callback()
+		})
+	}
 	const reportEnd=()=>{
 		response.write(`<h2>Editors</h2>\n`)
 		response.write(`<dl>\n`)
@@ -84,7 +139,7 @@ function reportUser(response,user,callback) {
 		response.write(`<ul>\n`)
 		response.write(e.h`<li><a href=bbox.osm>bbox josm file</a>\n`)
 		response.write(`</ul>\n`)
-		callback()
+		reportChanges()
 	}
 	const encodedName=encodeURIComponent(user.displayName)
 	const cEscapedName=user.displayName.replace(/\\/g,'\\\\').replace(/"/g,'\\"')
