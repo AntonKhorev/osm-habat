@@ -9,7 +9,7 @@ const e=require('./escape')
 const User=require('./user')
 
 function respondHead(response,title) {
-	response.writeHead(200,{'Content-Type':'text/html'})
+	response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
 	for (const line of [
 		`<!DOCTYPE html>`,
 		`<html lang=en>`,
@@ -123,7 +123,10 @@ function reportUser(response,user,callback) {
 }
 
 function respondBbox(response,user) {
-	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
+	response.writeHead(200,{
+		'Content-Type':'application/xml; charset=utf-8',
+		'Content-Disposition':'attachment; filename="bbox.osm"',
+	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-caser" download="never" upload="never">\n`)
 	parseUserChangesetMetadata(user,i=>(new expat.Parser()).on('startElement',(name,attrs)=>{
