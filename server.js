@@ -78,36 +78,64 @@ function reportUser(response,user,callback) {
 	const changesetsWithComments=[]
 	const reportChanges=()=>{
 		response.write(`<h2>Changes</h2>\n`)
-		const OUT=-1, CRE=0, MOD=1, DEL=2
-		let mode=OUT
-		let nodeChanges=[0,0,0]
-		let wayChanges=[0,0,0]
-		let relationChanges=[0,0,0]
+		let mode='?'
+		let nodeChanges={}
+		let wayChanges={}
+		let relationChanges={}
+		let nodeVersions={}
+		let wayVersions={}
+		let relationVersions={}
 		let nParsed=0
+		const up=(ac,av,attrs)=>{
+			const id=attrs.id
+			const ver=Number(attrs.version)
+			if (ac[id]===undefined) {
+				ac[id]=mode
+			} else {
+				if (av[id]+1!=ver) ac[id]+='-'
+				ac[id]+=mode
+			}
+			av[id]=ver
+		}
 		parseUserChangesetData(user,i=>{
 			nParsed++
 			return (new expat.Parser()).on('startElement',(name,attrs)=>{
 				switch (name) {
-				case 'create': mode=CRE; break
-				case 'modify': mode=MOD; break
-				case 'delete': mode=DEL; break
-				case 'node': nodeChanges[mode]++; break
-				case 'way': wayChanges[mode]++; break
-				case 'relation': relationChanges[mode]++; break
+				case 'create': mode='C'; break
+				case 'modify': mode='M'; break
+				case 'delete': mode='D'; break
+				case 'node': up(nodeChanges,nodeVersions,attrs); break
+				case 'way': up(wayChanges,wayVersions,attrs); break
+				case 'relation': up(relationChanges,relationVersions,attrs); break
 				}
 			}).on('endElement',(name)=>{
 				if (name=='create' || name=='modify' || name=='delete') {
-					mode=OUT
+					mode='?'
 				}
 			})
 		},()=>{
-			response.write(`<dl>\n`)
-			response.write(e.h`<dt>downloaded and parsed changesets <dd>${nParsed}\n`)
-			const ddChanges=a=>e.h`<dd>created ${a[CRE]}, modified ${a[MOD]}, deleted ${a[DEL]}\n`
-			response.write(`<dt>nodes `+ddChanges(nodeChanges))
-			response.write(`<dt>ways `+ddChanges(wayChanges))
-			response.write(`<dt>relations `+ddChanges(relationChanges))
-			response.write(`</dl>\n`)
+			response.write(`<ul>\n`)
+			response.write(e.h`<li>downloaded and parsed ${nParsed} changesets\n`)
+			response.write(`</ul>\n`)
+			response.write(`<table>\n`)
+			response.write(`<tr><th>change<th>nodes<th>ways<th>relations\n`)
+			const changesTotal={}
+			for (const [,c] of Object.entries(nodeChanges)) {
+				if (changesTotal[c]===undefined) changesTotal[c]=[0,0,0]
+				changesTotal[c][0]++
+			}
+			for (const [,c] of Object.entries(wayChanges)) {
+				if (changesTotal[c]===undefined) changesTotal[c]=[0,0,0]
+				changesTotal[c][1]++
+			}
+			for (const [,c] of Object.entries(relationChanges)) {
+				if (changesTotal[c]===undefined) changesTotal[c]=[0,0,0]
+				changesTotal[c][2]++
+			}
+			for (const change in changesTotal) {
+				response.write(e.h`<tr><td>${change}<td>${changesTotal[change][0]}<td>${changesTotal[change][1]}<td>${changesTotal[change][2]}\n`)
+			}
+			response.write(`</table>\n`)
 			callback()
 		})
 	}
