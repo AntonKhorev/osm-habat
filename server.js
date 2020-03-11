@@ -2,6 +2,7 @@ const fs=require('fs')
 const path=require('path')
 const http=require('http')
 const url=require('url')
+const sanitize=require('sanitize-filename')
 const expat=require('node-expat')
 const open=require('open')
 
@@ -45,7 +46,7 @@ function parseUserChangesetMetadata(user,makeParser,callback) {
 		const parser=makeParser(i).on('end',()=>{
 			rec(i+1)
 		})
-		fs.createReadStream(path.join('changeset',String(id),'meta.xml')).pipe(parser)
+		fs.createReadStream(path.join('changeset',sanitize(String(id)),'meta.xml')).pipe(parser)
 	}
 	rec(0)
 }

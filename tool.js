@@ -9,8 +9,8 @@
 
 const fs=require('fs')
 const path=require('path')
-const expat=require('node-expat')
 const sanitize=require('sanitize-filename')
+const expat=require('node-expat')
 
 const e=require('./escape')
 const osm=require('./osm')
@@ -104,6 +104,25 @@ function updateUser(uid) {
 	})
 }
 
+function downloadUser(uid) {
+	const user=new User(uid)
+	const rec=i=>{
+		if (i>=user.changesets.length) return
+		const id=user.changesets[i]
+		const dirName=path.join('changeset',sanitize(String(id)))
+		const filename=path.join(dirName,'data.xml')
+		if (fs.existsSync(filename)) { // TODO re-request if along with metadata if changeset wasn't closed
+			rec(i+1)
+		} else {
+			osm.apiGet(`/api/0.6/changeset/${encodeURIComponent(id)}/download`,res=>{
+				fs.mkdirSync(dirName,{recursive:true})
+				res.pipe(fs.createWriteStream(filename)).on('finish',()=>rec(i+1))
+			})
+		}
+	}
+	rec(0)
+}
+
 const cmd=process.argv[2]
 if (cmd=='add') {
 	const userString=process.argv[3]
@@ -137,6 +156,13 @@ if (cmd=='add') {
 		return process.exit(1)
 	}
 	updateUser(uid)
+} else if (cmd=='download') {
+	const uid=process.argv[3]
+	if (uid===undefined) {
+		console.log('missing download argument')
+		return process.exit(1)
+	}
+	downloadUser(uid)
 } else {
 	console.log('invalid or missing command; available commands: add')
 	return process.exit(1)
