@@ -53,12 +53,19 @@ function parseUserChangesetMetadata(user,makeParser,callback) {
 function reportUser(response,user,callback) {
 	let currentYear,currentMonth
 	const createdBys={}
+	const sources={}
 	const changesetsWithComments=[]
 	const reportEnd=()=>{
 		response.write(`<h2>Editors</h2>\n`)
 		response.write(`<dl>\n`)
 		for (const editor in createdBys) {
 			response.write(e.h`<dt>${editor} <dd>${createdBys[editor]} changesets\n`)
+		}
+		response.write(`</dl>\n`)
+		response.write(`<h2>Sources</h2>\n`)
+		response.write(`<dl>\n`)
+		for (const source in sources) {
+			response.write(e.h`<dt>${source} <dd>${sources[source]} changesets\n`)
 		}
 		response.write(`</dl>\n`)
 		response.write(`<h2>Comments</h2>\n`)
@@ -91,7 +98,7 @@ function reportUser(response,user,callback) {
 	response.write(e.h`<h2>Changesets</h2>\n`)
 	parseUserChangesetMetadata(user,i=>{
 		const id=user.changesets[i]
-		let dateString
+		let dateString,createdBy,source
 		return (new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='changeset') {
 				dateString=attrs.created_at
@@ -100,6 +107,7 @@ function reportUser(response,user,callback) {
 				}
 			} else if (name=='tag') {
 				if (attrs.k=='created_by') createdBy=attrs.v
+				if (attrs.k=='source') source=attrs.v
 			}
 		}).on('end',()=>{
 			const date=new Date(dateString)
@@ -112,8 +120,10 @@ function reportUser(response,user,callback) {
 				response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 			}
 			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
-			if (!createdBy) createdBy='unknown'
+			if (!createdBy) createdBy='(unknown)'
+			if (!source) source='(unknown)'
 			createdBys[createdBy]=(createdBys[createdBy]||0)+1
+			sources[source]=(sources[source]||0)+1
 			if (i>=user.changesets.length-1) {
 				response.write(e.h`\n<dt>${dateString} <dd>first known changeset`)
 				response.write(`\n</dl>\n`)
