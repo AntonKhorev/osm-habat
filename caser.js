@@ -12,9 +12,9 @@ if (filename===undefined) {
 
 let match
 let inCaseSectionLevel=0
-let caseData
+let readingCaseData
 
-function closeCase() {
+function closeCase(caseData) {
 	const writeCaseTitle=()=>console.log(`## case #${caseData.id} ${caseData.name}`)
 	if (!caseData.uid) {
 		writeCaseTitle()
@@ -44,24 +44,26 @@ readline.createInterface({
 		const [,headerPrefix,rest]=match
 		const sectionLevel=headerPrefix.length
 		if (sectionLevel<=inCaseSectionLevel) {
-			closeCase()
+			closeCase(readingCaseData)
 			inCaseSectionLevel=0
+			readingCaseData=undefined
 		}
 		if (inCaseSectionLevel<=0 && (match=rest.match(/\s*#(\S+)\s+(.*)/))) {
 			inCaseSectionLevel=sectionLevel
-			caseData={}
-			;[,caseData.id,caseData.name]=match
+			readingCaseData={}
+			;[,readingCaseData.id,readingCaseData.name]=match
 		}
 	}
 	if (inCaseSectionLevel<=0) return
 	if (match=input.match(/^\*\s+uid\s+(\S+)/)) {
-		;[,caseData.uid]=match
+		;[,readingCaseData.uid]=match
 	} else if (match=input.match(/^\*\s+changesets\s+count\s+(\S+)/)) {
-		;[,caseData.changesetsCount]=match
+		;[,readingCaseData.changesetsCount]=match
 	}
 }).on('close',()=>{
 	if (inCaseSectionLevel>0) {
-		closeCase()
+		closeCase(readingCaseData)
 		inCaseSectionLevel=0
+		readingCaseData=undefined
 	}
 })
