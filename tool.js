@@ -1,11 +1,10 @@
 // get changeset metadata w/ discussion
 // https://api.openstreetmap.org/api/0.6/changeset/80065151?include_discussion=true
 
-// get changeset metadata w/o discussion
-// https://api.openstreetmap.org/api/0.6/changeset/80065151
-
-// get changeset data
-// https://api.openstreetmap.org/api/0.6/changeset/80065151/download
+// get previous versions with known numbers for a list of elements
+// /api/0.6/nodes?nodes=421586779v1,421586779v2
+// what if they are redacted? - shouldn't happen
+// uri has to be <8000 chars, <700 elements
 
 const fs=require('fs')
 const path=require('path')
