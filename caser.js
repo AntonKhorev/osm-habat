@@ -59,4 +59,9 @@ readline.createInterface({
 	} else if (match=input.match(/^\*\s+changesets\s+count\s+(\S+)/)) {
 		;[,caseData.changesetsCount]=match
 	}
+}).on('close',()=>{
+	if (inCaseSectionLevel>0) {
+		closeCase()
+		inCaseSectionLevel=0
+	}
 })
