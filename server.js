@@ -223,15 +223,17 @@ function respondBbox(response,user) {
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-caser" download="never" upload="never">\n`)
+	let k=0 // number of changesets with bbox
 	parseUserChangesetMetadata(user,i=>(new expat.Parser()).on('startElement',(name,attrs)=>{
-		if (name=='changeset') {
-			response.write(e.x`  <node id="-${i*4+1}" lat="${attrs.min_lat}" lon="${attrs.min_lon}" />\n`)
-			response.write(e.x`  <node id="-${i*4+2}" lat="${attrs.max_lat}" lon="${attrs.min_lon}" />\n`)
-			response.write(e.x`  <node id="-${i*4+3}" lat="${attrs.max_lat}" lon="${attrs.max_lon}" />\n`)
-			response.write(e.x`  <node id="-${i*4+4}" lat="${attrs.min_lat}" lon="${attrs.max_lon}" />\n`)
+		if (name=='changeset' && attrs.min_lat && attrs.min_lon && attrs.max_lat && attrs.max_lon) {
+			response.write(e.x`  <node id="-${k*4+1}" lat="${attrs.min_lat}" lon="${attrs.min_lon}" />\n`)
+			response.write(e.x`  <node id="-${k*4+2}" lat="${attrs.max_lat}" lon="${attrs.min_lon}" />\n`)
+			response.write(e.x`  <node id="-${k*4+3}" lat="${attrs.max_lat}" lon="${attrs.max_lon}" />\n`)
+			response.write(e.x`  <node id="-${k*4+4}" lat="${attrs.min_lat}" lon="${attrs.max_lon}" />\n`)
+			k++
 		}
 	}),()=>{
-		for (let i=0;i<user.changesets.length;i++) {
+		for (let i=0;i<k;i++) {
 			response.write(e.x`  <way id="-${i+1}">\n`)
 			for (let j=0;j<=4;j++) {
 				response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
