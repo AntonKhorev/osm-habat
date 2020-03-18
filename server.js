@@ -225,17 +225,36 @@ function reportUserKeys(response,user,callback) {
 	response.write(e.h`<h1>User #${user.uid} <a href=${'https://www.openstreetmap.org/user/'+encodedName}>${user.displayName}</a></h1>\n`)
 	const currentVersions={n:{},w:{},r:{}}
 	const currentTags={n:{},w:{},r:{}}
-	const unknownKeyCount={}
 	const knownKeyCount={}
+	const knownTagCount={}
+	const unknownKeyCount={}
+	const unknownTagCount={}
+	const maxValues=5
 	const up=(a,k)=>{
 		a[k]=(a[k]||0)+1
 	}
-	function writeKeyTable(title,keyCount) {
+	const upp=(a,k,v)=>{
+		if (a[k]===undefined) a[k]={}
+		a[k][v]=(a[k][v]||0)+1
+	}
+	function writeKeyTable(title,keyCount,tagCount) {
 		response.write(e.h`<h2>${title}</h2>\n`)
 		response.write(`<table>\n`)
-		response.write(`<tr><th>key<th>count\n`)
+		response.write(`<tr><th>count<th>key<th>values\n`)
 		for (const [key,count] of Object.entries(keyCount).sort((a,b)=>(b[1]-a[1]))) {
-			response.write(e.h`<tr><td>${key}<td>${count}\n`)
+			const encodedKey=encodeURIComponent(key)
+			response.write(e.h`<tr><td>${count}<td><a href=${'https://wiki.openstreetmap.org/wiki/Key:'+encodedKey}>${key}</a><td>`)
+			const values=Object.entries(tagCount[key]).sort((a,b)=>(b[1]-a[1]))
+			for (const [i,[v,c]] of values.entries()) {
+				if (i>0) response.write(`, `)
+				if (i>=maxValues) {
+					response.write(e.h`<em>${values.length-maxValues} more values<em>`)
+					break
+				}
+				const encodedTag=encodeURIComponent(key+'='+v)
+				response.write(e.h`<a href=${'https://wiki.openstreetmap.org/wiki/Tag:'+encodedTag}>${v}</a>×${c}`)
+			}
+			response.write(`\n`)
 		}
 		response.write(`</table>\n`)
 	}
@@ -265,8 +284,10 @@ function reportUserKeys(response,user,callback) {
 						if (prevTags[k]!==v) {
 							if (mode=='c' || currentVersions[element][id]==version-1) {
 								up(knownKeyCount,k)
+								upp(knownTagCount,k,v)
 							} else {
 								up(unknownKeyCount,k)
+								upp(unknownTagCount,k,v)
 							}
 						}
 					}
@@ -281,8 +302,8 @@ function reportUserKeys(response,user,callback) {
 			}
 		})
 	},()=>{
-		writeKeyTable('Known key edits',knownKeyCount)
-		writeKeyTable('Possible key edits',unknownKeyCount)
+		writeKeyTable('Known key edits',knownKeyCount,knownTagCount)
+		writeKeyTable('Possible key edits',unknownKeyCount,unknownTagCount)
 		callback()
 	})
 }
