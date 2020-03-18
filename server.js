@@ -252,25 +252,27 @@ function respondChanges(response,user) {
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-caser">\n`)
-	// id: [version,lat,lon,tags]
-	let nodeData={}
+	let nodeData={} // id: [version,lat,lon,tags]
+	let wayData={} // id: [version,tags,nodes]
 	parseUserChangesetData(user,i=>{
 		let mode='?'
-		let inElement='?'
 		let id,version,lat,lon
-		let tags
+		let tags={}
+		let nodes=[]
 		return (new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='create' || name=='modify' || name=='delete') {
 				mode=name[0]
-			} else if (name=='node') { // TODO way, relation
-				inElement='n'
+			} else if (name=='node' || name=='way') { // TODO way, relation
 				id=attrs.id
 				version=attrs.version
 				lat=attrs.lat
 				lon=attrs.lon
 				tags={}
+				nodes=[]
 			} else if (name=='tag') {
 				tags[attrs.k]=attrs.v
+			} else if (name=='nd') {
+				nodes.push(attrs.ref)
 			}
 		}).on('endElement',(name)=>{
 			if (name=='create' || name=='modify' || name=='delete') {
@@ -281,7 +283,12 @@ function respondChanges(response,user) {
 				} else if (mode=='c' || mode=='m') {
 					nodeData[id]=[version,lat,lon,tags]
 				}
-				inElement='?'
+			} else if (name=='way') {
+				if (mode=='d') {
+					delete nodeData[id]
+				} else if (mode=='c' || mode=='m') {
+					wayData[id]=[version,tags,nodes]
+				}
 			}
 		})
 	},()=>{
@@ -292,11 +299,15 @@ function respondChanges(response,user) {
 				response.write(`/>\n`)
 			} else {
 				response.write(`>\n`)
-				for (const [k,v] of t) {
-					response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
-				}
+				for (const [k,v] of t) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
 				response.write(`  </node>\n`)
 			}
+		}
+		for (const [id,[version,tags,nodes]] of Object.entries(wayData)) {
+			response.write(e.x`  <way id="${id}" version="${version}">\n`)
+			for (const node of nodes) response.write(e.x`    <nd ref="${node}"/>\n`)
+			for (const [k,v] of Object.entries(tags)) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
+			response.write(`  </way>\n`)
 		}
 		response.end(`</osm>\n`)
 	})
