@@ -116,6 +116,7 @@ function reportUser(response,user,callback) {
 		},()=>{
 			response.write(`<ul>\n`)
 			response.write(e.h`<li>downloaded and parsed ${nParsed} changesets\n`)
+			response.write(`<li><a href=changes.osm>changes josm file</a>\n`)
 			response.write(`</ul>\n`)
 			response.write(`<table>\n`)
 			response.write(`<tr><th>change<th>nodes<th>ways<th>relations\n`)
@@ -165,7 +166,7 @@ function reportUser(response,user,callback) {
 		response.write(`</dl>\n`)
 		response.write(`<h2>Areas</h2>\n`)
 		response.write(`<ul>\n`)
-		response.write(e.h`<li><a href=bbox.osm>bbox josm file</a>\n`)
+		response.write(`<li><a href=bbox.osm>bbox josm file</a>\n`)
 		response.write(`</ul>\n`)
 		reportChanges()
 	}
@@ -244,6 +245,63 @@ function respondBbox(response,user) {
 	})
 }
 
+function respondChanges(response,user) {
+	response.writeHead(200,{
+		'Content-Type':'application/xml; charset=utf-8',
+		'Content-Disposition':'attachment; filename="changes.osm"',
+	})
+	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
+	response.write(`<osm version="0.6" generator="osm-caser">\n`)
+	// id: [version,lat,lon,tags]
+	let nodeData={}
+	parseUserChangesetData(user,i=>{
+		let mode='?'
+		let inElement='?'
+		let id,version,lat,lon
+		let tags
+		return (new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='create' || name=='modify' || name=='delete') {
+				mode=name[0]
+			} else if (name=='node') { // TODO way, relation
+				inElement='n'
+				id=attrs.id
+				version=attrs.version
+				lat=attrs.lat
+				lon=attrs.lon
+				tags={}
+			} else if (name=='tag') {
+				tags[attrs.k]=attrs.v
+			}
+		}).on('endElement',(name)=>{
+			if (name=='create' || name=='modify' || name=='delete') {
+				mode='?'
+			} else if (name=='node') {
+				if (mode=='d') {
+					delete nodeData[id]
+				} else if (mode=='c' || mode=='m') {
+					nodeData[id]=[version,lat,lon,tags]
+				}
+				inElement='?'
+			}
+		})
+	},()=>{
+		for (const [id,[version,lat,lon,tags]] of Object.entries(nodeData)) {
+			response.write(e.x`  <node id="${id}" version="${version}" lat="${lat}" lon="${lon}"`)
+			let t=Object.entries(tags)
+			if (t.length<=0) {
+				response.write(`/>\n`)
+			} else {
+				response.write(`>\n`)
+				for (const [k,v] of t) {
+					response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
+				}
+				response.write(`  </node>\n`)
+			}
+		}
+		response.end(`</osm>\n`)
+	})
+}
+
 function matchUser(response,match) {
 	const [,uid]=match
 	if (!/^[1-9]\d*$/.test(uid)) {
@@ -294,6 +352,10 @@ const server=http.createServer((request,response)=>{
 		const user=matchUser(response,match)
 		if (!user) return
 		respondBbox(response,user)
+	} else if (match=path.match(new RegExp('^/user/([^/]*)/changes.osm$'))) {
+		const user=matchUser(response,match)
+		if (!user) return
+		respondChanges(response,user)
 	} else {
 		response.writeHead(404)
 		response.end('Route not defined')
