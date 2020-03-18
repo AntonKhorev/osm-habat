@@ -234,7 +234,7 @@ function reportUserKeys(response,user,callback) {
 		response.write(e.h`<h2>${title}</h2>\n`)
 		response.write(`<table>\n`)
 		response.write(`<tr><th>key<th>count\n`)
-		for (const [key,count] of Object.entries(keyCount)) {
+		for (const [key,count] of Object.entries(keyCount).sort((a,b)=>(b[1]-a[1]))) {
 			response.write(e.h`<tr><td>${key}<td>${count}\n`)
 		}
 		response.write(`</table>\n`)
