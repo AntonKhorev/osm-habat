@@ -1,6 +1,12 @@
 // get changeset metadata w/ discussion
 // https://api.openstreetmap.org/api/0.6/changeset/80065151?include_discussion=true
 
+// may need to get besides changesets:
+// * previous versions of modified/deleted elements
+// * current versions of changes elements
+// * nodes in modified/deleted way - maybe their full histories
+// * same for relation members
+
 // get previous versions with known numbers for a list of elements
 // /api/0.6/nodes?nodes=421586779v1,421586779v2
 // what if they are redacted? - shouldn't happen
