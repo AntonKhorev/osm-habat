@@ -128,6 +128,11 @@ function downloadUser(uid) {
 	rec(0)
 }
 
+function downloadPreviousUser(uid) {
+	const user=new User(uid)
+	// TODO
+}
+
 const cmd=process.argv[2]
 if (cmd=='add') {
 	const userString=process.argv[3]
@@ -168,6 +173,13 @@ if (cmd=='add') {
 		return process.exit(1)
 	}
 	downloadUser(uid)
+} else if (cmd=='download-previous') {
+	const uid=process.argv[3]
+	if (uid===undefined) {
+		console.log('missing download argument')
+		return process.exit(1)
+	}
+	downloadPreviousUser(uid)
 } else {
 	console.log('invalid or missing command; available commands: add')
 	return process.exit(1)

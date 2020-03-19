@@ -36,41 +36,6 @@ function respondTail(response) {
 	response.end()
 }
 
-function parseUserChangesetMetadata(user,makeParser,callback) {
-	const rec=(i)=>{
-		if (i>=user.changesets.length) {
-			callback()
-			return
-		}
-		const id=user.changesets[i]
-		const parser=makeParser(i).on('end',()=>{
-			rec(i+1)
-		})
-		fs.createReadStream(path.join('changeset',sanitize(String(id)),'meta.xml')).pipe(parser)
-	}
-	rec(0)
-}
-
-function parseUserChangesetData(user,makeParser,callback) {
-	const rec=(i)=>{
-		if (i<0) {
-			callback()
-			return
-		}
-		const id=user.changesets[i]
-		const filename=path.join('changeset',sanitize(String(id)),'data.xml')
-		if (fs.existsSync(filename)) {
-			const parser=makeParser(i).on('end',()=>{
-				rec(i-1)
-			})
-			fs.createReadStream(filename).pipe(parser)
-		} else {
-			rec(i-1)
-		}
-	}
-	rec(user.changesets.length-1) // have to go backwards because changesets are stored backwards
-}
-
 function reportUser(response,user,callback) {
 	let currentYear,currentMonth
 	const createdBys={}
@@ -97,7 +62,7 @@ function reportUser(response,user,callback) {
 			}
 			av[id]=ver
 		}
-		parseUserChangesetData(user,i=>{
+		user.parseChangesetData(()=>{
 			nParsed++
 			return (new expat.Parser()).on('startElement',(name,attrs)=>{
 				switch (name) {
@@ -184,7 +149,7 @@ function reportUser(response,user,callback) {
 	response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
 	response.write(e.h`</ul>\n`)
 	response.write(e.h`<h2>Changesets</h2>\n`)
-	parseUserChangesetMetadata(user,i=>{
+	user.parseChangesetMetadata(i=>{
 		const id=user.changesets[i]
 		let dateString,createdBy,source
 		return (new expat.Parser()).on('startElement',(name,attrs)=>{
@@ -258,7 +223,7 @@ function reportUserKeys(response,user,callback) {
 		}
 		response.write(`</table>\n`)
 	}
-	parseUserChangesetData(user,()=>{
+	user.parseChangesetData(()=>{
 		let mode='?'
 		let element='?'
 		let id,version
@@ -316,7 +281,7 @@ function respondBbox(response,user) {
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-caser" download="never" upload="never">\n`)
 	let k=0 // number of changesets with bbox
-	parseUserChangesetMetadata(user,()=>(new expat.Parser()).on('startElement',(name,attrs)=>{
+	user.parseChangesetMetadata(()=>(new expat.Parser()).on('startElement',(name,attrs)=>{
 		if (name=='changeset' && attrs.min_lat && attrs.min_lon && attrs.max_lat && attrs.max_lon) {
 			response.write(e.x`  <node id="-${k*4+1}" lat="${attrs.min_lat}" lon="${attrs.min_lon}" />\n`)
 			response.write(e.x`  <node id="-${k*4+2}" lat="${attrs.max_lat}" lon="${attrs.min_lon}" />\n`)
@@ -345,7 +310,7 @@ function respondChanges(response,user) {
 	response.write(`<osm version="0.6" generator="osm-caser">\n`)
 	let nodeData={} // id: [version,lat,lon,tags]
 	let wayData={} // id: [version,tags,nodes]
-	parseUserChangesetData(user,()=>{
+	user.parseChangesetData(()=>{
 		let mode='?'
 		let id,version,lat,lon
 		let tags={}

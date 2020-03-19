@@ -77,6 +77,43 @@ class User {
 		this._updateTimestamp=fs.statSync(path.join(this.dirName,'meta.xml')).mtime
 		return this._updateTimestamp
 	}
+	parseChangesetMetadata(makeParser,callback) {
+		const rec=(i)=>{
+			if (i>=this.changesets.length) {
+				callback()
+				return
+			}
+			const id=this.changesets[i]
+			const parser=makeParser(i).on('end',()=>{
+				rec(i+1)
+			})
+			fs.createReadStream(path.join('changeset',sanitize(String(id)),'meta.xml')).pipe(parser)
+		}
+		rec(0)
+	}
+	parseChangesetData(makeParser,callback) {
+		const rec=(i)=>{
+			if (i<0) {
+				callback()
+				return
+			}
+			const id=this.changesets[i]
+			const filename=path.join('changeset',sanitize(String(id)),'data.xml')
+			if (fs.existsSync(filename)) {
+				const parser=makeParser(i).on('end',()=>{
+					rec(i-1)
+				})
+				fs.createReadStream(filename).pipe(parser)
+			} else {
+				rec(i-1)
+			}
+		}
+		rec(this.changesets.length-1) // have to go backwards because changesets are stored in reverse order
+	}
+	parsePreviousData(makeParser,callback) {
+		// TODO
+		callback()
+	}
 }
 
 module.exports=User
