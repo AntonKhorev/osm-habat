@@ -7,11 +7,6 @@
 // * nodes in modified/deleted way - maybe their full histories
 // * same for relation members
 
-// get previous versions with known numbers for a list of elements
-// /api/0.6/nodes?nodes=421586779v1,421586779v2
-// what if they are redacted? - shouldn't happen
-// uri has to be <8000 chars, <700 elements
-
 const fs=require('fs')
 const path=require('path')
 const sanitize=require('sanitize-filename')
@@ -130,7 +125,75 @@ function downloadUser(uid) {
 
 function downloadPreviousUser(uid) {
 	const user=new User(uid)
-	// TODO
+	const currentVersions={n:{},w:{},r:{}}
+	const requiredVersions={n:{},w:{},r:{}}
+	function downloadPreviousData() {
+		// get previous versions with known numbers for a list of elements
+		// /api/0.6/nodes?nodes=421586779v1,421586779v2
+		// what if they are redacted? - shouldn't happen
+		// uri has to be <8000 chars, <700 elements
+		for (const elementType of ['nodes','ways','relations']) {
+			let query=''
+			let queryCount=0
+			const runQuery=()=>{
+				if (queryCount<=0) return
+				const fullQuery=`/api/0.6/${elementType}?${elementType}=${query}`
+				console.log('>',fullQuery) // TODO
+				query=''
+				queryCount=0
+			}
+			const addToQuery=(id,version)=>{
+				if (queryCount>700 || query.length>7500) runQuery()
+				if (queryCount++) query+=','
+				query+=`${id}v${version}`
+			}
+			const elementVersions=requiredVersions[elementType[0]]
+			for (const [id,versions] of Object.entries(elementVersions)) {
+				for (const version of Object.keys(versions)) {
+					addToQuery(id,version)
+				}
+			}
+			runQuery()
+		}
+	}
+	function processChangesetData() {
+		user.parseChangesetData(()=>{
+			let mode='?'
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=name[0]
+				} else if (name=='node' || name=='way' || name=='relation') {
+					const element=name[0]
+					const id=attrs.id
+					const version=Number(attrs.version)
+					if (mode!='c' && currentVersions[element][id]!=version-1) {
+						if (requiredVersions[element][id]===undefined) {
+							requiredVersions[element][id]={}
+						}
+						requiredVersions[element][id][version-1]=true
+					}
+					currentVersions[element][id]=version
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode='?'
+				}
+			})
+		},downloadPreviousData)
+	}
+	function processPreviousData() {
+		user.parsePreviousData(()=>{
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='node' || name=='way' || name=='relation') {
+					const element=name[0]
+					const id=attrs.id
+					const version=Number(attrs.version)
+					currentVersions[element][id]=version
+				}
+			})
+		},processChangesetData)
+	}
+	processPreviousData()
 }
 
 const cmd=process.argv[2]
