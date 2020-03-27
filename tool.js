@@ -125,8 +125,18 @@ function downloadUser(uid) {
 
 function downloadPreviousUser(uid) {
 	const user=new User(uid)
-	const currentVersions={n:{},w:{},r:{}}
+	const availableVersions={n:{},w:{},r:{}}
 	const requiredVersions={n:{},w:{},r:{}}
+	const vCheck=(arr,element,id,version)=>{
+		if (arr[element][id]===undefined) return false
+		return arr[element][id][version]
+	}
+	const vSet=(arr,element,id,version)=>{
+		if (arr[element][id]===undefined) {
+			arr[element][id]={}
+		}
+		arr[element][id][version]=true
+	}
 	function downloadPreviousData() {
 		// get previous versions with known numbers for a list of elements
 		// /api/0.6/nodes?nodes=421586779v1,421586779v2
@@ -168,13 +178,10 @@ function downloadPreviousUser(uid) {
 					const element=name[0]
 					const id=attrs.id
 					const version=Number(attrs.version)
-					if (mode!='c' && currentVersions[element][id]!=version-1) {
-						if (requiredVersions[element][id]===undefined) {
-							requiredVersions[element][id]={}
-						}
-						requiredVersions[element][id][version-1]=true
+					if (mode!='c' && !vCheck(availableVersions,element,id,version-1)) {
+						vSet(requiredVersions,element,id,version-1)
 					}
-					currentVersions[element][id]=version
+					vSet(availableVersions,element,id,version)
 				}
 			}).on('endElement',(name)=>{
 				if (name=='create' || name=='modify' || name=='delete') {
@@ -190,7 +197,7 @@ function downloadPreviousUser(uid) {
 					const element=name[0]
 					const id=attrs.id
 					const version=Number(attrs.version)
-					currentVersions[element][id]=version
+					vSet(availableVersions,element,id,version)
 				}
 			})
 		},processChangesetData)

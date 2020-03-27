@@ -111,8 +111,24 @@ class User {
 		rec(this.changesets.length-1) // have to go backwards because changesets are stored in reverse order
 	}
 	parsePreviousData(makeParser,callback) {
-		// TODO
-		callback()
+		const dirname=path.join(this.dirName,'previous')
+		fs.readdir(dirname,(err,dirfilenames)=>{
+			if (err) {
+				callback()
+				return
+			}
+			const rec=(i)=>{
+				if (i>=dirfilenames.length) {
+					callback()
+					return
+				}
+				const parser=makeParser(i).on('end',()=>{
+					rec(i+1)
+				})
+				fs.createReadStream(path.join(dirname,dirfilenames[i])).pipe(parser)
+			}
+			rec(0)
+		})
 	}
 	requestPreviousData(prefix,query,callback) {
 		const getFirstFreeFilename=()=>{
