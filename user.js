@@ -122,10 +122,12 @@ class User {
 			}
 		}
 		const filename=getFirstFreeFilename()
-		fs.mkdirSync(path.join(this.dirName,'previous'),{recursive:true})
-		// TODO
-		fs.writeFileSync(filename,query)
-		callback()
+		osm.apiGet(query,res=>{
+			fs.mkdirSync(path.join(this.dirName,'previous'),{recursive:true})
+			res.pipe(
+				fs.createWriteStream(filename)
+			).on('finish',callback)
+		})
 	}
 	requestPreviousDataMultiple(queryQueue,callback) {
 		const rec=(i)=>{
