@@ -114,6 +114,32 @@ class User {
 		// TODO
 		callback()
 	}
+	requestPreviousData(prefix,query,callback) {
+		const getFirstFreeFilename=()=>{
+			for (let i=1;;i++) {
+				const filename=path.join(this.dirName,'previous',`${prefix}.${i}.osm`)
+				if (!fs.existsSync(filename)) return filename
+			}
+		}
+		const filename=getFirstFreeFilename()
+		fs.mkdirSync(path.join(this.dirName,'previous'),{recursive:true})
+		// TODO
+		fs.writeFileSync(filename,query)
+		callback()
+	}
+	requestPreviousDataMultiple(queryQueue,callback) {
+		const rec=(i)=>{
+			if (i<queryQueue.length) {
+				const [prefix,query]=queryQueue[i]
+				this.requestPreviousData(prefix,query,()=>{
+					rec(i+1)
+				})
+			} else {
+				callback()
+			}
+		}
+		rec(0)
+	}
 }
 
 module.exports=User

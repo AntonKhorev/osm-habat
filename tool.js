@@ -132,13 +132,14 @@ function downloadPreviousUser(uid) {
 		// /api/0.6/nodes?nodes=421586779v1,421586779v2
 		// what if they are redacted? - shouldn't happen
 		// uri has to be <8000 chars, <700 elements
+		const queryQueue=[]
 		for (const elementType of ['nodes','ways','relations']) {
 			let query=''
 			let queryCount=0
 			const runQuery=()=>{
 				if (queryCount<=0) return
 				const fullQuery=`/api/0.6/${elementType}?${elementType}=${query}`
-				console.log('>',fullQuery) // TODO
+				queryQueue.push([elementType,fullQuery])
 				query=''
 				queryCount=0
 			}
@@ -155,6 +156,7 @@ function downloadPreviousUser(uid) {
 			}
 			runQuery()
 		}
+		user.requestPreviousDataMultiple(queryQueue,()=>{})
 	}
 	function processChangesetData() {
 		user.parseChangesetData(()=>{
