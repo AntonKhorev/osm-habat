@@ -88,6 +88,7 @@ function reportUser(response,user,callback) {
 			response.write(e.h`<li>downloaded and parsed ${nParsed} changesets\n`)
 			if (nParsed>0) {
 				response.write(`<li><a href=changes.osm>changes josm file</a>\n`)
+				response.write(`<li><a href=deletions.osm>deletions josm file</a>\n`)
 				response.write(`<li><a href=keys/>changed keys</a>\n`)
 				response.write(`<li><a href=elements/>changed elements</a>\n`)
 			}
@@ -392,6 +393,25 @@ function respondBbox(response,user) {
 	})
 }
 
+function writeNode(response,id,version,lat,lon,tags) {
+	response.write(e.x`  <node id="${id}" version="${version}" lat="${lat}" lon="${lon}"`)
+	let t=Object.entries(tags)
+	if (t.length<=0) {
+		response.write(`/>\n`)
+	} else {
+		response.write(`>\n`)
+		for (const [k,v] of t) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
+		response.write(`  </node>\n`)
+	}
+}
+
+function writeWay(response,id,version,tags,nodes) {
+	response.write(e.x`  <way id="${id}" version="${version}">\n`)
+	for (const node of nodes) response.write(e.x`    <nd ref="${node}"/>\n`)
+	for (const [k,v] of Object.entries(tags)) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
+	response.write(`  </way>\n`)
+}
+
 function respondChanges(response,user) {
 	response.writeHead(200,{
 		'Content-Type':'application/xml; charset=utf-8',
@@ -399,19 +419,17 @@ function respondChanges(response,user) {
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-caser">\n`)
-	let nodeData={} // id: [version,lat,lon,tags]
-	let wayData={} // id: [version,tags,nodes]
+	const nodeData={} // id: [version,lat,lon,tags]
+	const wayData={} // id: [version,tags,nodes]
 	user.parseChangesetData(()=>{
-		let mode='?'
-		let id,version,lat,lon
-		let tags={}
-		let nodes=[]
+		let mode
+		let id,version,lat,lon,tags,nodes
 		return (new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='create' || name=='modify' || name=='delete') {
-				mode=name[0]
+				mode=name
 			} else if (name=='node' || name=='way') { // TODO relation
 				id=attrs.id
-				version=attrs.version
+				version=Number(attrs.version)
 				lat=attrs.lat
 				lon=attrs.lon
 				tags={}
@@ -423,41 +441,103 @@ function respondChanges(response,user) {
 			}
 		}).on('endElement',(name)=>{
 			if (name=='create' || name=='modify' || name=='delete') {
-				mode='?'
-			} else if (name=='node') {
-				if (mode=='d') {
-					delete nodeData[id]
-				} else if (mode=='c' || mode=='m') {
-					nodeData[id]=[version,lat,lon,tags]
+				mode=undefined
+			} else if (name=='node' || name=='way') { // TODO relation
+				if (name=='node') {
+					if (mode=='delete') {
+						delete nodeData[id]
+					} else if (mode=='create' || mode=='modify') {
+						nodeData[id]=[version,lat,lon,tags]
+					}
+				} else if (name=='way') {
+					if (mode=='delete') {
+						delete wayData[id]
+					} else if (mode=='create' || mode=='modify') {
+						wayData[id]=[version,tags,nodes]
+					}
 				}
-			} else if (name=='way') {
-				if (mode=='d') {
-					delete nodeData[id]
-				} else if (mode=='c' || mode=='m') {
-					wayData[id]=[version,tags,nodes]
-				}
+				id=version=lat=lon=tags=nodes=undefined
 			}
 		})
 	},()=>{
 		for (const [id,[version,lat,lon,tags]] of Object.entries(nodeData)) {
-			response.write(e.x`  <node id="${id}" version="${version}" lat="${lat}" lon="${lon}"`)
-			let t=Object.entries(tags)
-			if (t.length<=0) {
-				response.write(`/>\n`)
-			} else {
-				response.write(`>\n`)
-				for (const [k,v] of t) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
-				response.write(`  </node>\n`)
-			}
+			writeNode(response,id,version,lat,lon,tags)
 		}
 		for (const [id,[version,tags,nodes]] of Object.entries(wayData)) {
-			response.write(e.x`  <way id="${id}" version="${version}">\n`)
-			for (const node of nodes) response.write(e.x`    <nd ref="${node}"/>\n`)
-			for (const [k,v] of Object.entries(tags)) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
-			response.write(`  </way>\n`)
+			writeWay(response,id,version,tags,nodes)
+			// TODO check if referenced nodes were written
 		}
 		response.end(`</osm>\n`)
 	})
+}
+
+function respondDeletions(response,user) {
+	response.writeHead(200,{
+		'Content-Type':'application/xml; charset=utf-8',
+		'Content-Disposition':'attachment; filename="deletions.osm"',
+	})
+	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
+	response.write(`<osm version="0.6" generator="osm-caser">\n`)
+	const nodeVersions={}
+	const wayVersions={}
+	const nodeData={} // id: [lat,lon,tags]
+	const wayData={} // id: [tags,nodes]
+	function writeData() {
+		for (const [id,version] of Object.entries(nodeVersions)) {
+			writeNode(response,id,version,...nodeData[id])
+		}
+		for (const [id,version] of Object.entries(wayVersions)) {
+			writeWay(response,id,version,...wayData[id])
+		}
+		response.end(`</osm>\n`)
+	}
+	function processPreviousData() {
+		user.parsePreviousData(()=>{
+			let id,version,lat,lon,tags,nodes
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='node' || name=='way') { // TODO relation
+					id=attrs.id
+					version=Number(attrs.version)
+					lat=attrs.lat
+					lon=attrs.lon
+					tags={}
+					nodes=[]
+				} else if (name=='tag') {
+					tags[attrs.k]=attrs.v
+				} else if (name=='nd') {
+					nodes.push(attrs.ref)
+				}
+			}).on('endElement',(name)=>{
+				if (name=='node' || name=='way') { // TODO relation
+					if (name=='node' && nodeVersions[id]==version) nodeData[id]=[lat,lon,tags]
+					if (name=='way' && wayVersions[id]==version) wayData[id]=[tags,nodes]
+					id=version=lat=lon=tags=nodes=undefined
+				}
+			})
+		},writeData)
+	}
+	function processChangesetData() {
+		user.parseChangesetData(()=>{
+			let mode
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=name
+				} else if (name=='node' || name=='way') { // TODO relation
+					if (mode=='delete') {
+						const id=attrs.id
+						const version=Number(attrs.version)
+						if (name=='node') nodeVersions[id]=version-1
+						if (name=='way') wayVersions[id]=version-1
+					}
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=undefined
+				}
+			})
+		},processPreviousData)
+	}
+	processChangesetData()
 }
 
 function matchUser(response,match) {
@@ -528,6 +608,10 @@ const server=http.createServer((request,response)=>{
 		const user=matchUser(response,match)
 		if (!user) return
 		respondChanges(response,user)
+	} else if (match=path.match(new RegExp('^/user/([^/]*)/deletions.osm$'))) {
+		const user=matchUser(response,match)
+		if (!user) return
+		respondDeletions(response,user)
 	} else {
 		response.writeHead(404)
 		response.end('Route not defined')
