@@ -83,7 +83,8 @@ function reportUser(response,user,callback) {
 			response.write(e.h`<li>downloaded and parsed ${nParsed} changesets\n`)
 			if (nParsed>0) {
 				response.write(`<li><a href=changes.osm>changes josm file</a>\n`)
-				response.write(`<li><a href=keys/>changes keys</a>\n`)
+				response.write(`<li><a href=keys/>changed keys</a>\n`)
+				response.write(`<li><a href=elements/>changed elements</a>\n`)
 			}
 			response.write(`</ul>\n`)
 			response.write(`<table>\n`)
@@ -225,9 +226,7 @@ function reportUserKeys(response,user,callback) {
 	}
 	user.parseChangesetData(()=>{
 		let mode='?'
-		let element='?'
-		let id,version
-		let tags={}
+		let element,id,version,tags
 		return (new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='create' || name=='modify' || name=='delete') {
 				mode=name[0]
@@ -235,6 +234,7 @@ function reportUserKeys(response,user,callback) {
 				element=name[0]
 				id=attrs.id
 				version=Number(attrs.version)
+				tags={}
 			} else if (name=='tag') {
 				tags[attrs.k]=attrs.v
 			}
@@ -261,9 +261,7 @@ function reportUserKeys(response,user,callback) {
 					delete currentTags[element][id]
 				}
 				currentVersions[element][id]=version
-				element='?'
-				id=version=undefined
-				tags={}
+				element=id=version=tags=undefined
 			}
 		})
 	},()=>{
@@ -271,6 +269,90 @@ function reportUserKeys(response,user,callback) {
 		writeKeyTable('Possible key edits',unknownKeyCount,unknownTagCount)
 		callback()
 	})
+}
+
+function reportUserElements(response,user,callback) {
+	const encodedName=encodeURIComponent(user.displayName)
+	response.write(e.h`<h1>User #${user.uid} <a href=${'https://www.openstreetmap.org/user/'+encodedName}>${user.displayName}</a></h1>\n`)
+	response.write(`<h2>Elements changed</h2>\n`)
+	const data={node:{},way:{},relation:{}}
+	const setData=(element,id,version,tags)=>{
+		if (data[element][id]===undefined) {
+			data[element][id]={}
+		}
+		data[element][id][version]=tags
+	}
+	const getData=(element,id,version)=>{
+		if (data[element][id]===undefined) {
+			return undefined
+		}
+		return data[element][id][version]
+	}
+	function processChangesetData() {
+		user.parseChangesetData((i)=>{
+			response.write(e.h`<h3>Changeset #${user.changesets[i]}</h3>\n`)
+			response.write(`<table>\n`)
+			response.write(`<tr><th>key<th>old value<th>new value\n`)
+			let mode,element,id,version,tags
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=name
+				} else if (name=='node' || name=='way' || name=='relation') {
+					element=name
+					id=attrs.id
+					version=Number(attrs.version)
+					tags={}
+				} else if (name=='tag') {
+					tags[attrs.k]=attrs.v
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=undefined
+				} else if (name=='node' || name=='way' || name=='relation') {
+					response.write(e.h`<tr><th colspan=3>${mode} ${element} #${id}\n`)
+					const prevTags=getData(element,id,version-1)
+					const combinedTags={}
+					if (prevTags!==undefined) {
+						for (const [k,v] of Object.entries(prevTags)) {
+							combinedTags[k]=[v,'']
+						}
+					}
+					for (const [k,v] of Object.entries(tags)) {
+						if (combinedTags[k]===undefined) combinedTags[k]=['','']
+						combinedTags[k][1]=v
+					}
+					for (const [k,[v1,v2]] of Object.entries(combinedTags)) {
+						response.write(e.h`<tr><td>${k}<td>${v1}<td>${v2}\n`)
+					}
+					setData(element,id,version,tags)
+					element=id=version=tags=undefined
+				}
+			}).on('end',()=>{
+				response.write(`</table>\n`)
+			})
+		},callback)
+	}
+	function processPreviousData() {
+		user.parsePreviousData(()=>{
+			let element,id,version,tags
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='node' || name=='way' || name=='relation') {
+					element=name
+					id=attrs.id
+					version=Number(attrs.version)
+					tags={}
+				} else if (name=='tag') {
+					tags[attrs.k]=attrs.v
+				}
+			}).on('endElement',(name)=>{
+				if (name=='node' || name=='way' || name=='relation') {
+					setData(element,id,version,tags)
+					element=id=version=tags=undefined
+				}
+			})
+		},processChangesetData)
+	}
+	processPreviousData()
 }
 
 function respondBbox(response,user) {
@@ -420,6 +502,13 @@ const server=http.createServer((request,response)=>{
 		if (!user) return
 		respondHead(response,'keys of user '+user.displayName)
 		reportUserKeys(response,user,()=>{
+			respondTail(response)
+		})
+	} else if (match=path.match(new RegExp('^/user/([^/]*)/elements/$'))) {
+		const user=matchUser(response,match)
+		if (!user) return
+		respondHead(response,'elements changed by user '+user.displayName)
+		reportUserElements(response,user,()=>{
 			respondTail(response)
 		})
 	} else if (match=path.match(new RegExp('^/user/([^/]*)/bbox.osm$'))) {
