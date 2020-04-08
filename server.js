@@ -17,6 +17,11 @@ function respondHead(response,title) {
 		`<head>`,
 		`<meta charset=utf-8>`,
 		e.h`<title>${title}</title>`,
+		`<style>`,
+		`.create {background: #CFC}`,
+		`.modify {background: #FFC}`,
+		`.delete {background: #FCC}`,
+		`</style>`,
 		`</head>`,
 		`<body>`,
 	]) {
@@ -322,7 +327,11 @@ function reportUserElements(response,user,callback) {
 						combinedTags[k][1]=v
 					}
 					for (const [k,[v1,v2]] of Object.entries(combinedTags)) {
-						response.write(e.h`<tr><td>${k}<td>${v1}<td>${v2}\n`)
+						let change
+						if (v1=='' && v2!='') change='create'
+						if (v1!='' && v2=='') change='delete'
+						if (v1!='' && v2!='' && v1!=v2) change='modify'
+						response.write(e.h`<tr class=${change}><td>${k}<td>${v1}<td>${v2}\n`)
 					}
 					setData(element,id,version,tags)
 					element=id=version=tags=undefined

@@ -5,7 +5,7 @@ exports.h=(strings,...values)=>{
 	return strings.reduce((r,s,i)=>{
 		let v=values[i-1]
 		if (r.slice(-1)=='=') {
-			if (v===false) {
+			if (v===false || v===undefined) {
 				return r.replace(/\s+[a-zA-Z0-9-]+=$/,'')+s // TODO more permitting attr name regexp
 			} else if (v===true) {
 				return r.replace(/=$/,'')+s
