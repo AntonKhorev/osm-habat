@@ -186,7 +186,71 @@ function downloadPreviousUser(uid) {
 	processPreviousData()
 }
 
+function downloadReferencedUser(uid) {
+	const user=new User(uid)
+	const wayNodes={}
+	function downloadReferencedData() {
+		// TODO check already downloaded
+		const requiredNodes={}
+		for (const [,nodes] of Object.entries(wayNodes)) {
+			for (const node of nodes) requiredNodes[node]=true
+		}
+		const request=user.beginRequestReferencedData()
+		for (const id in requiredNodes) request.add('nodes',id)
+		request.run(()=>{})
+	}
+	function processChangesetData() {
+		user.parseChangesetData(()=>{
+			let mode
+			let id,nodes
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=name
+				} else if (name=='way') { // TODO relation
+					id=attrs.id
+					nodes=[]
+				} else if (name=='nd') {
+					nodes.push(attrs.ref)
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=undefined
+				} else if (name=='way') { // TODO relation
+					if (mode=='delete') {
+						delete wayNodes[id] // TODO keep whatever necessary for deletions.osm
+					} else {
+						wayNodes[id]=nodes
+					}
+					id=nodes=undefined
+				}
+			})
+		},downloadReferencedData)
+	}
+	processChangesetData()
+}
+
 const cmd=process.argv[2]
+const dumbCommands={
+	'update': updateUser,
+	'download': downloadUser,
+	'download-previous': downloadPreviousUser,
+	'download-referenced': downloadReferencedUser,
+}
+const handleDumbCmds=()=>{
+	for (const [cmdName,cmdFn] of Object.entries(dumbCommands)) {
+		if (cmd==cmdName) {
+			const uid=process.argv[3]
+			if (uid===undefined) {
+				console.log(`missing ${cmd} argument`)
+				return process.exit(1)
+			}
+			cmdFn(uid)
+			return
+		}
+	}
+	console.log('invalid or missing command; available commands: add, '+Object.keys(dumbCommands).join(', '))
+	return process.exit(1)
+}
 if (cmd=='add') {
 	const userString=process.argv[3]
 	if (userString===undefined) {
@@ -212,28 +276,6 @@ if (cmd=='add') {
 		console.log(`invalid add argument ${userString}`)
 		return process.exit(1)
 	}
-} else if (cmd=='update') {
-	const uid=process.argv[3]
-	if (uid===undefined) {
-		console.log('missing update argument')
-		return process.exit(1)
-	}
-	updateUser(uid)
-} else if (cmd=='download') {
-	const uid=process.argv[3]
-	if (uid===undefined) {
-		console.log('missing download argument')
-		return process.exit(1)
-	}
-	downloadUser(uid)
-} else if (cmd=='download-previous') {
-	const uid=process.argv[3]
-	if (uid===undefined) {
-		console.log('missing download argument')
-		return process.exit(1)
-	}
-	downloadPreviousUser(uid)
 } else {
-	console.log('invalid or missing command; available commands: add')
-	return process.exit(1)
+	handleDumbCmds()
 }

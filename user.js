@@ -200,6 +200,9 @@ class User {
 	beginRequestPreviousData() {
 		return this.beginRequestData('previous')
 	}
+	beginRequestReferencedData() {
+		return this.beginRequestData('referenced')
+	}
 }
 
 module.exports=User
