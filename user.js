@@ -130,33 +130,77 @@ class User {
 			rec(0)
 		})
 	}
-	requestPreviousData(prefix,query,callback) {
-		const getFirstFreeFilename=()=>{
-			for (let i=1;;i++) {
-				const filename=path.join(this.dirName,'previous',`${prefix}.${i}.osm`)
-				if (!fs.existsSync(filename)) return filename
+	beginRequestData(directory) {
+		// get previous versions with known numbers for a list of elements
+		// /api/0.6/nodes?nodes=421586779v1,421586779v2
+		// what if they are redacted? - shouldn't happen
+		// uri has to be <8000 chars, <700 elements
+		const request=(prefix,query,callback)=>{
+			const getFirstFreeFilename=()=>{
+				for (let i=1;;i++) {
+					const filename=path.join(this.dirName,directory,`${prefix}.${i}.osm`)
+					if (!fs.existsSync(filename)) return filename
+				}
+			}
+			const filename=getFirstFreeFilename()
+			// {
+			/*
+			console.log('>',query)
+			callback()
+			return
+			*/
+			// }
+			osm.apiGet(query,res=>{
+				fs.mkdirSync(path.join(this.dirName,directory),{recursive:true})
+				res.pipe(
+					fs.createWriteStream(filename)
+				).on('finish',callback)
+			})
+		}
+		const queryQueue=[]
+		const currentQueries={}
+		const currentQueryCounts={}
+		const enqueue=(elementType)=>{
+			if (!currentQueries[elementType]) return
+			const fullQuery=`/api/0.6/${elementType}?${elementType}=${currentQueries[elementType]}`
+			queryQueue.push([elementType,fullQuery])
+			currentQueries[elementType]=''
+			currentQueryCounts[elementType]=0
+		}
+		const enqueueAll=()=>{
+			for (const elementType in currentQueries) {
+				enqueue(elementType)
 			}
 		}
-		const filename=getFirstFreeFilename()
-		osm.apiGet(query,res=>{
-			fs.mkdirSync(path.join(this.dirName,'previous'),{recursive:true})
-			res.pipe(
-				fs.createWriteStream(filename)
-			).on('finish',callback)
-		})
+		return {
+			add: (elementType,id,version)=>{
+				if (!currentQueries[elementType]) {
+					currentQueries[elementType]=''
+					currentQueryCounts[elementType]=0
+				}
+				if (currentQueryCounts[elementType]>700 || currentQueries[elementType].length>7500) enqueue(elementType)
+				if (currentQueryCounts[elementType]++) currentQueries[elementType]+=','
+				currentQueries[elementType]+=id
+				if (version!==undefined) currentQueries[elementType]+='v'+version
+			},
+			run: (callback)=>{
+				enqueueAll()
+				const rec=(i)=>{
+					if (i<queryQueue.length) {
+						const [prefix,query]=queryQueue[i]
+						request(prefix,query,()=>{
+							rec(i+1)
+						})
+					} else {
+						callback()
+					}
+				}
+				rec(0)
+			}
+		}
 	}
-	requestPreviousDataMultiple(queryQueue,callback) {
-		const rec=(i)=>{
-			if (i<queryQueue.length) {
-				const [prefix,query]=queryQueue[i]
-				this.requestPreviousData(prefix,query,()=>{
-					rec(i+1)
-				})
-			} else {
-				callback()
-			}
-		}
-		rec(0)
+	beginRequestPreviousData() {
+		return this.beginRequestData('previous')
 	}
 }
 

@@ -138,35 +138,16 @@ function downloadPreviousUser(uid) {
 		arr[element][id][version]=true
 	}
 	function downloadPreviousData() {
-		// get previous versions with known numbers for a list of elements
-		// /api/0.6/nodes?nodes=421586779v1,421586779v2
-		// what if they are redacted? - shouldn't happen
-		// uri has to be <8000 chars, <700 elements
-		const queryQueue=[]
+		const request=user.beginRequestPreviousData()
 		for (const elementType of ['nodes','ways','relations']) {
-			let query=''
-			let queryCount=0
-			const runQuery=()=>{
-				if (queryCount<=0) return
-				const fullQuery=`/api/0.6/${elementType}?${elementType}=${query}`
-				queryQueue.push([elementType,fullQuery])
-				query=''
-				queryCount=0
-			}
-			const addToQuery=(id,version)=>{
-				if (queryCount>700 || query.length>7500) runQuery()
-				if (queryCount++) query+=','
-				query+=`${id}v${version}`
-			}
 			const elementVersions=requiredVersions[elementType[0]]
 			for (const [id,versions] of Object.entries(elementVersions)) {
 				for (const version of Object.keys(versions)) {
-					addToQuery(id,version)
+					request.add(elementType,id,version)
 				}
 			}
-			runQuery()
 		}
-		user.requestPreviousDataMultiple(queryQueue,()=>{})
+		request.run(()=>{})
 	}
 	function processChangesetData() {
 		user.parseChangesetData(()=>{
