@@ -188,12 +188,15 @@ function downloadPreviousUser(uid) {
 
 function downloadReferencedUser(uid) {
 	const user=new User(uid)
+	const existingNodes={}
 	const wayNodes={}
 	function downloadReferencedData() {
 		// TODO check already downloaded
 		const requiredNodes={}
 		for (const [,nodes] of Object.entries(wayNodes)) {
-			for (const node of nodes) requiredNodes[node]=true
+			for (const node of nodes) {
+				if (!existingNodes[node]) requiredNodes[node]=true
+			}
 		}
 		const request=user.beginRequestReferencedData()
 		for (const id in requiredNodes) request.add('nodes',id)
@@ -206,6 +209,10 @@ function downloadReferencedUser(uid) {
 			return (new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='create' || name=='modify' || name=='delete') {
 					mode=name
+				} else if (name=='node') {
+					if (mode!='delete') {
+						existingNodes[attrs.id]=true
+					}
 				} else if (name=='way') { // TODO relation
 					id=attrs.id
 					nodes=[]

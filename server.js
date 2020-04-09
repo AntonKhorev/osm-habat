@@ -421,45 +421,7 @@ function respondChanges(response,user) {
 	response.write(`<osm version="0.6" generator="osm-caser">\n`)
 	const nodeData={} // id: [version,lat,lon,tags]
 	const wayData={} // id: [version,tags,nodes]
-	user.parseChangesetData(()=>{
-		let mode
-		let id,version,lat,lon,tags,nodes
-		return (new expat.Parser()).on('startElement',(name,attrs)=>{
-			if (name=='create' || name=='modify' || name=='delete') {
-				mode=name
-			} else if (name=='node' || name=='way') { // TODO relation
-				id=attrs.id
-				version=Number(attrs.version)
-				lat=attrs.lat
-				lon=attrs.lon
-				tags={}
-				nodes=[]
-			} else if (name=='tag') {
-				tags[attrs.k]=attrs.v
-			} else if (name=='nd') {
-				nodes.push(attrs.ref)
-			}
-		}).on('endElement',(name)=>{
-			if (name=='create' || name=='modify' || name=='delete') {
-				mode=undefined
-			} else if (name=='node' || name=='way') { // TODO relation
-				if (name=='node') {
-					if (mode=='delete') {
-						delete nodeData[id]
-					} else if (mode=='create' || mode=='modify') {
-						nodeData[id]=[version,lat,lon,tags]
-					}
-				} else if (name=='way') {
-					if (mode=='delete') {
-						delete wayData[id]
-					} else if (mode=='create' || mode=='modify') {
-						wayData[id]=[version,tags,nodes]
-					}
-				}
-				id=version=lat=lon=tags=nodes=undefined
-			}
-		})
-	},()=>{
+	function writeData() {
 		for (const [id,[version,lat,lon,tags]] of Object.entries(nodeData)) {
 			writeNode(response,id,version,lat,lon,tags)
 		}
@@ -474,7 +436,78 @@ function respondChanges(response,user) {
 			}
 		}
 		response.end(`</osm>\n`)
-	})
+	}
+	function processReferencedData() {
+		const requiredNodes={}
+		for (const [id,[version,tags,nodes]] of Object.entries(wayData)) {
+			for (const node of nodes) {
+				if (!nodeData[node]) requiredNodes[node]=true
+			}
+		}
+		user.parseReferencedData(()=>{
+			let id,version,lat,lon,tags
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='node') {
+					id=attrs.id
+					version=Number(attrs.version)
+					lat=attrs.lat
+					lon=attrs.lon
+					tags={}
+				} else if (name=='tag') {
+					if (tags) tags[attrs.k]=attrs.v
+				}
+			}).on('endElement',(name)=>{
+				if (name=='node') {
+					if (requiredNodes[id] && lat!==undefined && lon!==undefined) { // otherwise node is deleted
+						nodeData[id]=[version,lat,lon,tags]
+					}
+					id=version=lat=lon=tags=nodes=undefined
+				}
+			})
+		},writeData)
+	}
+	function processChangesetData() {
+		user.parseChangesetData(()=>{
+			let mode
+			let id,version,lat,lon,tags,nodes
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=name
+				} else if (name=='node' || name=='way') { // TODO relation
+					id=attrs.id
+					version=Number(attrs.version)
+					lat=attrs.lat
+					lon=attrs.lon
+					tags={}
+					nodes=[]
+				} else if (name=='tag') {
+					if (tags) tags[attrs.k]=attrs.v
+				} else if (name=='nd') {
+					if (nodes) nodes.push(attrs.ref)
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=undefined
+				} else if (name=='node' || name=='way') { // TODO relation
+					if (name=='node') {
+						if (mode=='delete') {
+							delete nodeData[id]
+						} else if (mode=='create' || mode=='modify') {
+							nodeData[id]=[version,lat,lon,tags]
+						}
+					} else if (name=='way') {
+						if (mode=='delete') {
+							delete wayData[id]
+						} else if (mode=='create' || mode=='modify') {
+							wayData[id]=[version,tags,nodes]
+						}
+					}
+					id=version=lat=lon=tags=nodes=undefined
+				}
+			})
+		},processReferencedData)
+	}
+	processChangesetData()
 }
 
 function respondDeletions(response,user) {
@@ -509,9 +542,9 @@ function respondDeletions(response,user) {
 					tags={}
 					nodes=[]
 				} else if (name=='tag') {
-					tags[attrs.k]=attrs.v
+					if (tags) tags[attrs.k]=attrs.v
 				} else if (name=='nd') {
-					nodes.push(attrs.ref)
+					if (nodes) nodes.push(attrs.ref)
 				}
 			}).on('endElement',(name)=>{
 				if (name=='node' || name=='way') { // TODO relation

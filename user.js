@@ -110,8 +110,8 @@ class User {
 		}
 		rec(this.changesets.length-1) // have to go backwards because changesets are stored in reverse order
 	}
-	parsePreviousData(makeParser,callback) {
-		const dirname=path.join(this.dirName,'previous')
+	parseAdditionalData(directory,makeParser,callback) {
+		const dirname=path.join(this.dirName,directory)
 		fs.readdir(dirname,(err,dirfilenames)=>{
 			if (err) {
 				callback()
@@ -130,7 +130,13 @@ class User {
 			rec(0)
 		})
 	}
-	beginRequestData(directory) {
+	parsePreviousData(makeParser,callback) {
+		this.parseAdditionalData('previous',makeParser,callback)
+	}
+	parseReferencedData(makeParser,callback) {
+		this.parseAdditionalData('referenced',makeParser,callback)
+	}
+	beginRequestAdditionalData(directory) {
 		// get previous versions with known numbers for a list of elements
 		// /api/0.6/nodes?nodes=421586779v1,421586779v2
 		// what if they are redacted? - shouldn't happen
@@ -198,10 +204,10 @@ class User {
 		}
 	}
 	beginRequestPreviousData() {
-		return this.beginRequestData('previous')
+		return this.beginRequestAdditionalData('previous')
 	}
 	beginRequestReferencedData() {
-		return this.beginRequestData('referenced')
+		return this.beginRequestAdditionalData('referenced')
 	}
 }
 
