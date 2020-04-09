@@ -143,13 +143,6 @@ class User {
 				}
 			}
 			const filename=getFirstFreeFilename()
-			// {
-			/*
-			console.log('>',query)
-			callback()
-			return
-			*/
-			// }
 			osm.apiGet(query,res=>{
 				fs.mkdirSync(path.join(this.dirName,directory),{recursive:true})
 				res.pipe(
@@ -157,13 +150,14 @@ class User {
 				).on('finish',callback)
 			})
 		}
-		const queryQueue=[]
 		const currentQueries={}
 		const currentQueryCounts={}
+		const queuedQueries={}
 		const enqueue=(elementType)=>{
 			if (!currentQueries[elementType]) return
 			const fullQuery=`/api/0.6/${elementType}?${elementType}=${currentQueries[elementType]}`
-			queryQueue.push([elementType,fullQuery])
+			if (!queuedQueries[elementType]) queuedQueries[elementType]=[]
+			queuedQueries[elementType].push(fullQuery)
 			currentQueries[elementType]=''
 			currentQueryCounts[elementType]=0
 		}
@@ -185,9 +179,13 @@ class User {
 			},
 			run: (callback)=>{
 				enqueueAll()
+				const allQueuedQueries=[]
+				for (const [prefix,queries] of Object.entries(queuedQueries)) {
+					for (const query of queries) allQueuedQueries.push([prefix,query])
+				}
 				const rec=(i)=>{
-					if (i<queryQueue.length) {
-						const [prefix,query]=queryQueue[i]
+					if (i<allQueuedQueries.length) {
+						const [prefix,query]=allQueuedQueries[i]
 						request(prefix,query,()=>{
 							rec(i+1)
 						})
