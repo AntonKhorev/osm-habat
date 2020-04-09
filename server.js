@@ -465,7 +465,13 @@ function respondChanges(response,user) {
 		}
 		for (const [id,[version,tags,nodes]] of Object.entries(wayData)) {
 			writeWay(response,id,version,tags,nodes)
-			// TODO check if referenced nodes were written
+			const missingNodes=[]
+			for (const node of nodes) {
+				if (!nodeData[node]) missingNodes.push(node)
+			}
+			if (missingNodes.length>0) {
+				response.write(e.x`  <!-- way ${id} is missing nodes ${missingNodes.join(',')} -->\n`)
+			}
 		}
 		response.end(`</osm>\n`)
 	})
