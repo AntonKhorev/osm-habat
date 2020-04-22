@@ -202,6 +202,15 @@ function downloadReferencedUser(uid) {
 		for (const id in requiredNodes) request.add('nodes',id)
 		request.run(()=>{})
 	}
+	function processReferencedData() {
+		user.parseReferencedData(()=>{
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='node') {
+					existingNodes[attrs.id]=true
+				}
+			})
+		},downloadReferencedData)
+	}
 	function processChangesetData() {
 		user.parseChangesetData(()=>{
 			let mode
@@ -231,7 +240,7 @@ function downloadReferencedUser(uid) {
 					id=nodes=undefined
 				}
 			})
-		},downloadReferencedData)
+		},processReferencedData)
 	}
 	processChangesetData()
 }
