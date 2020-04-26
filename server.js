@@ -393,7 +393,12 @@ function respondBbox(response,user) {
 	})
 }
 
-function writeNode(response,id,version,lat,lon,tags) {
+function writeNode(response,id,version,data) {
+	if (!data) {
+		response.write(e.x`  <!-- missing node id="${id}" version="${version}" -->\n`)
+		return
+	}
+	const [lat,lon,tags]=data
 	response.write(e.x`  <node id="${id}" version="${version}" lat="${lat}" lon="${lon}"`)
 	let t=Object.entries(tags)
 	if (t.length<=0) {
@@ -405,7 +410,12 @@ function writeNode(response,id,version,lat,lon,tags) {
 	}
 }
 
-function writeWay(response,id,version,tags,nodes) {
+function writeWay(response,id,version,data) {
+	if (!data) {
+		response.write(e.x`  <!-- missing way id="${id}" version="${version}" -->\n`)
+		return
+	}
+	const [tags,nodes]=data
 	response.write(e.x`  <way id="${id}" version="${version}">\n`)
 	for (const node of nodes) response.write(e.x`    <nd ref="${node}"/>\n`)
 	for (const [k,v] of Object.entries(tags)) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
@@ -423,10 +433,10 @@ function respondChanges(response,user) {
 	const wayData={} // id: [version,tags,nodes]
 	function writeData() {
 		for (const [id,[version,lat,lon,tags]] of Object.entries(nodeData)) {
-			writeNode(response,id,version,lat,lon,tags)
+			writeNode(response,id,version,[lat,lon,tags])
 		}
 		for (const [id,[version,tags,nodes]] of Object.entries(wayData)) {
-			writeWay(response,id,version,tags,nodes)
+			writeWay(response,id,version,[tags,nodes])
 			const missingNodes=[]
 			for (const node of nodes) {
 				if (!nodeData[node]) missingNodes.push(node)
@@ -523,10 +533,10 @@ function respondDeletions(response,user) {
 	const wayData={} // id: [tags,nodes]
 	function writeData() {
 		for (const [id,version] of Object.entries(nodeVersions)) {
-			writeNode(response,id,version,...nodeData[id])
+			writeNode(response,id,version,nodeData[id])
 		}
 		for (const [id,version] of Object.entries(wayVersions)) {
-			writeWay(response,id,version,...wayData[id])
+			writeWay(response,id,version,wayData[id])
 		}
 		response.end(`</osm>\n`)
 	}
