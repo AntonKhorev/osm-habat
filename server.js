@@ -572,7 +572,7 @@ function respondDeletions(response,user) {
 				if (name=='create' || name=='modify' || name=='delete') {
 					mode=name
 				} else if (name=='node' || name=='way') { // TODO relation
-					if (mode=='delete') {
+					if (mode=='delete') { // TODO handle self-deletions
 						const id=attrs.id
 						const version=Number(attrs.version)
 						if (name=='node') nodeVersions[id]=version-1
