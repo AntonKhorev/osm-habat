@@ -195,24 +195,42 @@ function reportUser(response,user,callback) {
 function reportUserKeys(response,user,callback) {
 	const encodedName=encodeURIComponent(user.displayName)
 	response.write(e.h`<h1>User #${user.uid} <a href=${'https://www.openstreetmap.org/user/'+encodedName}>${user.displayName}</a></h1>\n`)
-	const currentVersions={n:{},w:{},r:{}}
-	const currentTags={n:{},w:{},r:{}}
+	const data={node:{},way:{},relation:{}}
+	const setData=(element,id,version,tags)=>{
+		if (data[element][id]===undefined) {
+			data[element][id]={}
+		}
+		data[element][id][version]=tags
+	}
+	const getData=(element,id,version)=>{
+		if (data[element][id]===undefined) {
+			return undefined
+		}
+		return data[element][id][version]
+	}
 	const knownKeyCount={}
+	const knownKeyChangesets={}
 	const knownTagCount={}
 	const unknownKeyCount={}
+	const unknownKeyChangesets={}
 	const unknownTagCount={}
-	const maxValues=5
-	const up=(a,k)=>{
+	const hitKey=(a,k)=>{
 		a[k]=(a[k]||0)+1
 	}
-	const upp=(a,k,v)=>{
+	const hitKeyChangeset=(a,k,changeset)=>{
+		if (a[k]===undefined) a[k]=new Map()
+		a[k].set(changeset,true)
+	}
+	const hitTag=(a,k,v)=>{
 		if (a[k]===undefined) a[k]={}
 		a[k][v]=(a[k][v]||0)+1
 	}
-	function writeKeyTable(title,keyCount,tagCount) {
+	function writeKeyTable(title,keyCount,keyChangesets,tagCount) {
+		const maxValues=5
+		const maxChangesets=5
 		response.write(e.h`<h2>${title}</h2>\n`)
 		response.write(`<table>\n`)
-		response.write(`<tr><th>count<th>key<th>values\n`)
+		response.write(`<tr><th>count<th>key<th>values<th>changesets\n`)
 		for (const [key,count] of Object.entries(keyCount).sort((a,b)=>(b[1]-a[1]))) {
 			const encodedKey=encodeURIComponent(key)
 			response.write(e.h`<tr><td>${count}<td><a href=${'https://wiki.openstreetmap.org/wiki/Key:'+encodedKey}>${key}</a><td>`)
@@ -226,55 +244,82 @@ function reportUserKeys(response,user,callback) {
 				const encodedTag=encodeURIComponent(key+'='+v)
 				response.write(e.h`<a href=${'https://wiki.openstreetmap.org/wiki/Tag:'+encodedTag}>${v}</a>×${c}`)
 			}
+			response.write(`<td>`)
+			let i=0
+			let cs=keyChangesets[key]
+			for (const changeset of cs.keys()) {
+				if (i==0 || i==cs.size-1 || cs.size<=maxChangesets) {
+					response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset}>${changeset}</a>`)
+				} else if (i==1) {
+					response.write(e.h` ...${cs.size-2} more changesets...`)
+				}
+				i++
+			}
 			response.write(`\n`)
 		}
 		response.write(`</table>\n`)
 	}
-	user.parseChangesetData(()=>{
-		let mode='?'
-		let element,id,version,tags
-		return (new expat.Parser()).on('startElement',(name,attrs)=>{
-			if (name=='create' || name=='modify' || name=='delete') {
-				mode=name[0]
-			} else if (name=='node' || name=='way' || name=='relation') {
-				element=name[0]
-				id=attrs.id
-				version=Number(attrs.version)
-				tags={}
-			} else if (name=='tag') {
-				tags[attrs.k]=attrs.v
-			}
-		}).on('endElement',(name)=>{
-			if (name=='create' || name=='modify' || name=='delete') {
-				mode='?'
-			} else if (name=='node' || name=='way' || name=='relation') {
-				if (mode=='c' || mode=='m') {
-					let prevTags=currentTags[element][id]
-					if (prevTags===undefined) prevTags={}
+	function processChangesetData() {
+		user.parseChangesetData((iChangeset)=>{
+			let mode,id,version,tags
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=name
+				} else if (name=='node' || name=='way' || name=='relation') {
+					id=attrs.id
+					version=Number(attrs.version)
+					tags={}
+				} else if (name=='tag') {
+					if (tags) tags[attrs.k]=attrs.v
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=undefined
+				} else if (name=='node' || name=='way' || name=='relation') {
+					setData(name,id,version,tags)
+					const prevData=getData(name,id,version-1)
 					for (const [k,v] of Object.entries(tags)) {
-						if (prevTags[k]!==v) {
-							if (mode=='c' || currentVersions[element][id]==version-1) {
-								up(knownKeyCount,k)
-								upp(knownTagCount,k,v)
-							} else {
-								up(unknownKeyCount,k)
-								upp(unknownTagCount,k,v)
-							}
+						if (mode=='create' || (mode=='modify' && prevData!==undefined && prevData[k]!=v)) {
+							hitKey(knownKeyCount,k)
+							hitKeyChangeset(knownKeyChangesets,k,user.changesets[iChangeset])
+							hitTag(knownTagCount,k,v)
+						} else if (mode=='modify' && prevData===undefined) {
+							hitKey(unknownKeyCount,k)
+							hitKeyChangeset(unknownKeyChangesets,k,user.changesets[iChangeset])
+							hitTag(unknownTagCount,k,v)
 						}
 					}
-					currentTags[element][id]=tags
-				} else if (mode=='d') {
-					delete currentTags[element][id]
+					id=version=tags=undefined
 				}
-				currentVersions[element][id]=version
-				element=id=version=tags=undefined
-			}
+			})
+		},()=>{
+			writeKeyTable('Known key edits',knownKeyCount,knownKeyChangesets,knownTagCount)
+			writeKeyTable('Possible key edits',unknownKeyCount,unknownKeyChangesets,unknownTagCount)
+			callback()
 		})
-	},()=>{
-		writeKeyTable('Known key edits',knownKeyCount,knownTagCount)
-		writeKeyTable('Possible key edits',unknownKeyCount,unknownTagCount)
-		callback()
-	})
+	}
+	function processPreviousData() {
+		user.parsePreviousData(()=>{
+			let id,version,tags
+			return (new expat.Parser()).on('startElement',(name,attrs)=>{
+				if (name=='node' || name=='way' || name=='relation') {
+					id=attrs.id
+					version=Number(attrs.version)
+					tags={}
+				} else if (name=='tag') {
+					if (tags) tags[attrs.k]=attrs.v
+				}
+			}).on('endElement',(name)=>{
+				if (name=='create' || name=='modify' || name=='delete') {
+					mode=undefined
+				} else if (name=='node' || name=='way' || name=='relation') {
+					setData(name,id,version,tags)
+					id=version=tags=undefined
+				}
+			})
+		},processChangesetData)
+	}
+	processPreviousData()
 }
 
 function reportUserElements(response,user,callback) {
