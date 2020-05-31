@@ -416,7 +416,7 @@ function respondBbox(response,user) {
 		'Content-Disposition':'attachment; filename="bbox.osm"',
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
-	response.write(`<osm version="0.6" generator="osm-caser" download="never" upload="never">\n`)
+	response.write(`<osm version="0.6" generator="osm-habat" download="never" upload="never">\n`)
 	let k=0 // number of changesets with bbox
 	user.parseChangesetMetadata(()=>(new expat.Parser()).on('startElement',(name,attrs)=>{
 		if (name=='changeset' && attrs.min_lat && attrs.min_lon && attrs.max_lat && attrs.max_lon) {
@@ -473,7 +473,7 @@ function respondChanges(response,user) {
 		'Content-Disposition':'attachment; filename="changes.osm"',
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
-	response.write(`<osm version="0.6" generator="osm-caser">\n`)
+	response.write(`<osm version="0.6" generator="osm-habat">\n`)
 	const nodeData={} // id: [version,lat,lon,tags]
 	const wayData={} // id: [version,tags,nodes]
 	function writeData() {
@@ -571,7 +571,7 @@ function respondDeletions(response,user) {
 		'Content-Disposition':'attachment; filename="deletions.osm"',
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
-	response.write(`<osm version="0.6" generator="osm-caser">\n`)
+	response.write(`<osm version="0.6" generator="osm-habat">\n`)
 	const nodeVersions={}
 	const wayVersions={}
 	const nodeData={} // id: [lat,lon,tags]

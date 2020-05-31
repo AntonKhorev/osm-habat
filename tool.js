@@ -27,7 +27,7 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 				fs.mkdirSync(dirName,{recursive:true})
 				changesetStream=fs.createWriteStream(path.join(dirName,'meta.xml'))
 				changesetStream.write('<?xml version="1.0" encoding="UTF-8"?>\n')
-				changesetStream.write('<osm version="0.6" generator="osm-caser">\n')
+				changesetStream.write('<osm version="0.6" generator="osm-habat">\n')
 				changesetStream.write("<changeset")
 				for (const attr in attrs) {
 					changesetStream.write(e.x` ${attr}="${attrs[attr]}"`)
