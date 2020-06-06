@@ -27,51 +27,55 @@ function checkElementTags(elementType,elementId,tags,callback) {
 
 function processCase(caseData,callback) {
 	console.log(`## case #${caseData.id} ${caseData.name}`)
+	const queue=[]
 	if (caseData.uid) {
 		if (!caseData.changesetsCount) {
-			console.log(`* changesets count not set`)
-			callback()
-			return
-		}
-		const user=new User(caseData.uid)
-		user.requestMetadata(()=>{
-			if (user.changesetsCount>Number(caseData.changesetsCount)) {
-				console.log(`* USER MADE EDITS`)
-			} else {
-				console.log(`* user made no edits`)
-			}
-			callback()
-		})
-	} else if (caseData.elements) {
-		if (!caseData.tags || Object.keys(caseData.tags).length===0) {
-			console.log(`* no tags to check`)
-			callback()
-			return
-		}
-		const rec=(i)=>{
-			if (i>=caseData.elements.length) {
-				callback()
-				return
-			}
-			const [elementType,elementId]=caseData.elements[i]
-			console.log(`### ${elementType} #${elementId}`)
-			checkElementTags(elementType,elementId,caseData.tags,diff=>{
-				if (Object.keys(diff).length===0) {
-					console.log(`* no tag differences`)
+			console.log(`* uid is set, but changesets count not set`)
+		} else {
+			const user=new User(caseData.uid)
+			queue.push(callback=>user.requestMetadata(()=>{
+				if (user.changesetsCount>Number(caseData.changesetsCount)) {
+					console.log(`* USER MADE EDITS`)
 				} else {
-					for (const [k,[v1,v2]] of Object.entries(diff)) {
-						console.log(`* EXPECTED TAG ${k}=${v1}`)
-						console.log(`* ACTUAL   TAG ${k}=${v2}`)
-					}
+					console.log(`* user made no edits`)
 				}
-				rec(i+1)
-			})
+				callback()
+			}))
 		}
-		rec(0)
-	} else {
-		console.log(`* uid/element not set`)
-		callback()
 	}
+	if (caseData.elements) {
+		if (!caseData.tags || Object.keys(caseData.tags).length===0) {
+			console.log(`* element is set, but no tags to check`)
+		} else {
+			for (const [elementType,elementId] of caseData.elements) {
+				queue.push(callback=>{
+					console.log(`### ${elementType} #${elementId}`)
+					checkElementTags(elementType,elementId,caseData.tags,diff=>{
+						if (Object.keys(diff).length===0) {
+							console.log(`* no tag differences`)
+						} else {
+							for (const [k,[v1,v2]] of Object.entries(diff)) {
+								console.log(`* EXPECTED TAG ${k}=${v1}`)
+								console.log(`* ACTUAL   TAG ${k}=${v2}`)
+							}
+						}
+						callback()
+					})
+				})
+			}
+		}
+	}
+	if (queue.length==0) {
+		console.log(`* uid/element not set`)
+	}
+	const rec=i=>{
+		if (i>=queue.length) {
+			callback()
+		} else {
+			queue[i](()=>rec(i+1))
+		}
+	}
+	rec(0)
 }
 
 function processCases(caseDataQueue,callback) {
