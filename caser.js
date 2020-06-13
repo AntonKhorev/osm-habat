@@ -28,19 +28,22 @@ function checkElementTags(elementType,elementId,tags,callback) {
 function processCase(caseData,callback) {
 	console.log(`## case #${caseData.id} ${caseData.name}`)
 	const queue=[]
-	if (caseData.uid) {
-		if (!caseData.changesetsCount) {
-			console.log(`* uid is set, but changesets count not set`)
-		} else {
-			const user=new User(caseData.uid)
-			queue.push(callback=>user.requestMetadata(()=>{
-				if (user.changesetsCount>Number(caseData.changesetsCount)) {
-					console.log(`* USER MADE EDITS`)
-				} else {
-					console.log(`* user made no edits`)
-				}
-				callback()
-			}))
+	if (caseData.uids) {
+		for (const [i,uid] of caseData.uids.entries()) {
+			if (!caseData.changesetsCounts || !caseData.changesetsCounts[i]) {
+				console.log(`* uid ${uid} is set, but changesets count is not set`)
+			} else {
+				const changesetsCount=caseData.changesetsCounts[i]
+				const user=new User(uid)
+				queue.push(callback=>user.requestMetadata(()=>{
+					if (user.changesetsCount>Number(changesetsCount)) {
+						console.log(`* USER ${user.displayName} MADE EDITS`)
+					} else {
+						console.log(`* user ${user.displayName} made no edits`)
+					}
+					callback()
+				}))
+			}
 		}
 	}
 	if (caseData.elements) {
@@ -123,14 +126,19 @@ function readCases(filename,callback) {
 			}
 		}
 		if (inCaseSectionLevel<=0) return
+		const add=(item,value)=>{
+			if (!readingCaseData[item]) readingCaseData[item]=[]
+			readingCaseData[item].push(value)
+		}
 		if (match=input.match(/^\*\s+uid\s+(\S+)/)) {
-			;[,readingCaseData.uid]=match
+			const [,uidString]=match
+			add('uids',uidString)
 		} else if (match=input.match(/^\*\s+changesets\s+count\s+(\S+)/)) {
-			;[,readingCaseData.changesetsCount]=match
+			const [,changesetsCountString]=match
+			add('changesetsCounts',changesetsCountString)
 		} else if (match=input.match(/^\*\s+element\s+(\S+)/)) {
 			const [,elementString]=match
-			if (!readingCaseData.elements) readingCaseData.elements=[]
-			readingCaseData.elements.push(parseElementString(elementString))
+			add('elements',parseElementString(elementString))
 		} else if (match=input.match(/^\*\s+tag\s+([^=]+)=(.*)$/)) {
 			const [,k,v]=match
 			if (!readingCaseData.tags) readingCaseData.tags={}
