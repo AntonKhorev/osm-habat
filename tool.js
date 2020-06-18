@@ -74,7 +74,7 @@ function addUser(userName) {
 	})
 }
 
-function updateUser(uid) {
+function updateUser(uid,callback) {
 	const user=new User(uid)
 	const requestChangesets=(timestamp)=>{
 		const nChangesetsToRequest=user.changesetsCount-user.changesets.length
@@ -93,7 +93,10 @@ function updateUser(uid) {
 			}
 			processUserChangesetsMetadata(res,(uid,changesets,timestamp)=>{
 				user.mergeChangesets(changesets)
-				if (changesets.length==0 || timestamp===undefined) return
+				if (changesets.length==0 || timestamp===undefined) {
+					callback()
+					return
+				}
 				requestChangesets(timestamp)
 			})
 		})
@@ -104,10 +107,13 @@ function updateUser(uid) {
 	})
 }
 
-function downloadUser(uid) {
+function downloadUser(uid,callback) {
 	const user=new User(uid)
 	const rec=i=>{
-		if (i>=user.changesets.length) return
+		if (i>=user.changesets.length) {
+			callback()
+			return
+		}
 		const id=user.changesets[i]
 		const dirName=path.join('changeset',sanitize(String(id)))
 		const filename=path.join(dirName,'data.xml')
@@ -123,7 +129,7 @@ function downloadUser(uid) {
 	rec(0)
 }
 
-function downloadPreviousUser(uid) {
+function downloadPreviousUser(uid,callback) {
 	const user=new User(uid)
 	const availableVersions={n:{},w:{},r:{}}
 	const requiredVersions={n:{},w:{},r:{}}
@@ -147,7 +153,7 @@ function downloadPreviousUser(uid) {
 				}
 			}
 		}
-		request.run(()=>{})
+		request.run(callback)
 	}
 	function processChangesetData() {
 		user.parseChangesetData(()=>{
@@ -186,7 +192,7 @@ function downloadPreviousUser(uid) {
 	processPreviousData()
 }
 
-function downloadReferencedUser(uid) {
+function downloadReferencedUser(uid,callback) {
 	const user=new User(uid)
 	const existingNodes={}
 	const wayNodes={}
@@ -200,7 +206,7 @@ function downloadReferencedUser(uid) {
 		}
 		const request=user.beginRequestReferencedData()
 		for (const id in requiredNodes) request.add('nodes',id)
-		request.run(()=>{})
+		request.run(callback)
 	}
 	function processReferencedData() {
 		user.parseReferencedData(()=>{
@@ -245,12 +251,21 @@ function downloadReferencedUser(uid) {
 	processChangesetData()
 }
 
+function downloadAllUser(uid,callback) {
+	downloadUser(uid,
+		()=>downloadPreviousUser(uid,
+			()=>downloadReferencedUser(uid,callback)
+		)
+	)
+}
+
 const cmd=process.argv[2]
 const dumbCommands={
 	'update': updateUser,
 	'download': downloadUser,
 	'download-previous': downloadPreviousUser,
 	'download-referenced': downloadReferencedUser,
+	'download-all': downloadAllUser,
 }
 const handleDumbCmds=()=>{
 	for (const [cmdName,cmdFn] of Object.entries(dumbCommands)) {
@@ -260,7 +275,7 @@ const handleDumbCmds=()=>{
 				console.log(`missing ${cmd} argument`)
 				return process.exit(1)
 			}
-			cmdFn(uid)
+			cmdFn(uid,()=>{})
 			return
 		}
 	}
