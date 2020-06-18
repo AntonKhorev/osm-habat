@@ -97,11 +97,9 @@ function processCases(caseDataQueue,callback) {
 function readCases(filename,callback) {
 	function parseElementString(elementString) {
 		let match
-		if (match=elementString.match(/(node|way|relation)\/(\d+)$/)) {
+		if (match=elementString.match(/(node|way|relation)[ /#]+(\d+)$/)) {
 			const [,type,id]=match
 			return [type,id]
-		} else {
-			return [undefined,undefined]
 		}
 	}
 	let match
@@ -127,6 +125,10 @@ function readCases(filename,callback) {
 		}
 		if (inCaseSectionLevel<=0) return
 		const add=(item,value)=>{
+			if (value===undefined) {
+				console.log(`syntax error when specifying ${item}`)
+				return
+			}
 			if (!readingCaseData[item]) readingCaseData[item]=[]
 			readingCaseData[item].push(value)
 		}
@@ -136,7 +138,7 @@ function readCases(filename,callback) {
 		} else if (match=input.match(/^\*\s+changesets\s+count\s+(\S+)/)) {
 			const [,changesetsCountString]=match
 			add('changesetsCounts',changesetsCountString)
-		} else if (match=input.match(/^\*\s+element\s+(\S+)/)) {
+		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
 			const [,elementString]=match
 			add('elements',parseElementString(elementString))
 		} else if (match=input.match(/^\*\s+tag\s+([^=]+)=(.*)$/)) {
