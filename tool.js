@@ -64,6 +64,11 @@ function addUser(userName) {
 			return process.exit(1)
 		}
 		processUserChangesetsMetadata(res,(uid,changesets)=>{
+			if (uid===undefined) {
+				console.log(`could not get uid from changesets`)
+				console.log(`try looking for uid on hdyc: https://hdyc.neis-one.org/?${encodeURIComponent(userName)}`)
+				return
+			}
 			const user=new User(uid)
 			console.log(`about to add user #${uid} with currently read ${changesets.length} changesets metadata`)
 			user.mergeChangesets(changesets)
