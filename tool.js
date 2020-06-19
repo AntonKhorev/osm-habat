@@ -309,6 +309,13 @@ if (cmd=='add') {
 			const userName=decodeURIComponent(userUrl.search).substr(1)
 			console.log(`adding user ${userName}`)
 			addUser(userName)
+		} else if (userUrl.host=='resultmaps.neis-one.org') {
+			const uid=userUrl.searchParams.get('uid')
+			const user=new User(uid)
+			console.log(`about to add user #${uid} without reading changesets metadata`)
+			user.requestMetadata(()=>{
+				console.log(`wrote user #${uid} metadata`)
+			})
 		} else {
 			console.log(`unrecognized host ${userUrl.host}`)
 			return process.exit(1)
