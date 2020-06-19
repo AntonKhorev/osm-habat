@@ -290,17 +290,22 @@ if (cmd=='add') {
 	}
 	try {
 		const userUrl=new URL(userString)
-		if (userUrl.host!='www.openstreetmap.org') {
-			console.log(`unrecognized host ${userUrl.host}`)
-			return process.exit(1)
-		}
-		const [,userPathDir,userPathEnd]=userUrl.pathname.split('/')
-		if (userPathDir=='user') {
-			const userName=decodeURIComponent(userPathEnd)
+		if (userUrl.host=='www.openstreetmap.org') {
+			const [,userPathDir,userPathEnd]=userUrl.pathname.split('/')
+			if (userPathDir=='user') {
+				const userName=decodeURIComponent(userPathEnd)
+				console.log(`adding user ${userName}`)
+				addUser(userName)
+			} else {
+				console.log('invalid url format')
+				return process.exit(1)
+			}
+		} else if (userUrl.host=='hdyc.neis-one.org') {
+			const userName=decodeURIComponent(userUrl.search).substr(1)
 			console.log(`adding user ${userName}`)
 			addUser(userName)
 		} else {
-			console.log('invalid url format')
+			console.log(`unrecognized host ${userUrl.host}`)
 			return process.exit(1)
 		}
 	} catch {
