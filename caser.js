@@ -5,6 +5,22 @@ const expat=require('node-expat')
 const osm=require('./osm')
 const User=require('./user')
 
+function getLastNoteId(uid,callback) {
+	osm.apiGet(`/api/0.6/notes/search?limit=1&user=${uid}`,res=>{
+		let captureId=false
+		let noteId=''
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='id') captureId=true
+		}).on('endElement',(name)=>{
+			if (name=='id') captureId=false
+		}).on('text',(text)=>{
+			if (captureId) noteId+=text
+		}).on('end',()=>{
+			callback(noteId)
+		}))
+	})
+}
+
 function checkElementTags(elementType,elementId,tags,callback) {
 	const diff={}
 	for (const [k,v] of Object.entries(tags)) {
@@ -30,9 +46,8 @@ function processCase(caseData,callback) {
 	const queue=[]
 	if (caseData.uids) {
 		for (const [i,uid] of caseData.uids.entries()) {
-			if (!caseData.changesetsCounts || !caseData.changesetsCounts[i]) {
-				console.log(`* uid ${uid} is set, but changesets count is not set`)
-			} else {
+			let done=false
+			if (caseData.changesetsCounts && caseData.changesetsCounts[i]) {
 				const changesetsCount=caseData.changesetsCounts[i]
 				const user=new User(uid)
 				queue.push(callback=>user.requestMetadata(()=>{
@@ -43,6 +58,23 @@ function processCase(caseData,callback) {
 					}
 					callback()
 				}))
+				done=true
+			}
+			if (caseData.noteId && caseData.noteId[i]) {
+				const oldNoteId=caseData.noteId[i]
+				const user=new User(uid)
+				queue.push(callback=>getLastNoteId(uid,(newNoteId)=>{
+					if (oldNoteId!=newNoteId) {
+						console.log(`* USER ${user.displayName} ADDED A NEW NOTE #${newNoteId}`)
+					} else {
+						console.log(`* user ${user.displayName} added no new notes`)
+					}
+					callback()
+				}))
+				done=true
+			}
+			if (!done) {
+				console.log(`* uid ${uid} is set, but neither changesets count nor last note is not set`)
 			}
 		}
 	}
@@ -138,6 +170,9 @@ function readCases(filename,callback) {
 		} else if (match=input.match(/^\*\s+changesets\s+count\s+(\S+)/)) {
 			const [,changesetsCountString]=match
 			add('changesetsCounts',changesetsCountString)
+		} else if (match=input.match(/^\*\s+last\s+note\s+(.*)$/)) {
+			const [,noteIdString]=match
+			add('noteId',noteIdString)
 		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
 			const [,elementString]=match
 			add('elements',parseElementString(elementString))
