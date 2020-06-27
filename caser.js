@@ -1,6 +1,7 @@
 const fs=require('fs')
 const readline=require('readline')
 const expat=require('node-expat')
+const meow=require('meow')
 
 const osm=require('./osm')
 const User=require('./user')
@@ -15,17 +16,37 @@ class Section {
 	}
 }
 
-async function main() {
-	const filename=process.argv[2]
-	if (filename===undefined) {
+const cli=meow(`
+	Usage
+	  $ node caser.js <input> <output>
+
+	Options
+	  --dry,     -d  Don't make OSM API requests
+	  --verbose, -v  Also write successful reports
+`,{
+	flags: {
+		dry: {
+			type: 'boolean',
+			alias: 'd',
+		},
+		verbose: {
+			type: 'boolean',
+			alias: 'v',
+		},
+	},
+})
+
+main(cli.input[0],cli.input[1],cli.flags)
+
+async function main(inputFilename,outputFilename,flags) {
+	if (inputFilename===undefined) {
 		console.log('missing cases filename')
 		return process.exit(1)
 	}
-	const rootSection=await readSections(filename)
-	await processSections(rootSection,false)
-	await reportSections(rootSection)
+	const rootSection=await readSections(inputFilename)
+	await processSections(rootSection,flags)
+	await reportSections(rootSection,outputFilename)
 }
-main()
 
 async function readSections(filename,callback) {
 	function parseElementString(elementString) {
@@ -87,10 +108,10 @@ async function readSections(filename,callback) {
 	}))
 }
 
-async function processSections(rootSection,verbose) {
+async function processSections(rootSection,flags) {
 	const rec=async(depth,section)=>{
 		if (depth>0) console.log(section.lines[0])
-		await processSection(section,verbose)
+		await processSection(section,flags)
 		for (const subsection of section.subsections) {
 			await rec(depth+1,subsection)
 		}
@@ -98,50 +119,63 @@ async function processSections(rootSection,verbose) {
 	await rec(0,rootSection)
 }
 
-async function processSection(section,verbose) {
+async function processSection(section,flags) {
 	if (section.data.uids) {
 		for (const [i,uid] of section.data.uids.entries()) {
 			let done=false
 			if (section.data.changesetsCounts && section.data.changesetsCounts[i]) {
-				const changesetsCount=section.data.changesetsCounts[i]
-				const user=new User(uid)
-				await new Promise(resolve=>user.requestMetadata(resolve))
-				if (user.changesetsCount>Number(changesetsCount)) {
-					section.report.push(`* USER ${user.displayName} MADE EDITS`)
-				} else if (verbose) {
-					section.report.push(`* user ${user.displayName} made no edits`)
-				}
 				done=true
+				const changesetsCount=section.data.changesetsCounts[i]
+				if (flags.dry) {
+					section.report.push(`* will check user #${uid} metadata for changesets count`)
+				} else {
+					const user=new User(uid)
+					await new Promise(resolve=>user.requestMetadata(resolve))
+					if (user.changesetsCount>Number(changesetsCount)) {
+						section.report.push(`* USER ${user.displayName} MADE EDITS`)
+					} else if (flags.verbose) {
+						section.report.push(`* user ${user.displayName} made no edits`)
+					}
+				}
 			}
 			if (section.data.noteId && section.data.noteId[i]) {
-				const oldNoteId=section.data.noteId[i]
-				const user=new User(uid)
-				await new Promise(resolve=>user.requestMetadata(resolve))
-				const newNoteId=await getLastNoteId(uid)
-				if (oldNoteId!=newNoteId) {
-					section.report.push(`* USER ${user.displayName} ADDED A NEW NOTE #${newNoteId}`)
-				} else if (verbose) {
-					section.report.push(`* user ${user.displayName} added no new notes`)
-				}
 				done=true
+				const oldNoteId=section.data.noteId[i]
+				if (flags.dry) {
+					section.report.push(`* will check user #${uid} metadata`) // actually don't need to
+					section.report.push(`* will check user #${uid} last note`)
+				} else {
+					const user=new User(uid)
+					await new Promise(resolve=>user.requestMetadata(resolve))
+					const newNoteId=await getLastNoteId(uid)
+					if (oldNoteId!=newNoteId) {
+						section.report.push(`* USER ${user.displayName} ADDED A NEW NOTE #${newNoteId}`)
+					} else if (flags.verbose) {
+						section.report.push(`* user ${user.displayName} added no new notes`)
+					}
+				}
 			}
-			if (verbose && !done) {
+			if (flags.verbose && !done) {
 				section.report.push(`* uid ${uid} is set, but neither changesets count nor last note is not set`)
 			}
 		}
 	}
 	if (section.data.elements) {
 		if (!section.data.tags || Object.keys(section.data.tags).length===0) {
-			if (verbose) section.report.push(`* element is set, but no tags to check`)
+			if (flags.verbose) section.report.push(`* element is set, but no tags to check`)
 		} else {
 			for (const [elementType,elementId] of section.data.elements) {
+				if (flags.dry) {
+					section.report.push(`* will check ${elementType} #${elementId} tags`)
+					continue
+				}
 				const diff=await checkElementTags(elementType,elementId,section.data.tags)
 				if (Object.keys(diff).length>0) {
 					for (const [k,[v1,v2]] of Object.entries(diff)) {
 						section.report.push(`* ${elementType} #${elementId} EXPECTED TAG ${k}=${v1}`)
 						section.report.push(`* ${elementType} #${elementId} ACTUAL   TAG ${k}=${v2}`)
 					}
-				} else if (verbose) {
+				} else if (flags.verbose) {
 					section.report.push(`* ${elementType} #${elementId} has no tag differences`)
 				}
 			}
@@ -185,8 +219,8 @@ async function checkElementTags(elementType,elementId,tags) {
 	}))
 }
 
-async function reportSections(rootSection) {
-	const reportFile=await fs.promises.open('report.md','w')
+async function reportSections(rootSection,outputFilename) {
+	const reportFile=await fs.promises.open(outputFilename,'w')
 	const sectionStack=[]
 	const rec=async(section)=>{
 		sectionStack.push(section)
