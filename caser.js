@@ -5,136 +5,29 @@ const expat=require('node-expat')
 const osm=require('./osm')
 const User=require('./user')
 
-function getLastNoteId(uid,callback) {
-	osm.apiGet(`/api/0.6/notes/search?limit=1&user=${uid}`,res=>{
-		let captureId=false
-		let noteId=''
-		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
-			if (name=='id') captureId=true
-		}).on('endElement',(name)=>{
-			if (name=='id') captureId=false
-		}).on('text',(text)=>{
-			if (captureId) noteId+=text
-		}).on('end',()=>{
-			callback(noteId)
-		}))
-	})
-}
-
-function checkElementTags(elementType,elementId,tags,callback) {
-	const diff={}
-	for (const [k,v] of Object.entries(tags)) {
-		diff[k]=[v,'']
-	}
-	osm.apiGet(`/api/0.6/${elementType}/${elementId}`,res=>{
-		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
-			if (name=='tag' && diff[attrs.k]) {
-				if (diff[attrs.k][0]===attrs.v) {
-					delete diff[attrs.k]
-				} else {
-					diff[attrs.k][1]=attrs.v
-				}
-			}
-		}).on('end',()=>{
-			callback(diff)
-		}))
-	})
-}
-
-function processCase(caseData,callback) {
-	console.log(`## case #${caseData.id} ${caseData.name}`)
-	const queue=[]
-	if (caseData.uids) {
-		for (const [i,uid] of caseData.uids.entries()) {
-			let done=false
-			if (caseData.changesetsCounts && caseData.changesetsCounts[i]) {
-				const changesetsCount=caseData.changesetsCounts[i]
-				const user=new User(uid)
-				queue.push(callback=>user.requestMetadata(()=>{
-					if (user.changesetsCount>Number(changesetsCount)) {
-						console.log(`* USER ${user.displayName} MADE EDITS`)
-					} else {
-						console.log(`* user ${user.displayName} made no edits`)
-					}
-					callback()
-				}))
-				done=true
-			}
-			if (caseData.noteId && caseData.noteId[i]) {
-				const oldNoteId=caseData.noteId[i]
-				const user=new User(uid)
-				queue.push(callback=>getLastNoteId(uid,(newNoteId)=>{
-					if (oldNoteId!=newNoteId) {
-						console.log(`* USER ${user.displayName} ADDED A NEW NOTE #${newNoteId}`)
-					} else {
-						console.log(`* user ${user.displayName} added no new notes`)
-					}
-					callback()
-				}))
-				done=true
-			}
-			if (!done) {
-				console.log(`* uid ${uid} is set, but neither changesets count nor last note is not set`)
-			}
-		}
-	}
-	if (caseData.elements) {
-		if (!caseData.tags || Object.keys(caseData.tags).length===0) {
-			console.log(`* element is set, but no tags to check`)
-		} else {
-			for (const [elementType,elementId] of caseData.elements) {
-				queue.push(callback=>{
-					console.log(`### ${elementType} #${elementId}`)
-					checkElementTags(elementType,elementId,caseData.tags,diff=>{
-						if (Object.keys(diff).length===0) {
-							console.log(`* no tag differences`)
-						} else {
-							for (const [k,[v1,v2]] of Object.entries(diff)) {
-								console.log(`* EXPECTED TAG ${k}=${v1}`)
-								console.log(`* ACTUAL   TAG ${k}=${v2}`)
-							}
-						}
-						callback()
-					})
-				})
-			}
-		}
-	}
-	if (queue.length==0) {
-		console.log(`* uid/element not set`)
-	}
-	const rec=i=>{
-		if (i>=queue.length) {
-			callback()
-		} else {
-			queue[i](()=>rec(i+1))
-		}
-	}
-	rec(0)
-}
-
-function processCases(caseDataQueue,callback) {
-	const rec=(i)=>{
-		if (i>=caseDataQueue.length) {
-			callback()
-			return
-		}
-		processCase(caseDataQueue[i],()=>{
-			rec(i+1)
-		})
-	}
-	rec(0)
-}
-
 class Section {
 	constructor() {
 		this.lines=[]
 		this.data={}
 		this.subsections=[]
+		this.report=[]
+		this.written=false
 	}
 }
 
-function readCases(filename,callback) {
+async function main() {
+	const filename=process.argv[2]
+	if (filename===undefined) {
+		console.log('missing cases filename')
+		return process.exit(1)
+	}
+	const rootSection=await readSections(filename)
+	await processSections(rootSection,false)
+	await reportSections(rootSection)
+}
+main()
+
+async function readSections(filename,callback) {
 	function parseElementString(elementString) {
 		let match
 		if (match=elementString.match(/(node|way|relation)[ /#]+(\d+)$/)) {
@@ -143,13 +36,10 @@ function readCases(filename,callback) {
 		}
 	}
 	let match
-	//let inCaseSectionLevel=0
 	const rootSection=new Section()
 	let currentSection=rootSection
 	const sectionStack=[]
-	//let caseDataQueue=[]
-	//let readingCaseData
-	readline.createInterface({
+	return new Promise(resolve=>readline.createInterface({
 		input: fs.createReadStream(filename)
 	}).on('line',input=>{
 		if (match=input.match(/^(#+)(.*)/)) {
@@ -193,25 +83,126 @@ function readCases(filename,callback) {
 			currentSection.data.tags[k]=v
 		}
 	}).on('close',()=>{
-		const util = require('util')
-		console.log(util.inspect(rootSection, {showHidden: false, depth: null}))
-		/*
-		if (inCaseSectionLevel>0) {
-			caseDataQueue.push(readingCaseData)
-			readingCaseData=undefined
-			inCaseSectionLevel=0
-		}
-		callback(caseDataQueue)
-		*/
-		//callback(rootSection)
-	})
+		resolve(rootSection)
+	}))
 }
 
-const filename=process.argv[2]
-if (filename===undefined) {
-	console.log('missing cases filename')
-	return process.exit(1)
+async function processSections(rootSection,verbose) {
+	const rec=async(depth,section)=>{
+		if (depth>0) console.log(section.lines[0])
+		await processSection(section,verbose)
+		for (const subsection of section.subsections) {
+			await rec(depth+1,subsection)
+		}
+	}
+	await rec(0,rootSection)
 }
-readCases(filename,(caseDataQueue)=>{
-	processCases(caseDataQueue,()=>{})
-})
+
+async function processSection(section,verbose) {
+	if (section.data.uids) {
+		for (const [i,uid] of section.data.uids.entries()) {
+			let done=false
+			if (section.data.changesetsCounts && section.data.changesetsCounts[i]) {
+				const changesetsCount=section.data.changesetsCounts[i]
+				const user=new User(uid)
+				await new Promise(resolve=>user.requestMetadata(resolve))
+				if (user.changesetsCount>Number(changesetsCount)) {
+					section.report.push(`* USER ${user.displayName} MADE EDITS`)
+				} else if (verbose) {
+					section.report.push(`* user ${user.displayName} made no edits`)
+				}
+				done=true
+			}
+			if (section.data.noteId && section.data.noteId[i]) {
+				const oldNoteId=section.data.noteId[i]
+				const user=new User(uid)
+				await new Promise(resolve=>user.requestMetadata(resolve))
+				const newNoteId=await getLastNoteId(uid)
+				if (oldNoteId!=newNoteId) {
+					section.report.push(`* USER ${user.displayName} ADDED A NEW NOTE #${newNoteId}`)
+				} else if (verbose) {
+					section.report.push(`* user ${user.displayName} added no new notes`)
+				}
+				done=true
+			}
+			if (verbose && !done) {
+				section.report.push(`* uid ${uid} is set, but neither changesets count nor last note is not set`)
+			}
+		}
+	}
+	if (section.data.elements) {
+		if (!section.data.tags || Object.keys(section.data.tags).length===0) {
+			if (verbose) section.report.push(`* element is set, but no tags to check`)
+		} else {
+			for (const [elementType,elementId] of section.data.elements) {
+				const diff=await checkElementTags(elementType,elementId,section.data.tags)
+				if (Object.keys(diff).length>0) {
+					for (const [k,[v1,v2]] of Object.entries(diff)) {
+						section.report.push(`* ${elementType} #${elementId} EXPECTED TAG ${k}=${v1}`)
+						section.report.push(`* ${elementType} #${elementId} ACTUAL   TAG ${k}=${v2}`)
+					}
+				} else if (verbose) {
+					section.report.push(`* ${elementType} #${elementId} has no tag differences`)
+				}
+			}
+		}
+	}
+}
+
+async function getLastNoteId(uid) {
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=1&user=${uid}`,res=>{
+		let captureId=false
+		let noteId=''
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='id') captureId=true
+		}).on('endElement',(name)=>{
+			if (name=='id') captureId=false
+		}).on('text',(text)=>{
+			if (captureId) noteId+=text
+		}).on('end',()=>{
+			resolve(noteId)
+		}))
+	}))
+}
+
+async function checkElementTags(elementType,elementId,tags) {
+	const diff={}
+	for (const [k,v] of Object.entries(tags)) {
+		diff[k]=[v,'']
+	}
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/${elementType}/${elementId}`,res=>{
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='tag' && diff[attrs.k]) {
+				if (diff[attrs.k][0]===attrs.v) {
+					delete diff[attrs.k]
+				} else {
+					diff[attrs.k][1]=attrs.v
+				}
+			}
+		}).on('end',()=>{
+			resolve(diff)
+		}))
+	}))
+}
+
+async function reportSections(rootSection) {
+	const reportFile=await fs.promises.open('report.md','w')
+	const sectionStack=[]
+	const rec=async(section)=>{
+		sectionStack.push(section)
+		if (section.report.length>0) {
+			for (const section of sectionStack) {
+				if (section.written) continue
+				for (const line of section.lines) await reportFile.write(line+'\n')
+				section.written=true
+			}
+			for (const line of section.report) await reportFile.write(line+'\n')
+			await reportFile.write('\n')
+		}
+		for (const subsection of section.subsections) {
+			await rec(subsection)
+		}
+		sectionStack.pop()
+	}
+	await rec(rootSection)
+}
