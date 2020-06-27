@@ -70,7 +70,6 @@ async function readSections(filename,callback) {
 				currentSection=sectionStack.pop()
 			}
 			while (sectionLevel>sectionStack.length) {
-				sectionStack.push(currentSection)
 				const newSection=new Section()
 				currentSection.subsections.push(newSection)
 				sectionStack.push(currentSection)
