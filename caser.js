@@ -126,6 +126,14 @@ function processCases(caseDataQueue,callback) {
 	rec(0)
 }
 
+class Section {
+	constructor() {
+		this.lines=[]
+		this.data={}
+		this.subsections=[]
+	}
+}
+
 function readCases(filename,callback) {
 	function parseElementString(elementString) {
 		let match
@@ -135,34 +143,37 @@ function readCases(filename,callback) {
 		}
 	}
 	let match
-	let inCaseSectionLevel=0
-	let caseDataQueue=[]
-	let readingCaseData
+	//let inCaseSectionLevel=0
+	const rootSection=new Section()
+	let currentSection=rootSection
+	const sectionStack=[]
+	//let caseDataQueue=[]
+	//let readingCaseData
 	readline.createInterface({
 		input: fs.createReadStream(filename)
 	}).on('line',input=>{
 		if (match=input.match(/^(#+)(.*)/)) {
 			const [,headerPrefix,rest]=match
 			const sectionLevel=headerPrefix.length
-			if (sectionLevel<=inCaseSectionLevel) {
-				caseDataQueue.push(readingCaseData)
-				readingCaseData=undefined
-				inCaseSectionLevel=0
+			while (sectionLevel<=sectionStack.length) {
+				currentSection=sectionStack.pop()
 			}
-			if (inCaseSectionLevel<=0 && (match=rest.match(/\s*#(\S+)\s+(.*)/))) {
-				inCaseSectionLevel=sectionLevel
-				readingCaseData={}
-				;[,readingCaseData.id,readingCaseData.name]=match
+			while (sectionLevel>sectionStack.length) {
+				sectionStack.push(currentSection)
+				const newSection=new Section()
+				currentSection.subsections.push(newSection)
+				sectionStack.push(currentSection)
+				currentSection=newSection
 			}
 		}
-		if (inCaseSectionLevel<=0) return
+		currentSection.lines.push(input)
 		const add=(item,value)=>{
 			if (value===undefined) {
 				console.log(`syntax error when specifying ${item}`)
 				return
 			}
-			if (!readingCaseData[item]) readingCaseData[item]=[]
-			readingCaseData[item].push(value)
+			if (!currentSection.data[item]) currentSection.data[item]=[]
+			currentSection.data[item].push(value)
 		}
 		if (match=input.match(/^\*\s+uid\s+(\S+)/)) {
 			const [,uidString]=match
@@ -178,16 +189,21 @@ function readCases(filename,callback) {
 			add('elements',parseElementString(elementString))
 		} else if (match=input.match(/^\*\s+tag\s+([^=]+)=(.*)$/)) {
 			const [,k,v]=match
-			if (!readingCaseData.tags) readingCaseData.tags={}
-			readingCaseData.tags[k]=v
+			if (!currentSection.data.tags) currentSection.data.tags={}
+			currentSection.data.tags[k]=v
 		}
 	}).on('close',()=>{
+		const util = require('util')
+		console.log(util.inspect(rootSection, {showHidden: false, depth: null}))
+		/*
 		if (inCaseSectionLevel>0) {
 			caseDataQueue.push(readingCaseData)
 			readingCaseData=undefined
 			inCaseSectionLevel=0
 		}
 		callback(caseDataQueue)
+		*/
+		//callback(rootSection)
 	})
 }
 
