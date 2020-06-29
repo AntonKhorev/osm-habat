@@ -90,7 +90,7 @@ async function readSections(filename,callback) {
 			add('uids',uidString)
 		} else if (match=input.match(/^\*\s+changesets\s+count\s+(\S+)/)) {
 			const [,changesetsCountString]=match
-			add('changesetsCounts',changesetsCountString)
+			add('changesetsCounts',changesetsCountString.replace(/,/g,'')) // allow input with commas like 2,950 b/c it's on osm user page
 		} else if (match=input.match(/^\*\s+last\s+note\s+(.*)$/)) {
 			const [,noteIdString]=match
 			add('noteId',noteIdString)
@@ -130,8 +130,9 @@ async function processSection(section,flags) {
 				} else {
 					const user=new User(uid)
 					await new Promise(resolve=>user.requestMetadata(resolve))
-					if (user.changesetsCount>Number(changesetsCount)) {
-						section.report.push(`* USER ${user.displayName} MADE EDITS`)
+					const nNewChangesets=user.changesetsCount-changesetsCount
+					if (nNewChangesets) {
+						section.report.push(`* USER ${user.displayName} MADE ${nNewChangesets} EDIT${nNewChangesets==1?'':'S'}`)
 					} else if (flags.verbose) {
 						section.report.push(`* user ${user.displayName} made no edits`)
 					}
