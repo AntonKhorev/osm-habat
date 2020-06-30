@@ -184,7 +184,7 @@ async function processSection(section,flags) {
 }
 
 async function getLastNoteId(uid) {
-	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=1&user=${uid}`,res=>{
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=1&closed=-1&user=${uid}`,res=>{
 		let captureId=false
 		let noteId=''
 		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
