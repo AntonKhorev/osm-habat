@@ -326,6 +326,12 @@ function reportUserElements(response,user,callback) {
 	const encodedName=encodeURIComponent(user.displayName)
 	response.write(e.h`<h1>User #${user.uid} <a href=${'https://www.openstreetmap.org/user/'+encodedName}>${user.displayName}</a></h1>\n`)
 	response.write(`<h2>Elements changed</h2>\n`)
+	response.write(`<p>example css mod - show only modified names:\n`)
+	response.write(`<pre><code>`+
+		`tr:not(.modify),\n`+
+		`tr:not([data-key^=name])\n`+
+		`{display:none}\n`+
+	`</code></pre>\n`)
 	const data={node:{},way:{},relation:{}}
 	const setData=(element,id,version,tags)=>{
 		if (data[element][id]===undefined) {
@@ -341,14 +347,18 @@ function reportUserElements(response,user,callback) {
 	}
 	function processChangesetData() {
 		user.parseChangesetData((i)=>{
-			response.write(e.h`<h3>Changeset #${user.changesets[i]}</h3>\n`)
-			response.write(`<table>\n`)
-			response.write(`<tr><th>key<th>old value<th>new value\n`)
+			let tableHeaderWritten=false
 			let mode,element,id,version,tags
 			return (new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='create' || name=='modify' || name=='delete') {
 					mode=name
 				} else if (name=='node' || name=='way' || name=='relation') {
+					if (!tableHeaderWritten) {
+						response.write(e.h`<h3>Changeset #${user.changesets[i]} written around ${attrs.timestamp}</h3>\n`)
+						response.write(`<table>\n`)
+						response.write(`<tr><th>key<th>old value<th>new value\n`)
+						tableHeaderWritten=true
+					}
 					element=name
 					id=attrs.id
 					version=Number(attrs.version)
@@ -377,13 +387,13 @@ function reportUserElements(response,user,callback) {
 						if (v1=='' && v2!='') change='create'
 						if (v1!='' && v2=='') change='delete'
 						if (v1!='' && v2!='' && v1!=v2) change='modify'
-						response.write(e.h`<tr class=${change}><td>${k}<td>${v1}<td>${v2}\n`)
+						response.write(e.h`<tr class=${change} data-key=${k}><td>${k}<td>${v1}<td>${v2}\n`)
 					}
 					setData(element,id,version,tags)
 					element=id=version=tags=undefined
 				}
 			}).on('end',()=>{
-				response.write(`</table>\n`)
+				if (tableHeaderWritten) response.write(`</table>\n`)
 			})
 		},callback)
 	}
