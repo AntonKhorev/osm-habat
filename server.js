@@ -354,7 +354,8 @@ function reportUserElements(response,user,callback) {
 					mode=name
 				} else if (name=='node' || name=='way' || name=='relation') {
 					if (!tableHeaderWritten) {
-						response.write(e.h`<h3>Changeset #${user.changesets[i]} written around ${attrs.timestamp}</h3>\n`)
+						let id=user.changesets[i]
+						response.write(e.h`<h3><a href=${`https://www.openstreetmap.org/changeset/${id}`}>Changeset #${id}</a> written around ${attrs.timestamp}</h3>\n`)
 						response.write(`<table>\n`)
 						response.write(`<tr><th>key<th>old value<th>new value\n`)
 						tableHeaderWritten=true
@@ -370,7 +371,7 @@ function reportUserElements(response,user,callback) {
 				if (name=='create' || name=='modify' || name=='delete') {
 					mode=undefined
 				} else if (name=='node' || name=='way' || name=='relation') {
-					response.write(e.h`<tr><th colspan=3>${mode} ${element} #${id}\n`)
+					response.write(e.h`<tr><th colspan=3>${mode} <a href=${`https://www.openstreetmap.org/${name}/${id}`}>${element} #${id}</a>\n`)
 					const prevTags=getData(element,id,version-1)
 					const combinedTags={}
 					if (prevTags!==undefined) {
