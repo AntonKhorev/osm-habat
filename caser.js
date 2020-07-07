@@ -101,6 +101,9 @@ async function readSections(filename,callback) {
 			const [,k,v]=match
 			if (!currentSection.data.tags) currentSection.data.tags={}
 			currentSection.data.tags[k]=v
+		} else if (match=input.match(/^\*\s+should\s+contain\s+element\s+(.*)$/)) {
+			const [,elementString]=match
+			add('shouldContainElements',parseElementString(elementString))
 		}
 	}).on('close',()=>{
 		resolve(rootSection)
@@ -161,22 +164,44 @@ async function processSection(section,flags) {
 		}
 	}
 	if (section.data.elements) {
-		if (!section.data.tags || Object.keys(section.data.tags).length===0) {
-			if (flags.verbose) section.report.push(`* element is set, but no tags to check`)
+		if (
+			(!section.data.tags || Object.keys(section.data.tags).length===0) &&
+			(!section.data.shouldContainElements)
+		) {
+			if (flags.verbose) section.report.push(`* element is set, but no tags or elements to check`)
 		} else {
 			for (const [elementType,elementId] of section.data.elements) {
-				if (flags.dry) {
-					section.report.push(`* will check ${elementType} #${elementId} tags`)
-					continue
-				}
-				const diff=await checkElementTags(elementType,elementId,section.data.tags)
-				if (Object.keys(diff).length>0) {
-					for (const [k,[v1,v2]] of Object.entries(diff)) {
-						section.report.push(`* ${elementType} #${elementId} EXPECTED TAG ${k}=${v1}`)
-						section.report.push(`* ${elementType} #${elementId} ACTUAL   TAG ${k}=${v2}`)
+				if (section.data.tags && Object.keys(section.data.tags).length>0) {
+					if (flags.dry) {
+						section.report.push(`* will check ${elementType} #${elementId} tags`)
+					} else {
+						const diff=await checkElementTags(elementType,elementId,section.data.tags)
+						if (Object.keys(diff).length>0) {
+							for (const [k,[v1,v2]] of Object.entries(diff)) {
+								section.report.push(`* ${elementType} #${elementId} EXPECTED TAG ${k}=${v1}`)
+								section.report.push(`* ${elementType} #${elementId} ACTUAL   TAG ${k}=${v2}`)
+							}
+						} else if (flags.verbose) {
+							section.report.push(`* ${elementType} #${elementId} has no tag differences`)
+						}
 					}
-				} else if (flags.verbose) {
-					section.report.push(`* ${elementType} #${elementId} has no tag differences`)
+				}
+				if (section.data.shouldContainElements) {
+					if (flags.dry) {
+						section.report.push(`* will check ${elementType} #${elementId} contained elements`)
+					} else {
+						// TODO only do one element request
+						// TODO currently only chacks nodes inside way, do the rest
+						const diff=await checkContainedWayNodes(elementType,elementId,section.data.shouldContainElements)
+						if (Object.keys(diff).length>0) {
+							subElementType='node'
+							for (const subElementId of Object.keys(diff)) {
+								section.report.push(`* ${elementType} #${elementId} DOES NOT CONTAIN ${subElementType} #${subElementId}`)
+							}
+						} else if (flags.verbose) {
+							section.report.push(`* ${elementType} #${elementId} contains all required elements`)
+						}
+					}
 				}
 			}
 		}
@@ -212,6 +237,23 @@ async function checkElementTags(elementType,elementId,tags) {
 				} else {
 					diff[attrs.k][1]=attrs.v
 				}
+			}
+		}).on('end',()=>{
+			resolve(diff)
+		}))
+	}))
+}
+
+async function checkContainedWayNodes(elementType,elementId,subelements) {
+	const diff={}
+	for (const [subElementType,subElementId] of subelements) {
+		if (subElementType!='node') continue
+		diff[subElementId]=true
+	}
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/${elementType}/${elementId}`,res=>{
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='nd') {
+				delete diff[attrs.ref]
 			}
 		}).on('end',()=>{
 			resolve(diff)
