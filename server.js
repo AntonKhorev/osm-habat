@@ -87,7 +87,7 @@ function reportUser(response,user,callback) {
 			response.write(`<ul>\n`)
 			response.write(e.h`<li>downloaded and parsed ${nParsed} changesets\n`)
 			if (nParsed>0) {
-				response.write(`<li><a href=changes.osm>changes josm file</a>\n`)
+				response.write(`<li><a href=changes.osm>changes josm file</a>, <a href=http://127.0.0.1:8111/import?url=http://localhost:${server.address().port}/user/${user.uid}/changes.osm>josm remote control</a>\n`)
 				response.write(`<li><a href=deletions.osm>deletions josm file</a>\n`)
 				response.write(`<li><a href=keys/>changed keys</a>\n`)
 				response.write(`<li><a href=elements/>changed elements</a>\n`)
