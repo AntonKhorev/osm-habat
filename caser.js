@@ -54,6 +54,9 @@ async function readSections(filename,callback) {
 		if (match=elementString.match(/(node|way|relation)[ /#]+(\d+)$/)) {
 			const [,type,id]=match
 			return [type,id]
+		} else if (match=elementString.match(/^([nwr])(\d+)$/)) {
+			const [,t,id]=match
+			return [{n:'node',w:'way',r:'relation'}[t],id]
 		}
 	}
 	let match
