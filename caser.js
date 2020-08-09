@@ -107,7 +107,7 @@ async function readSections(filename,callback) {
 		} else if (match=input.match(/^\*\s+last\s+note\s+(.*)$/)) {
 			const [,lastNoteIdString]=match
 			add('lastNoteId',noteIdString)
-		} else if (match=input.match(/^\*\s+modified\s+(\d+)\s+notes$/)) {
+		} else if (match=input.match(/^\*\s+modified\s+(\d+)\s+notes?$/)) {
 			const [,noteCountString]=match
 			add('noteCount',noteCountString)
 		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
