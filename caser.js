@@ -175,9 +175,11 @@ async function processSection(section,flags) {
 				} else {
 					const user=new User(uid)
 					await new Promise(resolve=>user.requestMetadata(resolve))
-					const modifiedMoreNotes=await checkIfModifiedMoreNotes(uid,oldNoteCount)
-					if (modifiedMoreNotes) {
+					const newNoteCountLowerBound=await getNoteCountLowerBound(uid,oldNoteCount)
+					if (newNoteCountLowerBound>oldNoteCount) {
 						section.report.push(`* USER ${user.displayName} MODIFIED AT LEAST ONE MORE NOTE`)
+					} else if (newNoteCountLowerBound<oldNoteCount) {
+						section.report.push(`* USER ${user.displayName} MODIFIED LESS NOTES THAN SPECIFIED, maybe some notes were hidden`)
 					} else if (flags.verbose) {
 						section.report.push(`* user ${user.displayName} modified no additional notes`)
 					}
@@ -262,13 +264,13 @@ async function getLastNoteId(uid) {
 	}))
 }
 
-async function checkIfModifiedMoreNotes(uid,oldNoteCount) {
+async function getNoteCountLowerBound(uid,oldNoteCount) {
 	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=${oldNoteCount+1}&closed=-1&user=${uid}`,res=>{
 		noteCount=0
 		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='note') noteCount++
 		}).on('end',()=>{
-			resolve(noteCount>oldNoteCount)
+			resolve(noteCount)
 		}))
 	}))
 }
