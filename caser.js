@@ -95,8 +95,8 @@ async function readSections(filename,callback) {
 			const [,changesetsCountString]=match
 			add('changesetsCounts',changesetsCountString.replace(/,/g,'')) // allow input with commas like 2,950 b/c it's on osm user page
 		} else if (match=input.match(/^\*\s+last\s+note\s+(.*)$/)) {
-			const [,noteIdString]=match
-			add('noteId',noteIdString)
+			const [,lastNoteIdString]=match
+			add('lastNoteId',noteIdString)
 		} else if (match=input.match(/^\*\s+modified\s+(\d+)\s+notes$/)) {
 			const [,noteCountString]=match
 			add('noteCount',noteCountString)
@@ -112,6 +112,11 @@ async function readSections(filename,callback) {
 			add('shouldContainElements',parseElementString(elementString))
 		} else if (match=input.match(/^\*\s+should\s+exist/)) {
 			currentSection.data.shouldExist=true
+		} else if (match=input.match(/^\*\s+note\s+(.*)$/)) {
+			const [,noteString]=match
+			add('notes',noteString)
+		} else if (match=input.match(/^\*\s+should\s+be\s+open$/)) {
+			currentSection.data.shouldBeOpen=true
 		}
 	}).on('close',()=>{
 		resolve(rootSection)
@@ -149,18 +154,18 @@ async function processSection(section,flags) {
 					}
 				}
 			}
-			if (section.data.noteId && section.data.noteId[i]) {
+			if (section.data.lastNoteId && section.data.lastNoteId[i]) {
 				done=true
-				const oldNoteId=section.data.noteId[i]
+				const oldLastNoteId=section.data.lastNoteId[i]
 				if (flags.dry) {
 					section.report.push(`* will check user #${uid} metadata`) // actually don't need to
 					section.report.push(`* will check user #${uid} last note`)
 				} else {
 					const user=new User(uid)
 					await new Promise(resolve=>user.requestMetadata(resolve))
-					const newNoteId=await getLastNoteId(uid)
-					if (oldNoteId!=newNoteId) {
-						section.report.push(`* USER ${user.displayName} ADDED A NEW NOTE #${newNoteId}`)
+					const newLastNoteId=await getLastNoteId(uid)
+					if (oldLastNoteId!=newLastNoteId) {
+						section.report.push(`* USER ${user.displayName} ADDED A NEW NOTE #${newLastNoteId}`)
 					} else if (flags.verbose) {
 						section.report.push(`* user ${user.displayName} added no new notes`)
 					}
@@ -246,6 +251,26 @@ async function processSection(section,flags) {
 			}
 		}
 	}
+	if (section.data.notes) {
+		if (!section.data.shouldBeOpen) {
+			if (flags.verbose) section.report.push(`* note is set, but nothing to check`)
+		} else {
+			for (const noteId of section.data.notes) {
+				if (section.data.shouldBeOpen) {
+					if (flags.dry) {
+						section.report.push(`* will check if note #${noteId} is open`)
+					} else {
+						const noteStatus=await checkNoteStatus(noteId)
+						if (noteStatus!='open') {
+							section.report.push(`* note #${noteId} IS NOT OPEN, its status ${noteStatus}`)
+						} else if (flags.verbose) {
+							section.report.push(`* note #${noteId} is open as expected`)
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 async function getLastNoteId(uid) {
@@ -271,6 +296,22 @@ async function getNoteCountLowerBound(uid,oldNoteCount) {
 			if (name=='note') noteCount++
 		}).on('end',()=>{
 			resolve(noteCount)
+		}))
+	}))
+}
+
+async function checkNoteStatus(noteId) {
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/${noteId}`,res=>{
+		let captureStatus=false
+		let noteStatus=''
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='status') captureStatus=true
+		}).on('endElement',(name)=>{
+			if (name=='status') captureStatus=false
+		}).on('text',(text)=>{
+			if (captureStatus) noteStatus+=text
+		}).on('end',()=>{
+			resolve(noteStatus)
 		}))
 	}))
 }
