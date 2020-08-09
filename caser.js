@@ -97,6 +97,9 @@ async function readSections(filename,callback) {
 		} else if (match=input.match(/^\*\s+last\s+note\s+(.*)$/)) {
 			const [,noteIdString]=match
 			add('noteId',noteIdString)
+		} else if (match=input.match(/^\*\s+modified\s+(\d+)\s+notes$/)) {
+			const [,noteCountString]=match
+			add('noteCount',noteCountString)
 		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
 			const [,elementString]=match
 			add('elements',parseElementString(elementString))
@@ -163,8 +166,25 @@ async function processSection(section,flags) {
 					}
 				}
 			}
+			if (section.data.noteCount && section.data.noteCount[i]) {
+				done=true
+				const oldNoteCount=section.data.noteCount[i]
+				if (flags.dry) {
+					section.report.push(`* will check user #${uid} metadata`) // actually don't need to
+					section.report.push(`* will check user #${uid} modified notes`)
+				} else {
+					const user=new User(uid)
+					await new Promise(resolve=>user.requestMetadata(resolve))
+					const modifiedMoreNotes=await checkIfModifiedMoreNotes(uid,oldNoteCount)
+					if (modifiedMoreNotes) {
+						section.report.push(`* USER ${user.displayName} MODIFIED AT LEAST ONE MORE NOTE`)
+					} else if (flags.verbose) {
+						section.report.push(`* user ${user.displayName} modified no additional notes`)
+					}
+				}
+			}
 			if (flags.verbose && !done) {
-				section.report.push(`* uid ${uid} is set, but neither changesets count nor last note is not set`)
+				section.report.push(`* uid ${uid} is set, but nothing to check`)
 			}
 		}
 	}
@@ -238,6 +258,17 @@ async function getLastNoteId(uid) {
 			if (captureId) noteId+=text
 		}).on('end',()=>{
 			resolve(noteId)
+		}))
+	}))
+}
+
+async function checkIfModifiedMoreNotes(uid,oldNoteCount) {
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=${oldNoteCount+1}&closed=-1&user=${uid}`,res=>{
+		noteCount=0
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name=='note') noteCount++
+		}).on('end',()=>{
+			resolve(noteCount>oldNoteCount)
 		}))
 	}))
 }
