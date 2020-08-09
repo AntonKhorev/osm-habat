@@ -51,12 +51,22 @@ async function main(inputFilename,outputFilename,flags) {
 async function readSections(filename,callback) {
 	function parseElementString(elementString) {
 		let match
-		if (match=elementString.match(/(node|way|relation)[ /#]+(\d+)$/)) {
+		if (match=elementString.match(/(node|way|relation)[ /#]+(\d+)$/)) { // url
 			const [,type,id]=match
 			return [type,id]
-		} else if (match=elementString.match(/^([nwr])(\d+)$/)) {
+		} else if (match=elementString.match(/^([nwr])(\d+)$/)) { // n12345
 			const [,t,id]=match
 			return [{n:'node',w:'way',r:'relation'}[t],id]
+		}
+	}
+	function parseNoteString(elementString) {
+		let match
+		if (match=elementString.match(/note[ /#]+(\d+)$/)) { // url
+			const [,id]=match
+			return id
+		} else if (match=elementString.match(/^\d+$/)) { // 12345
+			const [id]=match
+			return id
 		}
 	}
 	let match
@@ -114,7 +124,7 @@ async function readSections(filename,callback) {
 			currentSection.data.shouldExist=true
 		} else if (match=input.match(/^\*\s+note\s+(.*)$/)) {
 			const [,noteString]=match
-			add('notes',noteString)
+			add('notes',parseNoteString(noteString))
 		} else if (match=input.match(/^\*\s+should\s+be\s+open$/)) {
 			currentSection.data.shouldBeOpen=true
 		}
