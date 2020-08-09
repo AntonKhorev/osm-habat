@@ -104,6 +104,8 @@ async function readSections(filename,callback) {
 		} else if (match=input.match(/^\*\s+should\s+contain\s+element\s+(.*)$/)) {
 			const [,elementString]=match
 			add('shouldContainElements',parseElementString(elementString))
+		} else if (match=input.match(/^\*\s+should\s+exist/)) {
+			currentSection.data.shouldExist=true
 		}
 	}).on('close',()=>{
 		resolve(rootSection)
@@ -165,12 +167,25 @@ async function processSection(section,flags) {
 	}
 	if (section.data.elements) {
 		if (
+			(!section.data.shouldExist) &&
 			(!section.data.tags || Object.keys(section.data.tags).length===0) &&
 			(!section.data.shouldContainElements)
 		) {
-			if (flags.verbose) section.report.push(`* element is set, but no tags or elements to check`)
+			if (flags.verbose) section.report.push(`* element is set, but nothing to check`)
 		} else {
 			for (const [elementType,elementId] of section.data.elements) {
+				if (section.data.shouldExist) {
+					if (flags.dry) {
+						section.report.push(`* will check if ${elementType} #${elementId} exists`)
+					} else {
+						const exists=await checkElementExists(elementType,elementId)
+						if (!exists) {
+							section.report.push(`* ${elementType} #${elementId} DOES NOT EXIST`)
+						} else if (flags.verbose) {
+							section.report.push(`* ${elementType} #${elementId} exists as expected`)
+						}
+					}
+				}
 				if (section.data.tags && Object.keys(section.data.tags).length>0) {
 					if (flags.dry) {
 						section.report.push(`* will check ${elementType} #${elementId} tags`)
@@ -221,6 +236,12 @@ async function getLastNoteId(uid) {
 		}).on('end',()=>{
 			resolve(noteId)
 		}))
+	}))
+}
+
+async function checkElementExists(elementType,elementId) {
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/${elementType}/${elementId}`,res=>{
+		resolve(res.statusCode==200)
 	}))
 }
 
