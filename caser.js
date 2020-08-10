@@ -106,7 +106,7 @@ async function readSections(filename,callback) {
 			add('changesetsCounts',changesetsCountString.replace(/,/g,'')) // allow input with commas like 2,950 b/c it's on osm user page
 		} else if (match=input.match(/^\*\s+last\s+note\s+(.*)$/)) {
 			const [,lastNoteIdString]=match
-			add('lastNoteId',noteIdString)
+			add('lastNoteId',lastNoteIdString)
 		} else if (match=input.match(/^\*\s+modified\s+(\d+)\s+notes?$/)) {
 			const [,noteCountString]=match
 			add('noteCount',noteCountString)
