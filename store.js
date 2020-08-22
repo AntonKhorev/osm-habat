@@ -17,6 +17,7 @@ const glob=require('glob')
 const expat=require('node-expat')
 
 // TODO load stuff instead
+const changes={}
 const nodes={}
 const ways={}
 const relations={}
@@ -32,6 +33,7 @@ async function main(inputGlob,outputDirectory) {
 		await parseFile(filename)
 	}
 	fs.mkdirSync(outputDirectory,{recursive:true})
+	fs.writeFileSync(outputDirectory+'/changes.json',JSON.stringify(changes))
 	fs.writeFileSync(outputDirectory+'/nodes.json',JSON.stringify(nodes))
 	fs.writeFileSync(outputDirectory+'/ways.json',JSON.stringify(ways))
 	fs.writeFileSync(outputDirectory+'/relations.json',JSON.stringify(relations))
@@ -49,47 +51,55 @@ function makeParser() {
 		table[id][version]=data
 	}
 	let inOsmXml=0
-	//let inOsmChangeXml=0 // TODO
+	let inOsmChangeXml=0
+	let changetype,changechangeset,chgs
 	let inNodeXml=0, inWayXml=0, inRelationXml=0
 	let id,version,changeset,timestamp,uid,visible,tags,lat,lon,nds,members
+	const getCommonAttrs=attrs=>{
+		id=Number(attrs.id)
+		version=Number(attrs.version)
+		changeset=Number(attrs.changeset)
+		timestamp=Date.parse(attrs.timestamp)
+		uid=Number(attrs.uid)
+		visible=(attrs.visible=='true')
+		tags={}
+	}
+	const combineChangeset=(elementtype)=>{
+		if (changechangeset===undefined) {
+			changechangeset=changeset
+		} else if (changechangeset!=changeset) {
+			changechangeset=-1
+		}
+		chgs.push([changetype,elementtype,id,version])
+	}
 	return (new expat.Parser()).on('startElement',(name,attrs)=>{
 		if (name=='osm') {
 			inOsmXml++
+		} else if (name=='osmChange') {
+			inOsmChangeXml++
+			chgs=[]
+		} else if (name=='create' || name=='modify' || name=='delete') {
+			if (inOsmChangeXml>0) {
+				changetype=name
+				inOsmXml++
+			}
 		} else if (name=='node') {
 			if (inOsmXml>0) {
 				inNodeXml++
-				id=Number(attrs.id)
-				version=Number(attrs.version)
-				changeset=Number(attrs.changeset)
-				timestamp=Date.parse(attrs.timestamp)
-				uid=Number(attrs.uid)
-				visible=(attrs.visible=='true')
-				tags={}
+				getCommonAttrs(attrs)
 				lat=attrs.lat
 				lon=attrs.lon
 			}
 		} else if (name=='way') {
 			if (inOsmXml>0) {
 				inWayXml++
-				id=Number(attrs.id)
-				version=Number(attrs.version)
-				changeset=Number(attrs.changeset)
-				timestamp=Date.parse(attrs.timestamp)
-				uid=Number(attrs.uid)
-				visible=(attrs.visible=='true')
-				tags={}
+				getCommonAttrs(attrs)
 				nds=[]
 			}
 		} else if (name=='relation') {
 			if (inOsmXml>0) {
 				inRelationXml++
-				id=Number(attrs.id)
-				version=Number(attrs.version)
-				changeset=Number(attrs.changeset)
-				timestamp=Date.parse(attrs.timestamp)
-				uid=Number(attrs.uid)
-				visible=(attrs.visible=='true')
-				tags={}
+				getCommonAttrs(attrs)
 				members=[]
 			}
 		} else if (name=='tag') {
@@ -108,22 +118,36 @@ function makeParser() {
 	}).on('endElement',(name)=>{
 		if (name=='osm') {
 			inOsmXml--
+		} else if (name=='osmChange') {
+			if (changechangeset!==undefined && changechangeset>=0) {
+				changes[changechangeset]=chgs
+			}
+			changechangeset=chgs=undefined
+			inOsmChangeXml--
+		} else if (name=='create' || name=='modify' || name=='delete') {
+			if (inOsmChangeXml>0) {
+				changetype=undefined
+				inOsmXml--
+			}
 		} else if (name=='node') {
 			if (inOsmXml>0) {
+				if (inOsmChangeXml>0) combineChangeset(name)
 				put(nodes,id,version,{changeset,timestamp,uid,visible,tags,lat,lon})
-				          id=version= changeset=timestamp=uid=visible=tags=lat=lon
+				          id=version= changeset=timestamp=uid=visible=tags=lat=lon=undefined
 				inNodeXml--
 			}
 		} else if (name=='way') {
 			if (inOsmXml>0) {
+				if (inOsmChangeXml>0) combineChangeset(name)
 				put(ways,id,version,{changeset,timestamp,uid,visible,tags,nds})
-				         id=version= changeset=timestamp=uid=visible=tags=nds
-				inNodeXml--
+				         id=version= changeset=timestamp=uid=visible=tags=nds=undefined
+				inWayXml--
 			}
 		} else if (name=='relation') {
 			if (inOsmXml>0) {
+				if (inOsmChangeXml>0) combineChangeset(name)
 				put(relations,id,version,{changeset,timestamp,uid,visible,tags,members})
-				              id=version= changeset=timestamp=uid=visible=tags=members
+				              id=version= changeset=timestamp=uid=visible=tags=members=undefined
 				inRelationXml--
 			}
 		}
