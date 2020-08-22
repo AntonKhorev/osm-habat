@@ -86,10 +86,14 @@ function reportUser(response,user,callback) {
 		},()=>{
 			response.write(`<ul>\n`)
 			response.write(e.h`<li>downloaded and parsed ${nParsed} changesets\n`)
+			const writeRcLink=(fileContents)=>{
+				const layerName=encodeURIComponent(fileContents+' of '+user.displayName)
+				const remoteUrl=encodeURIComponent(`http://localhost:${server.address().port}/user/${user.uid}/${fileContents}.osm`)
+				response.write(`<li><a href=${fileContents}.osm>${fileContents} josm file</a>, <a href=http://127.0.0.1:8111/import?new_layer=true&layer_name=${layerName}&url=${remoteUrl}>josm remote control</a>\n`)
+			}
 			if (nParsed>0) {
-				const changesLayerName=encodeURIComponent('changes of '+user.displayName)
-				const changesRemoteUrl=encodeURIComponent(`http://localhost:${server.address().port}/user/${user.uid}/changes.osm`)
-				response.write(`<li><a href=changes.osm>changes josm file</a>, <a href=http://127.0.0.1:8111/import?new_layer=true&layer_name=${changesLayerName}&url=${changesRemoteUrl}>josm remote control</a>\n`)
+				writeRcLink('changes')
+				writeRcLink('creations')
 				response.write(`<li><a href=deletions.osm>deletions josm file</a>\n`)
 				response.write(`<li><a href=keys/>changed keys</a>\n`)
 				response.write(`<li><a href=elements/>changed elements</a>\n`)
@@ -480,10 +484,10 @@ function writeWay(response,id,version,data) {
 	response.write(`  </way>\n`)
 }
 
-function respondChanges(response,user) {
+function respondChanges(response,user,fileContents) {
 	response.writeHead(200,{
 		'Content-Type':'application/xml; charset=utf-8',
-		'Content-Disposition':'attachment; filename="changes.osm"',
+		'Content-Disposition':`attachment; filename="${fileContents}.osm"`,
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-habat">\n`)
@@ -538,6 +542,13 @@ function respondChanges(response,user) {
 		user.parseChangesetData(()=>{
 			let mode
 			let id,version,lat,lon,tags,nodes
+			const needToSaveCreateOrModify=(data)=>{
+				return (mode=='create' || (
+					mode=='modify' && (
+						fileContents=='changes' || (id in data)
+					)
+				))
+			}
 			return (new expat.Parser()).on('startElement',(name,attrs)=>{
 				if (name=='create' || name=='modify' || name=='delete') {
 					mode=name
@@ -560,13 +571,13 @@ function respondChanges(response,user) {
 					if (name=='node') {
 						if (mode=='delete') {
 							delete nodeData[id]
-						} else if (mode=='create' || mode=='modify') {
+						} else if (needToSaveCreateOrModify(nodeData)) {
 							nodeData[id]=[version,lat,lon,tags]
 						}
 					} else if (name=='way') {
 						if (mode=='delete') {
 							delete wayData[id]
-						} else if (mode=='create' || mode=='modify') {
+						} else if (needToSaveCreateOrModify(wayData)) {
 							wayData[id]=[version,tags,nodes]
 						}
 					}
@@ -714,7 +725,11 @@ const server=http.createServer((request,response)=>{
 	} else if (match=path.match(new RegExp('^/user/([^/]*)/changes.osm$'))) {
 		const user=matchUser(response,match)
 		if (!user) return
-		respondChanges(response,user)
+		respondChanges(response,user,'changes')
+	} else if (match=path.match(new RegExp('^/user/([^/]*)/creations.osm$'))) {
+		const user=matchUser(response,match)
+		if (!user) return
+		respondChanges(response,user,'creations')
 	} else if (match=path.match(new RegExp('^/user/([^/]*)/deletions.osm$'))) {
 		const user=matchUser(response,match)
 		if (!user) return
