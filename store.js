@@ -16,7 +16,9 @@ const fs=require('fs')
 const glob=require('glob')
 const expat=require('node-expat')
 
-const nodes={} // TODO load stuff instead
+// TODO load stuff instead
+const nodes={}
+const ways={}
 
 if (process.argv[2]===undefined || process.argv[3]==undefined) {
 	console.log('invalid args')
@@ -30,6 +32,7 @@ async function main(inputGlob,outputDirectory) {
 	}
 	fs.mkdirSync(outputDirectory,{recursive:true})
 	fs.writeFileSync(outputDirectory+'/nodes.json',JSON.stringify(nodes))
+	fs.writeFileSync(outputDirectory+'/ways.json',JSON.stringify(ways))
 }
 
 async function parseFile(filename) {
@@ -45,27 +48,43 @@ function makeParser() {
 	}
 	let inOsmXml=0
 	//let inOsmChangeXml=0 // TODO
-	let inElementXml=0
-	let id,version,changeset,timestamp,uid,visible,lat,lon,tags
+	let inNodeXml=0, inWayXml=0
+	let id,version,changeset,timestamp,uid,visible,tags,lat,lon,nds
 	return (new expat.Parser()).on('startElement',(name,attrs)=>{
 		if (name=='osm') {
 			inOsmXml++
 		} else if (name=='node') {
 			if (inOsmXml>0) {
-				inElementXml++
+				inNodeXml++
 				id=Number(attrs.id)
 				version=Number(attrs.version)
 				changeset=Number(attrs.changeset)
 				timestamp=Date.parse(attrs.timestamp)
 				uid=Number(attrs.uid)
 				visible=(attrs.visible=='true')
+				tags={}
 				lat=attrs.lat
 				lon=attrs.lon
+			}
+		} else if (name=='way') {
+			if (inOsmXml>0) {
+				inWayXml++
+				id=Number(attrs.id)
+				version=Number(attrs.version)
+				changeset=Number(attrs.changeset)
+				timestamp=Date.parse(attrs.timestamp)
+				uid=Number(attrs.uid)
+				visible=(attrs.visible=='true')
 				tags={}
+				nds=[]
 			}
 		} else if (name=='tag') {
-			if (inElementXml>0) {
+			if (inNodeXml>0 || inWayXml>0) {
 				tags[attrs.k]=attrs.v
+			}
+		} else if (name=='nd') {
+			if (inWayXml>0) {
+				nds.push(Number(attrs.ref))
 			}
 		}
 	}).on('endElement',(name)=>{
@@ -73,9 +92,15 @@ function makeParser() {
 			inOsmXml--
 		} else if (name=='node') {
 			if (inOsmXml>0) {
-				put(nodes,id,version,{changeset,timestamp,uid,visible,lat,lon,tags})
-				id=version=changeset=timestamp=uid=visible=lat=lon=tags
-				inElementXml--
+				put(nodes,id,version,{changeset,timestamp,uid,visible,tags,lat,lon})
+				          id=version= changeset=timestamp=uid=visible=tags=lat=lon
+				inNodeXml--
+			}
+		} else if (name=='way') {
+			if (inOsmXml>0) {
+				put(ways,id,version,{changeset,timestamp,uid,visible,tags,nds})
+				         id=version= changeset=timestamp=uid=visible=tags=nds
+				inNodeXml--
 			}
 		}
 	})
