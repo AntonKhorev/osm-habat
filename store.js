@@ -16,11 +16,10 @@ const fs=require('fs')
 const glob=require('glob')
 const expat=require('node-expat')
 
-// TODO load stuff instead
-const changes={}
-const nodes={}
-const ways={}
-const relations={}
+let changes={}
+let nodes={}
+let ways={}
+let relations={}
 
 if (process.argv[2]===undefined || process.argv[3]==undefined) {
 	console.log('invalid args')
@@ -29,6 +28,14 @@ if (process.argv[2]===undefined || process.argv[3]==undefined) {
 main(process.argv[2],process.argv[3])
 
 async function main(inputGlob,outputDirectory) {
+	const read=(filename)=>{
+		if (!fs.existsSync(filename)) return {}
+		return JSON.parse(fs.readFileSync(filename))
+	}
+	changes=read(outputDirectory+'/changes.json')
+	nodes=read(outputDirectory+'/nodes.json')
+	ways=read(outputDirectory+'/ways.json')
+	relations=read(outputDirectory+'/relations.json')
 	for (const filename of glob.sync(inputGlob)) {
 		await parseFile(filename)
 	}
