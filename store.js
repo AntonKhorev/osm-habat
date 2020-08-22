@@ -1,8 +1,8 @@
 /*
 nodes={
 	id1:{
-		version1:{changeset,timestamp,visible,uid,lat,lon,tags:{k1:v1,k2:v2,...},
-		version2:{changeset,timestamp,visible,uid,lat,lon,tags:{k1:v1,k2:v2,...},
+		version1:{changeset,timestamp,uid,visible,lat,lon,tags:{k1:v1,k2:v2,...},
+		version2:{changeset,timestamp,uid,visible,lat,lon,tags:{k1:v1,k2:v2,...},
 		...
 	},
 	id2...
@@ -45,22 +45,38 @@ function makeParser() {
 	}
 	let inOsmXml=0
 	//let inOsmChangeXml=0 // TODO
+	let inElementXml=0
+	let id,version,changeset,timestamp,uid,visible,lat,lon,tags
 	return (new expat.Parser()).on('startElement',(name,attrs)=>{
-		if (name=='osm') inOsmXml++
-		if (inOsmXml>0) {
-			if (name=='node') {
-				put(nodes,attrs.id,attrs.version,{
-					changeset:Number(attrs.changeset),
-					timestamp:Date.parse(attrs.timestamp),
-					visible:(attrs.visible=='true'),
-					uid:Number(attrs.uid),
-					lat:attrs.lat,
-					lon:attrs.lon,
-				})
+		if (name=='osm') {
+			inOsmXml++
+		} else if (name=='node') {
+			if (inOsmXml>0) {
+				inElementXml++
+				id=Number(attrs.id)
+				version=Number(attrs.version)
+				changeset=Number(attrs.changeset)
+				timestamp=Date.parse(attrs.timestamp)
+				uid=Number(attrs.uid)
+				visible=(attrs.visible=='true')
+				lat=attrs.lat
+				lon=attrs.lon
+				tags={}
 			}
-			// TODO tags
+		} else if (name=='tag') {
+			if (inElementXml>0) {
+				tags[attrs.k]=attrs.v
+			}
 		}
 	}).on('endElement',(name)=>{
-		if (name=='osm') inOsmXml--
+		if (name=='osm') {
+			inOsmXml--
+		} else if (name=='node') {
+			if (inOsmXml>0) {
+				put(nodes,id,version,{changeset,timestamp,uid,visible,lat,lon,tags})
+				id=version=changeset=timestamp=uid=visible=lat=lon=tags
+				inElementXml--
+			}
+		}
 	})
 }
