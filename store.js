@@ -1,8 +1,8 @@
 /*
 nodes={
 	id1:{
-		version1:{changeset,timestamp,uid,lat,lon,tags:{k1:v1,k2:v2,...},
-		version2:{changeset,timestamp,uid,lat,lon,tags:{k1:v1,k2:v2,...},
+		version1:{changeset,timestamp,visible,uid,lat,lon,tags:{k1:v1,k2:v2,...},
+		version2:{changeset,timestamp,visible,uid,lat,lon,tags:{k1:v1,k2:v2,...},
 		...
 	},
 	id2...
@@ -50,9 +50,10 @@ function makeParser() {
 		if (inOsmXml>0) {
 			if (name=='node') {
 				put(nodes,attrs.id,attrs.version,{
-					changeset:attrs.changeset,
-					timestamp:attrs.timestamp,
-					uid:attrs.uid,
+					changeset:Number(attrs.changeset),
+					timestamp:Date.parse(attrs.timestamp),
+					visible:(attrs.visible=='true'),
+					uid:Number(attrs.uid),
 					lat:attrs.lat,
 					lon:attrs.lon,
 				})
