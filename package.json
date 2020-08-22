@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "glob": "^7.1.6",
     "meow": "^7.0.1",
     "node-expat": "^2.3.18",
     "open": "^7.0.2",
