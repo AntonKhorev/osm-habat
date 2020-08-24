@@ -161,6 +161,13 @@ function reportUser(response,user,callback) {
 	const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"users":[{"label":"${cEscapedName}","value":"${cEscapedName}"}],"date__gte":[{"label":"","value":""}]}`)
 	response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
 	response.write(e.h`</ul>\n`)
+	response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
+		`## ${user.displayName}\n`+
+		`\n`+
+		`* uid ${user.uid}\n`+
+		`* changesets count ${user.changesetsCount}\n`+
+		`* dwg ticket `+
+	`</code></pre></details>\n`)
 	response.write(e.h`<h2>Changesets</h2>\n`)
 	user.parseChangesetMetadata(i=>{
 		const id=user.changesets[i]
