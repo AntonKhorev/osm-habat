@@ -23,14 +23,11 @@ if (process.argv[2]===undefined || process.argv[3]==undefined) {
 main(process.argv[2],process.argv[3])
 
 async function main(inputGlob,storeFilename) {
-	let store=osm.makeStore()
-	if (fs.existsSync(storeFilename)) {
-		store=JSON.parse(fs.readFileSync(storeFilename))
-	}
+	const store=osm.readStore(storeFilename)
 	for (const filename of glob.sync(inputGlob)) {
 		await parseFile(filename,store)
 	}
-	fs.writeFileSync(storeFilename,JSON.stringify(store))
+	osm.writeStore(storeFilename,store)
 }
 
 async function parseFile(filename,store) {

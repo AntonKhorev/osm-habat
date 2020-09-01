@@ -1,5 +1,8 @@
+const fs=require('fs')
 const https=require('https')
 const expat=require('node-expat')
+
+const osm=exports
 
 exports.apiGet=(call,...args)=>{
 	const apiUrl=`https://api.openstreetmap.org`
@@ -14,6 +17,18 @@ exports.makeStore=()=>({
 	ways:{},
 	relations:{},
 })
+
+exports.readStore=(storeFilename)=>{
+	if (fs.existsSync(storeFilename)) {
+		return JSON.parse(fs.readFileSync(storeFilename))
+	} else {
+		return osm.makeStore()
+	}
+}
+
+exports.writeStore=(storeFilename,store)=>{
+	fs.writeFileSync(storeFilename,JSON.stringify(store))
+}
 
 exports.makeParser=(store)=>{
 	const put=(table,id,version,data)=>{

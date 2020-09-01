@@ -8,6 +8,10 @@ Watchlist with markdown-like syntax.
 
 Convert .osm or .gpx to .kml. Turns maps.me fake-pois-actually-bookmarks into bookmarks.
 
+## download2.js
+
+TODO downloads from osm to .json for use with relation2.js.
+
 ## relation.js
 
 Shows relation membership changes.
