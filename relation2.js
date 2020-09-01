@@ -48,6 +48,9 @@ function writeReport(changesetId,store,outputFilename) {
 		`<head>`,
 		`<meta charset=utf-8>`,
 		e.h`<title>${title}</title>`,
+		`<style>`,
+		`.number { text-align:right }`,
+		`</style>`,
 		`</head>`,
 		`<body>`,
 
@@ -60,11 +63,23 @@ function writeReport(changesetId,store,outputFilename) {
 		response.write(`<p>Relation changes unknown because changes not downloaded.</p>\n`)
 	} else {
 		response.write(`<table>\n`)
-		response.write(`<tr><th rowspan=2>relation<th colspan=2>existense<th colspan=2>tags<th colspan=2>members<th colspan=2>geometry\n`)
+		response.write(`<tr><th rowspan=2>relation<th rowspan=2>v<th colspan=2>existence<th colspan=2>tags<th colspan=2>members<th colspan=2>geometry\n`)
 		response.write(`<tr><th>old<th>new<th>old<th>new<th>old<th>new<th>old<th>new\n`)
 		for (const [changetype,elementtype,id,version] of store.changes[changesetId]) {
 			if (elementtype!='relation') continue
-			response.write(`<tr><td>${ref('relation',id)}<td>?<td>?<td>?<td>?<td>?<td>?<td>?<td>?\n`)
+			let oldExistence='?'
+			let newExistence='?'
+			if (changetype=='create') {
+				oldExistence='-'
+				newExistence='+'
+			} else if (changetype=='modify') {
+				if (version==2) oldExistence='+' // otherwise undelete is possible
+				newExistence='+'
+			} else if (changetype=='delete') {
+				oldExistence='+'
+				newExistence='-'
+			}
+			response.write(`<tr><td class=number>${ref('relation',id)}<td class=number>${version}<td>${oldExistence}<td>${newExistence}<td>?<td>?<td>?<td>?<td>?<td>?\n`)
 		}
 		response.write(`</table>\n`)
 	}
