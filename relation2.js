@@ -49,7 +49,7 @@ function writeReport(changesetId,store,outputFilename) {
 		`<meta charset=utf-8>`,
 		e.h`<title>${title}</title>`,
 		`<style>`,
-		`.number { text-align:right }`,
+		`td { text-align:right }`,
 		`</style>`,
 		`</head>`,
 		`<body>`,
@@ -63,15 +63,22 @@ function writeReport(changesetId,store,outputFilename) {
 		response.write(`<p>Relation changes unknown because changes not downloaded.</p>\n`)
 	} else {
 		response.write(`<table>\n`)
-		response.write(`<tr><th rowspan=2>relation<th rowspan=2>v<th colspan=2>existence<th colspan=2>tags<th colspan=2>members<th colspan=2>geometry\n`)
-		response.write(`<tr><th>old<th>new<th>old<th>new<th>old<th>new<th>old<th>new\n`)
+		response.write(`<tr><th rowspan=2>relation<th rowspan=2>v<th colspan=2>existence<th colspan=3>tags<th colspan=2>members<th colspan=2>geometry\n`)
+		response.write(`<tr><th>old<th>new<th>add<th>chg<th>rem<th>old<th>new<th>old<th>new\n`)
 		for (const [changetype,elementtype,id,version] of store.changes[changesetId]) {
 			if (elementtype!='relation') continue
 			let oldExistence='?'
 			let newExistence='?'
+			let addTags='?'
+			let chgTags='?'
+			let remTags='?'
 			if (changetype=='create') {
 				oldExistence='-'
 				newExistence='+'
+				chgTags=remTags=0
+				if (id in store.relations && version in store.relations[id]) {
+					addTags=Object.keys(store.relations[id][version].tags).length
+				}
 			} else if (changetype=='modify') {
 				if (version==2) oldExistence='+' // otherwise undelete is possible
 				newExistence='+'
@@ -79,7 +86,7 @@ function writeReport(changesetId,store,outputFilename) {
 				oldExistence='+'
 				newExistence='-'
 			}
-			response.write(`<tr><td class=number>${ref('relation',id)}<td class=number>${version}<td>${oldExistence}<td>${newExistence}<td>?<td>?<td>?<td>?<td>?<td>?\n`)
+			response.write(`<tr><td>${ref('relation',id)}<td>${version}<td>${oldExistence}<td>${newExistence}<td>${addTags}<td>${chgTags}<td>${remTags}<td>?<td>?<td>?<td>?\n`)
 		}
 		response.write(`</table>\n`)
 	}
