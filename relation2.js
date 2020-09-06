@@ -51,6 +51,7 @@ function writeReport(changesetId,store,outputFilename) {
 		e.h`<title>${title}</title>`,
 		`<style>`,
 		`td { text-align:right }`,
+		`ul { column-width:6em; list-style-type:none }`,
 		`</style>`,
 		`</head>`,
 		`<body>`,
