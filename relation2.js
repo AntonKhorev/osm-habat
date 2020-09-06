@@ -2,6 +2,7 @@
 // node relation2.js <osm path> <output html file> [<store file>]
 
 const fs=require('fs')
+const path=require('path')
 const e=require('./escape')
 const osm=require('./osm')
 
@@ -49,9 +50,12 @@ function writeReport(changesetId,store,outputFilename) {
 		`<head>`,
 		`<meta charset=utf-8>`,
 		e.h`<title>${title}</title>`,
+		`<link rel=stylesheet href=https://unpkg.com/leaflet@1.6.0/dist/leaflet.css>`,
+		`<script src=https://unpkg.com/leaflet@1.6.0/dist/leaflet.js></script>`,
 		`<style>`,
 		`td { text-align:right }`,
 		`ul { column-width:6em; list-style-type:none }`,
+		`#map { height:50em }`,
 		`</style>`,
 		`</head>`,
 		`<body>`,
@@ -81,7 +85,12 @@ function writeReport(changesetId,store,outputFilename) {
 				if (entries.length>0) {
 					response.write(`<ul>`)
 					for (const [id,version] of entries) {
-						response.write(`<li>${ref(elementtype,id)}v${version}`)
+						if (elementtype=='node' && changetype!='delete') {
+							response.write(`<li data-elementtype=${elementtype} data-lat=${store.nodes[id][version].lat} data-lon=${store.nodes[id][version].lon}>`)
+						} else {
+							response.write(`<li>`)
+						}
+						response.write(`${ref(elementtype,id)}v${version}`)
 					}
 					response.write(`</ul>`)
 				} else {
@@ -119,12 +128,10 @@ function writeReport(changesetId,store,outputFilename) {
 		}
 		response.write(`</table>\n`)
 	}
-	for (const line of [
-		`</body>`,
-		`</html>`,
-	]) {
-		response.write(line)
-		response.write('\n')
-	}
+	response.write(`<script>\n`)
+	response.write(fs.readFileSync(path.join(__dirname,'map.js')))
+	response.write(`</script>\n`)
+	response.write(`</body>\n`)
+	response.write(`</html>\n`)
 	response.end()
 }
