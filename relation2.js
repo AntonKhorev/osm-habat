@@ -72,15 +72,21 @@ function writeReport(changesetId,store,outputFilename) {
 		response.write(`<h2>Causes</h2>\n`)
 		for (const elementtype of ['node','way','relation']) {
 			for (const changetype of ['create','modify','delete']) {
-				response.write(`<p>${elementtype} ${changetype}:`)
+				let entries=[]
 				if (elementtype in causes && changetype in causes[elementtype]) {
-					for (const [id,version] of Object.entries(causes[elementtype][changetype])) {
-						response.write(` ${ref(elementtype,id)}v${version}`)
-					}
-				} else {
-					response.write(` none`)
+					entries=Object.entries(causes[elementtype][changetype])
 				}
-				response.write(`</p>\n`)
+				response.write(`<details><summary>${elementtype} ${changetype} - ${entries.length} entries</summary>`)
+				if (entries.length>0) {
+					response.write(`<ul>`)
+					for (const [id,version] of entries) {
+						response.write(`<li>${ref(elementtype,id)}v${version}`)
+					}
+					response.write(`</ul>`)
+				} else {
+					response.write(`<p>none</p>`)
+				}
+				response.write(`</details>\n`)
 			}
 		}
 		response.write(`<h2>Effects</h2>\n`)
