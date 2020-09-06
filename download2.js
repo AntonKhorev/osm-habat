@@ -9,7 +9,7 @@
 	changeset/123/previous/nodes
 	changeset/123/previous/node/456
 	bin search paths:
-	changeset/123/previous/ways/relations  c123wsrs
+	changeset/123/previous/ways/relations  c123pwsrs
 */
 
 const osm=require('./osm')
@@ -27,7 +27,7 @@ async function main(pathString,storeFilename) {
 		console.log('non-changeset paths not implemented')
 		return process.exit(1)
 	}
-	const changesetId=Number(path.shift())
+	const changesetId=path.shift()
 	if (storeFilename===undefined) {
 		storeFilename=`c${changesetId}.json`
 	}
@@ -46,8 +46,19 @@ async function main(pathString,storeFilename) {
 	return process.exit(1)
 }
 
-function parsePath(osmPath) {
-	return osmPath.split('/')
+function parsePath(pathString) {
+	const path=[]
+	for (let i=0;i<100;i++) {
+		let match
+		if (match=pathString.match(/^(?:c|changeset)\/?(\d+)\/?(.*)/)) {
+			const [,id,rest]=match
+			path.push('changeset',Number(id))
+			pathString=rest
+		} else {
+			break
+		}
+	}
+	return path
 }
 
 async function downloadChangeset(changesetId,store) {

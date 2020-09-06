@@ -41,6 +41,7 @@ function parseChangesetUrl(changesetUrl) {
 function writeReport(changesetId,store,outputFilename) {
 	const response=fs.createWriteStream(outputFilename)
 	const ref=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${id}</a>`
+	const req=(msg,arg)=>e.h`<p class=req>${msg}<br /> Please run: <code>node download2.js ${arg}</code></p>`
 	const title=`Changes in relations caused by changeset ${changesetId}`
 	for (const line of [
 		`<!DOCTYPE html>`,
@@ -53,15 +54,36 @@ function writeReport(changesetId,store,outputFilename) {
 		`</style>`,
 		`</head>`,
 		`<body>`,
-
 	]) {
 		response.write(line)
 		response.write('\n')
 	}
+	const causes={}
+	const effects={}
 	response.write(`<h1>Changeset ${ref('changeset',changesetId)}</h1>\n`)
 	if (!(changesetId in store.changes)) {
-		response.write(`<p>Relation changes unknown because changes not downloaded.</p>\n`)
+		response.write(req(`Causes and effects are unknown because changes not downloaded.`,`c${changesetId}`))
 	} else {
+		for (const [changetype,elementtype,id,version] of store.changes[changesetId]) {
+			if (!(elementtype in causes)) causes[elementtype]={}
+			if (!(changetype in causes[elementtype])) causes[elementtype][changetype]={}
+			causes[elementtype][changetype][id]=version
+		}
+		response.write(`<h2>Causes</h2>\n`)
+		for (const elementtype of ['node','way','relation']) {
+			for (const changetype of ['create','modify','delete']) {
+				response.write(`<p>${elementtype} ${changetype}:`)
+				if (elementtype in causes && changetype in causes[elementtype]) {
+					for (const [id,version] of Object.entries(causes[elementtype][changetype])) {
+						response.write(` ${ref(elementtype,id)}v${version}`)
+					}
+				} else {
+					response.write(` none`)
+				}
+				response.write(`</p>\n`)
+			}
+		}
+		response.write(`<h2>Effects</h2>\n`)
 		response.write(`<table>\n`)
 		response.write(`<tr><th rowspan=2>relation<th rowspan=2>v<th colspan=2>existence<th colspan=3>tags<th colspan=2>members<th colspan=2>geometry\n`)
 		response.write(`<tr><th>old<th>new<th>add<th>chg<th>rem<th>old<th>new<th>old<th>new\n`)
