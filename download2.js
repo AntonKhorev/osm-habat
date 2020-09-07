@@ -2,14 +2,17 @@
 /*
 	paths:                                 shorter paths:
 	changeset/123                          c123
+	changeset/123/previous                 c123p
 	changeset/123/previous/relations       c123prs
 	changeset/123/previous/relation/456    c123pr456
 	changeset/123/previous/ways            c123pws
 	changeset/123/previous/way/456
 	changeset/123/previous/nodes
-	changeset/123/previous/node/456
+	changeset/123/previous/node/456        c123pn456
 	bin search paths:
 	changeset/123/previous/ways/relations  c123pwsrs
+	or
+	changeset/123/affected/relations
 */
 
 const osm=require('./osm')

@@ -40,6 +40,13 @@ function parseChangesetUrl(changesetUrl) {
 }
 
 function writeReport(changesetId,store,outputFilename) {
+	const nodeMoved=(id,version)=>{
+		const newData=store.nodes[id][version]
+		const oldData=store.nodes[id][version-1]
+		if (newData===undefined || oldData===undefined) return 0
+		if (newData.lat==oldData.lat && newData.lon==oldData.lon) return -1
+		return +1
+	}
 	const response=fs.createWriteStream(outputFilename)
 	const ref=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${id}</a>`
 	const vref=(type,id,version)=>ref(type,id)+(version==1?'':'v'+version)
@@ -51,20 +58,17 @@ function writeReport(changesetId,store,outputFilename) {
 		`<head>`,
 		`<meta charset=utf-8>`,
 		e.h`<title>${title}</title>`,
-		`<link rel=stylesheet href=https://unpkg.com/leaflet@1.6.0/dist/leaflet.css>`,
-		`<script src=https://unpkg.com/leaflet@1.6.0/dist/leaflet.js></script>`,
+		`<link rel=stylesheet href=https://unpkg.com/leaflet@1.7.1/dist/leaflet.css>`,
+		`<script src=https://unpkg.com/leaflet@1.7.1/dist/leaflet.js></script>`,
 		`<style>`,
-		`td { text-align:right }`,
-		`ul { list-style-type:none; padding-left:0 }`,
-		`li { display:inline-block; padding-left:1em }`,
-		`#map { height:50em }`,
-		`</style>`,
-		`</head>`,
-		`<body>`,
 	]) {
 		response.write(line)
 		response.write('\n')
 	}
+	response.write(fs.readFileSync(path.join(__dirname,'map.css')))
+	response.write(`</style>\n`)
+	response.write(`</head>\n`)
+	response.write(`<body>\n`)
 	const causes={}
 	const nodesCanAffectWays={}
 	const nodesCanAffectRelations={}
@@ -103,22 +107,31 @@ function writeReport(changesetId,store,outputFilename) {
 				if (elementType in causes && changeType in causes[elementType]) {
 					entries=Object.entries(causes[elementType][changeType])
 				}
-				response.write(`<details><summary>${elementType} ${changeType} - ${entries.length} entries</summary>`)
+				response.write(e.h`<details><summary>${elementType} ${changeType} - ${entries.length} entries</summary>`)
 				if (entries.length>0) {
-					response.write(`<ul>`)
+					response.write(`<ul class=causes>`)
 					for (const [id,version] of entries) {
-						response.write(`<li>`)
+						response.write(e.h`<li data-element-type=${elementType} data-element-id=${id} data-element-version=${version}`)
 						if (elementType=='node' && changeType!='delete') {
-							const storeData=store.nodes[id][version]
-							response.write(`<span data-element-type=${elementType} data-lat=${storeData.lat} data-lon=${storeData.lon}>`)
-							response.write(vref(elementType,id,version))
-							response.write(`</span>`)
-						} else {
-							response.write(vref(elementType,id,version))
+							const data=store.nodes[id][version]
+							response.write(e.h` data-lat=${data.lat} data-lon=${data.lon}`)
 						}
+						response.write(`>`)
+						response.write(vref(elementType,id,version))
 						if (elementType=='node' && changeType=='modify') {
-							if (id in nodesCanAffectWays) {
-								response.write(` w(${Object.keys(nodesCanAffectWays[id]).map(aid=>ref('way',aid)).join(', ')})?`)
+							const m=nodeMoved(id,version)
+							if (id in nodesCanAffectWays && m>=0) {
+								if (m>1) {
+									response.write(` <span class=surely-affected>w(`)
+								} else {
+									response.write(` <span class=possibly-affected>w(`)
+								}
+								response.write(Object.keys(nodesCanAffectWays[id]).map(aid=>ref('way',aid)).join(', '))
+								if (m>1) {
+									response.write(`)<abbr title='affected geometry of ways'>!</abbr></span>`)
+								} else {
+									response.write(`)<abbr title='possibly affected geometry of ways'>?</abbr></span>`)
+								}
 							}
 							if (id in nodesCanAffectRelations) {
 								response.write(` r(${Object.keys(nodesCanAffectRelations[id]).map(aid=>ref('relation',aid)).join(', ')})?`)

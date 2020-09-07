@@ -1,0 +1,32 @@
+body {
+	margin-right: 50%;
+}
+td {
+	text-align: right;
+}
+ul {
+	list-style-type: none;
+	padding-left: 0;
+}
+li {
+	display: inline-block;
+	padding: 0 .5em;
+}
+li:hover {
+	background: #CCF;
+}
+li.card {
+	display: block;
+	padding: .5em;
+	border: dotted 1px black;
+}
+.ref {
+	color: #008;
+}
+#map {
+	position: fixed;
+	width: 50%;
+	height: 100%;
+	top: 0;
+	right: 0;
+}
