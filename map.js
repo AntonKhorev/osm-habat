@@ -12,7 +12,7 @@ const nodeClickHandler=(ev)=>{
 	nodeLayer.clearLayers()
 	L.circleMarker([$node.dataset.lat,$node.dataset.lon]).addTo(nodeLayer)
 }
-for (const $node of document.querySelectorAll('[data-elementtype=node]')) {
+for (const $node of document.querySelectorAll('[data-element-type=node]')) {
 	const $pin=document.createElement('a')
 	$pin.setAttribute('href','#map')
 	$pin.innerHTML='+'
