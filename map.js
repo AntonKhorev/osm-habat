@@ -12,17 +12,25 @@ function mapButtonClickHandler() {
 	L.circleMarker([this.dataset.lat,this.dataset.lon]).addTo(nodeLayer)
 	map.panTo([this.dataset.lat,this.dataset.lon])
 }
-let $originalElement,$replacementElement
+let $openedElement,$cardElement
 function elementClickHandler() {
-	if ($originalElement && $replacementElement) {
-		$replacementElement.replaceWith($originalElement)
+	if ($cardElement) {
+		$cardElement.remove()
+		$cardElement=undefined
 	}
-	$originalElement=this
-	$replacementElement=document.createElement('li')
-	$replacementElement.classList.add('card')
-	$replacementElement.innerHTML=`<a href=${'https://www.openstreetmap.org/'+this.dataset.elementType+'/'+this.dataset.elementId}>${this.dataset.elementType} ${this.dataset.elementId}</a>`
+	if ($openedElement) {
+		const $formerlyOpenedElement=$openedElement
+		$openedElement.classList.remove('opened')
+		$openedElement=undefined
+		if (this.isSameNode($formerlyOpenedElement)) return
+	}
+	$openedElement=this
+	$openedElement.classList.add('opened')
+	$cardElement=document.createElement('li')
+	$cardElement.classList.add('card')
+	$cardElement.innerHTML=`<a href=${'https://www.openstreetmap.org/'+this.dataset.elementType+'/'+this.dataset.elementId}>${this.dataset.elementType} ${this.dataset.elementId}</a>`
 	if (this.querySelector('.possibly-affected')) {
-		$replacementElement.insertAdjacentHTML('beforeend',`<br>TODO possibly affected cmds`)
+		$cardElement.insertAdjacentHTML('beforeend',`<br>TODO possibly affected cmds`)
 	}
 	if (this.dataset.lat && this.dataset.lon) {
 		const $mapButton=document.createElement('button')
@@ -30,10 +38,10 @@ function elementClickHandler() {
 		$mapButton.dataset.lon=this.dataset.lon
 		$mapButton.innerHTML='Show on map'
 		$mapButton.addEventListener('click',mapButtonClickHandler)
-		$replacementElement.insertAdjacentHTML('beforeend',`<br>`)
-		$replacementElement.appendChild($mapButton)
+		$cardElement.insertAdjacentHTML('beforeend',`<br>`)
+		$cardElement.appendChild($mapButton)
 	}
-	$originalElement.replaceWith($replacementElement)
+	$openedElement.after($cardElement)
 }
 for (const $element of document.querySelectorAll('ul.causes li')) {
 	for (const $a of $element.querySelectorAll('a')) {

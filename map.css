@@ -11,12 +11,20 @@ ul {
 li {
 	display: inline-block;
 	padding: 0 .5em;
+	border: solid 1px transparent;
 }
-li:hover {
+li:not(.card):hover {
 	background: #CCF;
+}
+li.opened {
+	border: dotted 1px black;
+	border-bottom: none;
 }
 li.card {
 	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	float: left;
 	padding: .5em;
 	border: dotted 1px black;
 }
