@@ -118,29 +118,29 @@ function writeReport(changesetId,store,outputFilename) {
 						}
 						response.write(`>`)
 						response.write(vref(elementType,id,version))
-						if (elementType=='node' && changeType=='modify') {
-							const m=nodeMoved(id,version)
-							if (id in nodesCanAffectWays && m>=0) {
-								if (m>1) {
-									response.write(` <span class=surely-affected>w(`)
-								} else {
-									response.write(` <span class=possibly-affected>w(`)
-								}
-								response.write(Object.keys(nodesCanAffectWays[id]).map(aid=>ref('way',aid)).join(', '))
-								if (m>1) {
-									response.write(`)<abbr title='affected geometry of ways'>!</abbr></span>`)
-								} else {
-									response.write(`)<abbr title='possibly affected geometry of ways'>?</abbr></span>`)
-								}
+						const writeAffected=(geometryChanged,affectedElementType,canAffectList)=>{
+							if (!(id in canAffectList && geometryChanged>=0)) return
+							response.write(` <span data-affected-type=${affectedElementType} data-affected-ids=`)
+							response.write(Object.keys(canAffectList[id]).join(','))
+							if (geometryChanged>1) {
+								response.write(` class=surely-affected>`)
+							} else {
+								response.write(` class=possibly-affected>`)
 							}
-							if (id in nodesCanAffectRelations) {
-								response.write(` r(${Object.keys(nodesCanAffectRelations[id]).map(aid=>ref('relation',aid)).join(', ')})?`)
+							response.write(affectedElementType[0]+'(')
+							response.write(Object.keys(canAffectList[id]).map(aid=>ref(affectedElementType,aid)).join(', '))
+							if (geometryChanged>1) {
+								response.write(`)<abbr title='affected geometry of ${affectedElementType}s'>!</abbr></span>`)
+							} else {
+								response.write(`)<abbr title='possibly affected geometry of ${affectedElementType}s'>?</abbr></span>`)
 							}
 						}
+						if (elementType=='node' && changeType=='modify') {
+							writeAffected(nodeMoved(id,version),'way',nodesCanAffectWays)
+							writeAffected(nodeMoved(id,version),'relation',nodesCanAffectRelations)
+						}
 						if (elementType=='way' && changeType=='modify') {
-							if (id in waysCanAffectRelations) {
-								response.write(` r(${Object.keys(waysCanAffectRelations[id]).map(aid=>ref('relation',aid)).join(', ')})?`)
-							}
+							writeAffected(0,'relation',waysCanAffectRelations)
 						}
 					}
 					response.write(`</ul>`)

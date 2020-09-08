@@ -28,9 +28,12 @@ function elementClickHandler() {
 	$openedElement.classList.add('opened')
 	$cardElement=document.createElement('li')
 	$cardElement.classList.add('card')
-	$cardElement.innerHTML=`<a href=${'https://www.openstreetmap.org/'+this.dataset.elementType+'/'+this.dataset.elementId}>${this.dataset.elementType} ${this.dataset.elementId}</a>`
-	if (this.querySelector('.possibly-affected')) {
-		$cardElement.insertAdjacentHTML('beforeend',`<br>TODO possibly affected cmds`)
+	$cardElement.innerHTML=`<a href=${'https://www.openstreetmap.org/'+this.dataset.elementType+'/'+this.dataset.elementId}>${this.dataset.elementType} ${this.dataset.elementId}</a> version ${this.dataset.elementVersion}`
+	for (const $affectedElement of this.querySelectorAll('.possibly-affected')) {
+		$cardElement.insertAdjacentHTML('beforeend',
+			`<br>possibly affected geometry of ${$affectedElement.dataset.affectedType}s: `+
+			$affectedElement.dataset.affectedIds.split(',').map(aid=>`<a href=${'https://www.openstreetmap.org/'+$affectedElement.dataset.affectedType+'/'+aid}>${aid}</a>`).join(', ')
+		)
 	}
 	if (this.dataset.lat && this.dataset.lon) {
 		const $mapButton=document.createElement('button')
