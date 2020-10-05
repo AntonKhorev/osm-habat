@@ -94,7 +94,7 @@ function reportUser(response,user,callback) {
 			if (nParsed>0) {
 				writeRcLink('changes')
 				writeRcLink('creations')
-				response.write(`<li><a href=deletions.osm>deletions josm file</a>\n`)
+				writeRcLink('deletions')
 				response.write(`<li><a href=keys/>changed keys</a>\n`)
 				response.write(`<li><a href=elements/>changed elements</a>\n`)
 			}
