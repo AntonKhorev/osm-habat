@@ -675,6 +675,11 @@ const server=http.createServer((request,response)=>{
 		response.write(`<ul>\n`)
 		response.write(`<li><a href=/user/>users</a>\n`)
 		response.write(`</ul>\n`)
+		response.write(`<h2>JOSM RC test requests</h2>\n`)
+		response.write(`<ul>\n`)
+		response.write(`<li><a onclick='return openRcLink(event)' href=http://127.0.0.1:8111/version>version - see browser console for result</a>\n`)
+		response.write(`<li><a onclick='return openRcLink(event)' href=http://127.0.0.1:8111/invalidrequest>invalid request</a>\n`)
+		response.write(`</ul>\n`)
 		respondTail(response)
 	} else if (path=='/user/') {
 		respondHead(response,'users')
