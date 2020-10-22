@@ -293,6 +293,13 @@ if (cmd=='add') {
 		console.log('missing add argument')
 		return process.exit(1)
 	}
+	const addUserByUid=(uid)=>{
+		const user=new User(uid)
+		console.log(`about to add user #${uid} without reading changesets metadata`)
+		user.requestMetadata(()=>{
+			console.log(`wrote user #${uid} metadata`)
+		})
+	}
 	try {
 		const userUrl=new URL(userString)
 		if (userUrl.host=='www.openstreetmap.org') {
@@ -310,19 +317,18 @@ if (cmd=='add') {
 			console.log(`adding user ${userName}`)
 			addUser(userName)
 		} else if (userUrl.host=='resultmaps.neis-one.org') {
-			const uid=userUrl.searchParams.get('uid')
-			const user=new User(uid)
-			console.log(`about to add user #${uid} without reading changesets metadata`)
-			user.requestMetadata(()=>{
-				console.log(`wrote user #${uid} metadata`)
-			})
+			addUserByUid(userUrl.searchParams.get('uid'))
 		} else {
 			console.log(`unrecognized host ${userUrl.host}`)
 			return process.exit(1)
 		}
 	} catch {
-		console.log(`invalid add argument ${userString}`)
-		return process.exit(1)
+		if (/^[1-9]\d*$/.test(userString)) {
+			addUserByUid(userString)
+		} else {
+			console.log(`invalid add argument ${userString}`)
+			return process.exit(1)
+		}
 	}
 } else {
 	handleDumbCmds()

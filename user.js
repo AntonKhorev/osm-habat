@@ -61,6 +61,7 @@ class User {
 				this._changesetsCount=Number(attrs.count)
 			}
 		}).parse(fs.readFileSync(path.join(this.dirName,'meta.xml'),'utf8'))
+		if (this._displayName===undefined) this._displayName='user_'+this.uid // deleted user
 	}
 	get displayName() {
 		if (this._displayName!==undefined) return this._displayName
