@@ -10,9 +10,16 @@ module.exports=(title)=>e.h`<!DOCTYPE html>
 .delete {background: #FCC}
 </style>
 <script>
-function openRcLink(element) {
-	(new Image()).src=element.href
-	return false
+function openRcLink(ev) {
+	ev.preventDefault()
+	let $status=document.createElement('span')
+	$status.innerHTML='[INITIATED]'
+	ev.target.after($status)
+	fetch(ev.target.href).then((response)=>{
+		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
+	}).catch((er)=>{
+		$status.innerHTML='[NETWORK ERROR]'
+	})
 }
 </script>
 </head>
