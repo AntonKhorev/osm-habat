@@ -26,6 +26,10 @@ function respondTail(response) {
 	response.end()
 }
 
+function rcLink(request,title) {
+	return e.h`<a onclick='return openRcLink(event)' href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
+}
+
 function reportUser(response,user,callback) {
 	let currentYear,currentMonth
 	const createdBys={}
@@ -74,7 +78,10 @@ function reportUser(response,user,callback) {
 			const writeRcLink=(fileContents)=>{
 				const layerName=encodeURIComponent(fileContents+' of '+user.displayName)
 				const remoteUrl=encodeURIComponent(`http://localhost:${server.address().port}/user/${user.uid}/${fileContents}.osm`)
-				response.write(`<li><a href=${fileContents}.osm>${fileContents} josm file</a>, <a onclick='return openRcLink(event)' href=http://127.0.0.1:8111/import?new_layer=true&layer_name=${layerName}&url=${remoteUrl}>josm remote control</a>\n`)
+				response.write(
+					`<li><a href=${fileContents}.osm>${fileContents} josm file</a>, `+
+					rcLink(`import?new_layer=true&layer_name=${layerName}&url=${remoteUrl}`,`josm remote control`)+
+				`\n`)
 			}
 			if (nParsed>0) {
 				writeRcLink('changes')
@@ -353,7 +360,11 @@ function reportUserElements(response,user,callback) {
 				} else if (name=='node' || name=='way' || name=='relation') {
 					if (!tableHeaderWritten) {
 						let id=user.changesets[i]
-						response.write(e.h`<h3><a href=${`https://www.openstreetmap.org/changeset/${id}`}>Changeset #${id}</a> written around ${attrs.timestamp}</h3>\n`)
+						response.write(`<h3>`+
+							`<a href=${'https://www.openstreetmap.org/changeset/'+id}>Changeset #${id}</a> `+
+							`written around ${attrs.timestamp} `+
+							rcLink(`revert_changeset?id=${id}`,`[revert]`)+
+						`</h3>\n`)
 						response.write(`<table>\n`)
 						response.write(`<tr><th>key<th>old value<th>new value\n`)
 						tableHeaderWritten=true
@@ -677,8 +688,9 @@ const server=http.createServer((request,response)=>{
 		response.write(`</ul>\n`)
 		response.write(`<h2>JOSM RC test requests</h2>\n`)
 		response.write(`<ul>\n`)
-		response.write(`<li><a onclick='return openRcLink(event)' href=http://127.0.0.1:8111/version>version - see browser console for result</a>\n`)
-		response.write(`<li><a onclick='return openRcLink(event)' href=http://127.0.0.1:8111/invalidrequest>invalid request</a>\n`)
+		response.write(`<li>`+rcLink(`version`,`version - see browser console for result`)+`\n`)
+		response.write(`<li>`+rcLink(`invalidrequest`,`invalid request`)+`\n`)
+		response.write(`<li>note that reverter plugin will crash during RC call if no layer is created\n`)
 		response.write(`</ul>\n`)
 		respondTail(response)
 	} else if (path=='/user/') {
