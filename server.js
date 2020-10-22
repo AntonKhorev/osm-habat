@@ -8,26 +8,11 @@ const open=require('open')
 
 const e=require('./escape')
 const User=require('./user')
+const head=require('./head')
 
 function respondHead(response,title) {
 	response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
-	for (const line of [
-		`<!DOCTYPE html>`,
-		`<html lang=en>`,
-		`<head>`,
-		`<meta charset=utf-8>`,
-		e.h`<title>${title}</title>`,
-		`<style>`,
-		`.create {background: #CFC}`,
-		`.modify {background: #FFC}`,
-		`.delete {background: #FCC}`,
-		`</style>`,
-		`</head>`,
-		`<body>`,
-	]) {
-		response.write(line)
-		response.write('\n')
-	}
+	response.write(head(title))
 }
 
 function respondTail(response) {
@@ -89,7 +74,7 @@ function reportUser(response,user,callback) {
 			const writeRcLink=(fileContents)=>{
 				const layerName=encodeURIComponent(fileContents+' of '+user.displayName)
 				const remoteUrl=encodeURIComponent(`http://localhost:${server.address().port}/user/${user.uid}/${fileContents}.osm`)
-				response.write(`<li><a href=${fileContents}.osm>${fileContents} josm file</a>, <a href=http://127.0.0.1:8111/import?new_layer=true&layer_name=${layerName}&url=${remoteUrl}>josm remote control</a>\n`)
+				response.write(`<li><a href=${fileContents}.osm>${fileContents} josm file</a>, <a onclick='return openRcLink(this)' href=http://127.0.0.1:8111/import?new_layer=true&layer_name=${layerName}&url=${remoteUrl}>josm remote control</a>\n`)
 			}
 			if (nParsed>0) {
 				writeRcLink('changes')
