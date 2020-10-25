@@ -380,7 +380,10 @@ function reportUserElements(response,user,callback) {
 				if (name=='create' || name=='modify' || name=='delete') {
 					mode=undefined
 				} else if (name=='node' || name=='way' || name=='relation') {
-					response.write(e.h`<tr><th colspan=3>${mode} <a href=${`https://www.openstreetmap.org/${name}/${id}`}>${element} #${id}</a>\n`)
+					response.write(
+						e.h`<tr><th colspan=3>${mode} <a href=${`https://www.openstreetmap.org/${name}/${id}`}>${element} #${id}</a><td>`+
+						rcLink(`load_object?objects=${name[0]+id}`,`[load]`)+
+					`\n`)
 					const prevTags=getData(element,id,version-1)
 					const combinedTags={}
 					if (prevTags!==undefined) {
@@ -397,7 +400,10 @@ function reportUserElements(response,user,callback) {
 						if (v1=='' && v2!='') change='create'
 						if (v1!='' && v2=='') change='delete'
 						if (v1!='' && v2!='' && v1!=v2) change='modify'
-						response.write(e.h`<tr class=${change} data-key=${k}><td>${k}<td>${v1}<td>${v2}\n`)
+						response.write(
+							e.h`<tr class=${change} data-key=${k}><td>${k}<td>${v1}<td>${v2}<td>`+
+							rcLink(`load_object?objects=${name[0]+id}&addtags=${k}=${v1}`,`[undo]`)+
+						`\n`)
 					}
 					setData(element,id,version,tags)
 					element=id=version=tags=undefined
