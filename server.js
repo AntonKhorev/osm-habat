@@ -402,7 +402,8 @@ function reportUserElements(response,user,callback) {
 						if (v1!='' && v2!='' && v1!=v2) change='modify'
 						response.write(
 							e.h`<tr class=${change} data-key=${k}><td>${k}<td>${v1}<td>${v2}<td>`+
-							rcLink(`load_object?objects=${name[0]+id}&addtags=${k}=${v1}`,`[undo]`)+
+							rcLink(`load_object?objects=${name[0]+id}&addtags=${k}=${v1}`,`[undo]`)+' '+
+							rcLink(`load_object?objects=${name[0]+id}&addtags=`+encodeURIComponent(`${k}=${v1}|${k}:az=${v2}`),`[undo and move to *:az]`)+
 						`\n`)
 					}
 					setData(element,id,version,tags)
