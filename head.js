@@ -34,10 +34,10 @@ function openOverpassLink(ev) {
 		$tr.appendChild($latestVersion)
 		const doneKeys={}
 		while (true) {
-			$tr=$tr.nextSibling
-			if (!$tr) break
-			const key=$tr.dataset.key
+			if (!$tr.nextSibling) break
+			const key=$tr.nextSibling.dataset.key
 			if (key===undefined) break
+			$tr=$tr.nextSibling
 			const $latestValue=document.createElement('td')
 			if (data.tags[key]===undefined) {
 				$latestValue.innerText=''
@@ -46,6 +46,20 @@ function openOverpassLink(ev) {
 				doneKeys[key]=true
 			}
 			$tr.appendChild($latestValue)
+		}
+		for (const [key,value] of Object.entries(data.tags)) {
+			if (doneKeys[key]) continue
+			const $newTr=document.createElement('tr')
+			const $newKey=document.createElement('td')
+			$newKey.dataset.key=key
+			$newKey.innerText=key
+			$newTr.appendChild($newKey)
+			for (let i=0;i<3;i++) $newTr.appendChild(document.createElement('td'))
+			const $newValue=document.createElement('td')
+			$newValue.innerText=value
+			$newTr.appendChild($newValue)
+			$tr.after($newTr)
+			$tr=$newTr
 		}
 	}).catch((er)=>{
 		$latestVersion.innerHTML='[ERROR]'
