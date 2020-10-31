@@ -384,6 +384,7 @@ function reportUserElements(response,user,callback) {
 						e.h`<tr><th colspan=3>${mode} <a href=${`https://www.openstreetmap.org/${name}/${id}`}>${element} #${id}</a><td>`+
 						rcLink(`load_object?objects=${name[0]+id}`,`[load]`)+
 					`\n`)
+					response.write(e.h`<tr><th>ver<td>${version-1}<td>${version}<td><a href=${`https://overpass-api.de/api/interpreter?data=[out:json];${name}(${id});out%20meta;`}>[get latest]</a>\n`)
 					const prevTags=getData(element,id,version-1)
 					const combinedTags={}
 					if (prevTags!==undefined) {
