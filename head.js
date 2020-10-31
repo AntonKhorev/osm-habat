@@ -51,7 +51,7 @@ function openOverpassLink(ev) {
 			if (doneKeys[key]) continue
 			const $newTr=document.createElement('tr')
 			const $newKey=document.createElement('td')
-			$newKey.dataset.key=key
+			$newTr.dataset.key=key
 			$newKey.innerText=key
 			$newTr.appendChild($newKey)
 			for (let i=0;i<3;i++) $newTr.appendChild(document.createElement('td'))
