@@ -30,6 +30,10 @@ function rcLink(request,title) {
 	return e.h`<a onclick='return openRcLink(event)' href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
 }
 
+function overpassLink(elementName,elementId) {
+	return e.h`<a onclick='return openOverpassLink(event)' href=${`https://overpass-api.de/api/interpreter?data=[out:json];${elementName}(${elementId});out%20meta;`}>[get latest]</a>`
+}
+
 function reportUser(response,user,callback) {
 	let currentYear,currentMonth
 	const createdBys={}
@@ -384,7 +388,10 @@ function reportUserElements(response,user,callback) {
 						e.h`<tr><th colspan=3>${mode} <a href=${`https://www.openstreetmap.org/${name}/${id}`}>${element} #${id}</a><td>`+
 						rcLink(`load_object?objects=${name[0]+id}`,`[load]`)+
 					`\n`)
-					response.write(e.h`<tr><th>ver<td>${version-1}<td>${version}<td><a href=${`https://overpass-api.de/api/interpreter?data=[out:json];${name}(${id});out%20meta;`}>[get latest]</a>\n`)
+					response.write(
+						e.h`<tr><th>ver<td>${version-1}<td>${version}<td>`+
+						overpassLink(name,id)+
+					`\n`)
 					const prevTags=getData(element,id,version-1)
 					const combinedTags={}
 					if (prevTags!==undefined) {
