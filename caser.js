@@ -174,7 +174,7 @@ async function processSection(section,flags) {
 					const user=new User(uid)
 					await new Promise(resolve=>user.requestMetadata(resolve))
 					const newLastNoteId=await getLastNoteId(uid)
-					if (oldLastNoteId!=newLastNoteId) {
+					if (newLastNoteId!==undefined && oldLastNoteId!=newLastNoteId) {
 						section.report.push(`* USER ${user.displayName} ADDED A NEW NOTE #${newLastNoteId}`)
 					} else if (flags.verbose) {
 						section.report.push(`* user ${user.displayName} added no new notes`)
@@ -286,13 +286,15 @@ async function processSection(section,flags) {
 async function getLastNoteId(uid) {
 	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=1&closed=-1&sort=created_at&user=${uid}`,res=>{
 		let captureId=false
-		let noteId=''
+		let noteId // undefined = no notes, last note possibly hidden
 		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='id') captureId=true
 		}).on('endElement',(name)=>{
 			if (name=='id') captureId=false
 		}).on('text',(text)=>{
-			if (captureId) noteId+=text
+			if (!captureId) return
+			if (noteId===undefined) noteId=''
+			noteId+=text
 		}).on('end',()=>{
 			resolve(noteId)
 		}))
