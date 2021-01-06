@@ -113,6 +113,9 @@ async function readSections(filename,callback) {
 		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
 			const [,elementString]=match
 			add('elements',parseElementString(elementString))
+		} else if (match=input.match(/^\*\s+version\s+(.*)$/)) {
+			const [,versionString]=match
+			add('versions',versionString)
 		} else if (match=input.match(/^\*\s+tag\s+([^=]+)=(.*)$/)) {
 			const [,k,v]=match
 			if (!currentSection.data.tags) currentSection.data.tags={}
@@ -213,7 +216,7 @@ async function processSection(section,flags) {
 		) {
 			if (flags.verbose) section.report.push(`* element is set, but nothing to check`)
 		} else {
-			for (const [elementType,elementId] of section.data.elements) {
+			for (const [i,[elementType,elementId]] of section.data.elements.entries()) {
 				if (section.data.shouldExist) {
 					if (flags.dry) {
 						section.report.push(`* will check if ${elementType} #${elementId} exists`)
@@ -223,6 +226,20 @@ async function processSection(section,flags) {
 							section.report.push(`* ${elementType} #${elementId} DOES NOT EXIST`)
 						} else if (flags.verbose) {
 							section.report.push(`* ${elementType} #${elementId} exists as expected`)
+						}
+					}
+				}
+				if (section.data.versions) {
+					if (flags.dry) {
+						section.report.push(`* will check version of ${elementType} #${elementId}`)
+					} else {
+						const expectedVersion=section.data.versions[i]
+						const newVersion=await checkElementVersion(elementType,elementId)
+						const nDiffVersions=newVersion-expectedVersion
+						if (nDiffVersions) {
+							section.report.push(`* ${elementType} #${elementId} WAS UPDATED ${nDiffVersions} TIME${nDiffVersions==1?'':'S'}`)
+						} else if (flags.verbose) {
+							section.report.push(`* ${elementType} #${elementId} was not changes`)
 						}
 					}
 				}
@@ -331,6 +348,17 @@ async function checkNoteStatus(noteId) {
 async function checkElementExists(elementType,elementId) {
 	return new Promise(resolve=>osm.apiGet(`/api/0.6/${elementType}/${elementId}`,res=>{
 		resolve(res.statusCode==200)
+	}))
+}
+
+async function checkElementVersion(elementType,elementId) {
+	return new Promise(resolve=>osm.apiGet(`/api/0.6/${elementType}/${elementId}`,res=>{
+		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+			if (name==elementType) {
+				res.destroy()
+				resolve(attrs.version)
+			}
+		}))
 	}))
 }
 
