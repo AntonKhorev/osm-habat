@@ -56,29 +56,6 @@ function processUserChangesetsMetadata(inputStream,endCallback) {
 	)
 }
 
-function addUser(userName) {
-	// only doable by fetching changesets by display_name
-	osm.apiGet(`/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`,res=>{
-		if (res.statusCode!=200) {
-			console.log(`cannot find user ${userName}`)
-			return process.exit(1)
-		}
-		processUserChangesetsMetadata(res,(uid,changesets)=>{
-			if (uid===undefined) {
-				console.log(`could not get uid from changesets`)
-				console.log(`try looking for uid on hdyc: https://hdyc.neis-one.org/?${encodeURIComponent(userName)}`)
-				return
-			}
-			const user=new User(uid)
-			console.log(`about to add user #${uid} with currently read ${changesets.length} changesets metadata`)
-			user.mergeChangesets(changesets)
-			user.requestMetadata(()=>{
-				console.log(`wrote user #${uid} metadata`)
-			})
-		})
-	})
-}
-
 function updateUser(uid,callback) {
 	const user=new User(uid)
 	const requestChangesets=(timestamp)=>{
@@ -264,72 +241,111 @@ function downloadAllUser(uid,callback) {
 	)
 }
 
-const cmd=process.argv[2]
-const dumbCommands={
-	'update': updateUser,
-	'download': downloadUser,
-	'download-previous': downloadPreviousUser,
-	'download-referenced': downloadReferencedUser,
-	'download-all': downloadAllUser,
-}
-const handleDumbCmds=()=>{
-	for (const [cmdName,cmdFn] of Object.entries(dumbCommands)) {
-		if (cmd==cmdName) {
-			const uid=process.argv[3]
-			if (uid===undefined) {
-				console.log(`missing ${cmd} argument`)
-				return process.exit(1)
-			}
-			cmdFn(uid,()=>{})
-			return
+main(process.argv[2],process.argv[3])
+async function main(cmd,cmdArg) {
+	const dumbCommands={
+		'update': updateUser,
+		'download': downloadUser,
+		'download-previous': downloadPreviousUser,
+		'download-referenced': downloadReferencedUser,
+		'download-all': downloadAllUser,
+	}
+	if (cmd=='add') {
+		if (cmdArg===undefined) {
+			console.log('missing add argument')
+			return process.exit(1)
 		}
+		try {
+			const user=await addUser(cmdArg)
+			return
+		} catch {
+			return process.exit(1)
+		}
+	}
+	for (const [cmdName,cmdFn] of Object.entries(dumbCommands)) {
+		if (cmd!=cmdName) continue
+		if (cmdArg===undefined) {
+			console.log(`missing ${cmd} argument`)
+			return process.exit(1)
+		}
+		cmdFn(cmdArg,()=>{})
+		return
 	}
 	console.log('invalid or missing command; available commands: add, '+Object.keys(dumbCommands).join(', '))
 	return process.exit(1)
 }
-if (cmd=='add') {
-	const userString=process.argv[3]
-	if (userString===undefined) {
-		console.log('missing add argument')
-		return process.exit(1)
-	}
-	const addUserByUid=(uid)=>{
-		const user=new User(uid)
-		console.log(`about to add user #${uid} without reading changesets metadata`)
-		user.requestMetadata(()=>{
-			console.log(`wrote user #${uid} metadata`)
-		})
-	}
+
+async function addUser(userString) {
+	let user
 	try {
-		const userUrl=new URL(userString)
-		if (userUrl.host=='www.openstreetmap.org') {
-			const [,userPathDir,userPathEnd]=userUrl.pathname.split('/')
-			if (userPathDir=='user') {
-				const userName=decodeURIComponent(userPathEnd)
-				console.log(`adding user ${userName}`)
-				addUser(userName)
-			} else {
-				console.log('invalid url format')
-				return process.exit(1)
-			}
-		} else if (userUrl.host=='hdyc.neis-one.org') {
-			const userName=decodeURIComponent(userUrl.search).substr(1)
-			console.log(`adding user ${userName}`)
-			addUser(userName)
-		} else if (userUrl.host=='resultmaps.neis-one.org') {
-			addUserByUid(userUrl.searchParams.get('uid'))
+		if (/^[1-9]\d*$/.test(userString)) {
+			user=await addUserByUid(userString)
 		} else {
-			console.log(`unrecognized host ${userUrl.host}`)
-			return process.exit(1)
+			const userUrl=new URL(userString)
+			if (userUrl.host=='www.openstreetmap.org') {
+				const [,userPathDir,userPathEnd]=userUrl.pathname.split('/')
+				if (userPathDir=='user') {
+					const userName=decodeURIComponent(userPathEnd)
+					console.log(`adding user ${userName}`)
+					user=await addUserByName(userName)
+				} else {
+					console.log('invalid url format')
+					throw(``)
+				}
+			} else if (userUrl.host=='hdyc.neis-one.org') {
+				const userName=decodeURIComponent(userUrl.search).substr(1)
+				console.log(`adding user ${userName}`)
+				user=await addUserByName(userName)
+			} else if (userUrl.host=='resultmaps.neis-one.org') {
+				user=await addUserByUid(userUrl.searchParams.get('uid'))
+			} else {
+				console.log(`unrecognized host ${userUrl.host}`)
+				throw(``)
+			}
 		}
 	} catch {
-		if (/^[1-9]\d*$/.test(userString)) {
-			addUserByUid(userString)
-		} else {
-			console.log(`invalid add argument ${userString}`)
-			return process.exit(1)
-		}
+		throw(`invalid add argument ${userString}`)
+		return process.exit(1)
 	}
-} else {
-	handleDumbCmds()
+	console.log(`=== quick caser setup { ===`)
+	console.log(`### User "${user.displayName}"`)
+	console.log(``)
+	console.log(`* uid ${user.uid}`)
+	console.log(`* changesets count ${user.changesetsCount}`)
+	console.log(`=== } ===`)
+}
+
+async function addUserByUid(uid) {
+	const user=new User(uid)
+	console.log(`about to add user #${uid} without reading changesets metadata`)
+	return new Promise((resolve,reject)=>user.requestMetadata(()=>{
+		console.log(`wrote user #${uid} metadata`)
+		resolve(user)
+	}))
+}
+
+async function addUserByName(userName) {
+	// only doable by fetching changesets by display_name
+	return new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/changesets?display_name=${encodeURIComponent(userName)}`,res=>{
+		if (res.statusCode!=200) {
+			console.log(`cannot find user ${userName}`)
+			reject()
+			return
+		}
+		processUserChangesetsMetadata(res,(uid,changesets)=>{
+			if (uid===undefined) {
+				console.log(`could not get uid from changesets`)
+				console.log(`try looking for uid on hdyc: https://hdyc.neis-one.org/?${encodeURIComponent(userName)}`)
+				reject()
+				return
+			}
+			const user=new User(uid)
+			console.log(`about to add user #${uid} with currently read ${changesets.length} changesets metadata`)
+			user.mergeChangesets(changesets)
+			user.requestMetadata(()=>{
+				console.log(`wrote user #${uid} metadata`)
+				resolve(user)
+			})
+		})
+	}))
 }
