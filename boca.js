@@ -27,7 +27,7 @@ function main(storeFilename) {
 				if (body.length>1e6) request.connection.destroy()
 			}).on('end',()=>{
 				const post=querystring.parse(body)
-				serveLoad(response,post.changeset)
+				serveLoad(response,store,storeFilename,post.changeset)
 			})
 		} else {
 			response.writeHead(404)
@@ -47,11 +47,19 @@ function serveRoot(response) {
 	respondTail(response)
 }
 
-function serveLoad(response,requestBody) {
-	respondHead(response,'temp load page')
-	response.write('supposed to load this:\n')
-	response.write(e.h`<pre>${requestBody}</pre>\n`)
-	respondTail(response)
+async function serveLoad(response,store,storeFilename,changesetId) {
+	try {
+		await downloadChangeset(store,changesetId)
+	} catch {
+		respondHead(response,'changeset request error')
+		response.write(e.h`<p>cannot load changeset ${changesetId}\n`)
+		response.write(e.h`<p><a href=/>return to main page</a></p>\n`)
+		respondTail(response)
+		return
+	}
+	osm.writeStore(storeFilename,store)
+	response.writeHead(301,{'Location':'/'})
+	response.end()
 }
 
 function respondHead(response,title) {
@@ -74,4 +82,11 @@ function respondTail(response) {
 </html>`
 	)
 	response.end()
+}
+
+async function downloadChangeset(store,changesetId) {
+	return new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/changeset/${changesetId}/download`,res=>{
+		if (res.statusCode!=200) reject()
+		res.pipe(osm.makeParser(store).on('end',resolve))
+	}))
 }
