@@ -53,11 +53,13 @@ function serveRoot(response,store) {
 	response.write(`<table>\n`)
 	response.write(`<tr><th rowspan=2>changeset<th colspan=3>nodes<th colspan=3>ways<th colspan=3>rels\n`)
 	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
+	const cc=()=>({create:0,modify:0,delete:0})
+	const globalChanges={node:{},way:{},relation:{}}
 	for (const [changesetId,changeList] of Object.entries(store.changes)) {
-		const cc=()=>({create:0,modify:0,delete:0})
 		const count={node:cc(),way:cc(),relation:cc()}
-		for (const [changeType,elementType] of changeList) {
+		for (const [changeType,elementType,elementId] of changeList) {
 			count[elementType][changeType]++
+			globalChanges[elementType][elementId]=changeType
 		}
 		response.write(e.h`<tr><td><a href=${'https://www.openstreetmap.org/changeset/'+changesetId}>${changesetId}</a>`)
 		for (const elementType of ['node','way','relation']) {
@@ -66,6 +68,15 @@ function serveRoot(response,store) {
 		}
 		response.write(`\n`)
 	}
+	response.write(e.h`<tr><td>total`)
+	for (const elementType of ['node','way','relation']) {
+		const c=cc()
+		for (const changeType of Object.values(globalChanges[elementType])) {
+			c[changeType]++
+		}
+		response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
+	}
+	response.write(`\n`)
 	response.write(`</table>\n`)
 	respondTail(response)
 }
