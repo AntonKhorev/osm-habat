@@ -19,7 +19,7 @@ function main(storeFilename) {
 	const server=http.createServer((request,response)=>{
 		const path=url.parse(request.url).pathname
 		if (path=='/') {
-			serveRoot(response)
+			serveRoot(response,store)
 		} else if (path=='/store') {
 			serveStore(response,store)
 		} else if (path=='/load') {
@@ -40,13 +40,33 @@ function main(storeFilename) {
 	})
 }
 
-function serveRoot(response) {
+function serveRoot(response,store) {
 	respondHead(response,'habat-boca')
+	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
+	response.write(`<h2>Actions</h2>\n`)
 	response.write(`<form method=post action=/load>\n`)
 	response.write(`<label>Changeset to load: <input type=text name=changeset></label>\n`)
 	response.write(`<button type=submit>Load from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
+	response.write(`<h2>Changesets</h2>\n`)
+	response.write(`<table>\n`)
+	response.write(`<tr><th rowspan=2>changeset<th colspan=3>nodes<th colspan=3>ways<th colspan=3>rels\n`)
+	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
+	for (const [changesetId,changeList] of Object.entries(store.changes)) {
+		const cc=()=>({create:0,modify:0,delete:0})
+		const count={node:cc(),way:cc(),relation:cc()}
+		for (const [changeType,elementType] of changeList) {
+			count[elementType][changeType]++
+		}
+		response.write(e.h`<tr><td><a href=${'https://www.openstreetmap.org/changeset/'+changesetId}>${changesetId}</a>`)
+		for (const elementType of ['node','way','relation']) {
+			c=count[elementType]
+			response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
+		}
+		response.write(`\n`)
+	}
+	response.write(`</table>\n`)
 	respondTail(response)
 }
 
@@ -59,7 +79,7 @@ async function serveLoad(response,store,storeFilename,changesetId) {
 	try {
 		await downloadChangeset(store,changesetId)
 	} catch {
-		respondHead(response,'changeset request error')
+		respondHead(response,'changeset request error') // TODO http error code
 		response.write(e.h`<p>cannot load changeset ${changesetId}\n`)
 		response.write(e.h`<p><a href=/>return to main page</a>\n`)
 		respondTail(response)
@@ -78,6 +98,9 @@ function respondHead(response,title) {
 <head>
 <meta charset=utf-8>
 <title>${title}</title>
+<style>
+table td { text-align: right }
+</style>
 </head>
 <body>
 `
