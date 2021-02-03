@@ -129,13 +129,16 @@ function serveElements(response,store,filters) {
 			if (first) {
 				first=false
 				response.write(`<table>\n`)
-				response.write(`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr>\n`)
+				response.write(`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>\n`)
 			}
-			response.write(e.h`<tr><td>${elementType[0]}${elementId}`)
+			response.write(`<tr>`)
+			response.write(e.h`<td>${elementType[0]}${elementId}`)
 			response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
 			const timestampString=new Date(store[elementType+'s'][elementId][elementVersion].timestamp-1000).toISOString()
 			const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
-			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>\n`)
+			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
+			response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
+			response.write(`\n`)
 		}
 	}
 	if (first) {
