@@ -128,17 +128,20 @@ function serveElements(response,store,filters) {
 			if (filters.version && filters.version!=elementVersion) continue
 			if (first) {
 				first=false
-				response.write(`<p>`)
-			} else {
-				response.write(` `)
+				response.write(`<table>\n`)
+				response.write(`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr>\n`)
 			}
-			response.write(`<a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>${elementType[0]}${elementId}</a>`)
+			response.write(e.h`<tr><td>${elementType[0]}${elementId}`)
+			response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
+			const timestampString=new Date(store[elementType+'s'][elementId][elementVersion].timestamp-1000).toISOString()
+			const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
+			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/?Q='+encodeURIComponent(query)}>ov-</a>\n`)
 		}
 	}
 	if (first) {
 		response.write(`<p>none found\n`)
 	} else {
-		response.write(`\n`)
+		response.write(`</table>\n`)
 	}
 	respondTail(response)
 }
