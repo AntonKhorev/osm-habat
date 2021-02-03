@@ -17,11 +17,14 @@ main(process.argv[2])
 function main(storeFilename) {
 	const store=osm.readStore(storeFilename)
 	const server=http.createServer((request,response)=>{
-		const path=url.parse(request.url).pathname
+		const urlParse=url.parse(request.url)
+		const path=urlParse.pathname
 		if (path=='/') {
 			serveRoot(response,store)
 		} else if (path=='/store') {
 			serveStore(response,store)
+		} else if (path=='/elements') {
+			serveElements(response,store,querystring.parse(urlParse.query))
 		} else if (path=='/load') {
 			let body=''
 			request.on('data',data=>{
@@ -101,7 +104,8 @@ function serveRoot(response,store) {
 		response.write(`<table>\n`)
 		response.write(`<tr><th>V<th>#\n`)
 		for (let v=1;v<=maxVersion;v++) {
-			response.write(`<tr><td>${v}<td>${versions.filter(x=>x==v).length}\n`)
+			const href=`/elements?change=delete&type=${elementType}&version=${v+1}`
+			response.write(e.h`<tr><td><a href=${href}>${v}</a><td>${versions.filter(x=>x==v).length}\n`)
 		}
 		response.write(`</table>\n`)
 	}
@@ -111,6 +115,32 @@ function serveRoot(response,store) {
 function serveStore(response,store) {
 	response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'})
 	response.end(JSON.stringify(store))
+}
+
+function serveElements(response,store,filters) {
+	respondHead(response,'habat-boca')
+	response.write(`<h1>Filtered elements list</h1>\n`)
+	let first=true
+	for (const [changesetId,changeList] of Object.entries(store.changes)) { // TODO first accumulate all changes - or don't?
+		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
+			if (filters.change && filters.change!=changeType) continue
+			if (filters.type && filters.type!=elementType) continue
+			if (filters.version && filters.version!=elementVersion) continue
+			if (first) {
+				first=false
+				response.write(`<p>`)
+			} else {
+				response.write(` `)
+			}
+			response.write(`<a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>${elementType[0]}${elementId}</a>`)
+		}
+	}
+	if (first) {
+		response.write(`<p>none found\n`)
+	} else {
+		response.write(`\n`)
+	}
+	respondTail(response)
 }
 
 async function serveLoad(response,store,storeFilename,changesetId) {
