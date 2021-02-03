@@ -135,7 +135,7 @@ function serveElements(response,store,filters) {
 			response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
 			const timestampString=new Date(store[elementType+'s'][elementId][elementVersion].timestamp-1000).toISOString()
 			const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
-			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/?Q='+encodeURIComponent(query)}>ov-</a>\n`)
+			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>\n`)
 		}
 	}
 	if (first) {
