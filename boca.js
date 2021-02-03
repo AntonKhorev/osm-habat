@@ -49,7 +49,7 @@ function serveRoot(response,store) {
 	response.write(`<button type=submit>Load from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
-	response.write(`<h2>Changesets</h2>\n`)
+	response.write(`<h2>Changeset element counts</h2>\n`)
 	response.write(`<table>\n`)
 	response.write(`<tr><th rowspan=2>changeset<th colspan=3>nodes<th colspan=3>ways<th colspan=3>rels\n`)
 	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
@@ -78,6 +78,33 @@ function serveRoot(response,store) {
 	}
 	response.write(`\n`)
 	response.write(`</table>\n`)
+	response.write(`<h2>Deletion version distribution</h2>\n`)
+	const deletedVersions={node:{},way:{},relation:{}}
+	for (const [changesetId,changeList] of Object.entries(store.changes)) {
+		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
+			if (changeType=='delete') {
+				deletedVersions[elementType][elementId]=elementVersion-1
+			} else {
+				delete deletedVersions[elementType][elementId]
+			}
+		}
+	}
+	for (const elementType of ['node','way','relation']) {
+		response.write(e.h`<h3>for ${elementType} elements</h2>\n`)
+		const versions=Object.values(deletedVersions[elementType])
+		let maxVersion=0 // Math.max(...versions) - can't use it on large arrays
+		for (const v of versions) if (maxVersion<v) maxVersion=v
+		if (maxVersion<=0) {
+			response.write(`<p>no deletions\n`)
+			continue
+		}
+		response.write(`<table>\n`)
+		response.write(`<tr><th>V<th>#\n`)
+		for (let v=1;v<=maxVersion;v++) {
+			response.write(`<tr><td>${v}<td>${versions.filter(x=>x==v).length}\n`)
+		}
+		response.write(`</table>\n`)
+	}
 	respondTail(response)
 }
 
