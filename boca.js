@@ -20,6 +20,8 @@ function main(storeFilename) {
 		const path=url.parse(request.url).pathname
 		if (path=='/') {
 			serveRoot(response)
+		} else if (path=='/store') {
+			serveStore(response,store)
 		} else if (path=='/load') {
 			let body=''
 			request.on('data',data=>{
@@ -44,7 +46,13 @@ function serveRoot(response) {
 	response.write(`<label>Changeset to load: <input type=text name=changeset></label>\n`)
 	response.write(`<button type=submit>Load from OSM</button>\n`)
 	response.write(`</form>\n`)
+	response.write(`<p><a href=/store>view json store</a></p>\n`)
 	respondTail(response)
+}
+
+function serveStore(response,store) {
+	response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'})
+	response.end(JSON.stringify(store))
 }
 
 async function serveLoad(response,store,storeFilename,changesetId) {
@@ -53,7 +61,7 @@ async function serveLoad(response,store,storeFilename,changesetId) {
 	} catch {
 		respondHead(response,'changeset request error')
 		response.write(e.h`<p>cannot load changeset ${changesetId}\n`)
-		response.write(e.h`<p><a href=/>return to main page</a></p>\n`)
+		response.write(e.h`<p><a href=/>return to main page</a>\n`)
 		respondTail(response)
 		return
 	}
@@ -77,11 +85,10 @@ function respondHead(response,title) {
 }
 
 function respondTail(response) {
-	response.write(
+	response.end(
 `</body>
 </html>`
 	)
-	response.end()
 }
 
 async function downloadChangeset(store,changesetId) {

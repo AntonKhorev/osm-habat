@@ -97,7 +97,7 @@ exports.makeParser=(store)=>{
 			}
 		} else if (name=='member') {
 			if (inRelationXml>0) {
-				members.push([attrs.type,Number(attrs.ref)])
+				members.push([attrs.type,Number(attrs.ref),attrs.role])
 			}
 		}
 	}).on('endElement',(name)=>{
