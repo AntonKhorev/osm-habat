@@ -130,10 +130,14 @@ function serveRoot(response,store) {
 			continue
 		}
 		response.write(`<table>\n`)
-		response.write(`<tr><th>V<th>#\n`)
+		response.write(`<tr><th>V<th>#<th>cum%\n`)
+		const totalCount=versions.length
+		let cumulativeCount=0
 		for (let v=1;v<=maxVersion;v++) {
 			const href=`/elements?change=delete&type=${elementType}&version=${v+1}`
-			response.write(e.h`<tr><td><a href=${href}>${v}</a><td>${versions.filter(x=>x==v).length}\n`)
+			const count=versions.filter(x=>x==v).length
+			cumulativeCount+=count
+			response.write(e.h`<tr><td><a href=${href}>${v}</a><td>${count}<td>${(cumulativeCount/totalCount*100).toFixed(2)}%\n`)
 		}
 		response.write(`</table>\n`)
 	}
