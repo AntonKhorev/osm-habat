@@ -16,7 +16,7 @@ main(process.argv[2])
 
 function main(storeFilename) {
 	const store=osm.readStore(storeFilename)
-	const server=http.createServer((request,response)=>{
+	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
 		const path=urlParse.pathname
 		if (path=='/') {
@@ -25,15 +25,12 @@ function main(storeFilename) {
 			serveStore(response,store)
 		} else if (path=='/elements') {
 			serveElements(response,store,querystring.parse(urlParse.query))
-		} else if (path=='/load') {
-			let body=''
-			request.on('data',data=>{
-				body+=data
-				if (body.length>1e6) request.connection.destroy()
-			}).on('end',()=>{
-				const post=querystring.parse(body)
-				serveLoad(response,store,storeFilename,post.changeset)
-			})
+		} else if (path=='/load-changeset') {
+			const post=await readPost(request)
+			await serveLoadChangeset(response,store,storeFilename,post.changeset)
+		} else if (path=='/load-first-versions-of-deleted-elements') {
+			const post=await readPost(request)
+			await serveLoadFirstVersionsOfDeletedElements(response,store,storeFilename,post.type)
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -43,11 +40,23 @@ function main(storeFilename) {
 	})
 }
 
+async function readPost(request) {
+	return new Promise((resolve,reject)=>{
+		let body=''
+		request.on('data',data=>{
+			body+=data
+			if (body.length>1e6) request.connection.destroy() // TODO reject with code 413
+		}).on('end',()=>{
+			resolve(querystring.parse(body))
+		})
+	})
+}
+
 function serveRoot(response,store) {
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
 	response.write(`<h2>Actions</h2>\n`)
-	response.write(`<form method=post action=/load>\n`)
+	response.write(`<form method=post action=/load-changeset>\n`)
 	response.write(`<label>Changeset to load: <input type=text name=changeset></label>\n`)
 	response.write(`<button type=submit>Load from OSM</button>\n`)
 	response.write(`</form>\n`)
@@ -125,6 +134,43 @@ function serveRoot(response,store) {
 		}
 		response.write(`</table>\n`)
 	}
+	response.write(`<h2>Deletion first vesion user count</h2>\n`)
+	for (const elementType of ['node','way','relation']) {
+		response.write(e.h`<h3>for ${elementType} elements</h2>\n`)
+		const elementTypeStore=store[elementType+'s']
+		uidCounts={}
+		unknownUidCount=0
+		let hasDeletions=false
+		for (const elementId of Object.keys(deletedVersions[elementType])) {
+			hasDeletions=true
+			if (elementTypeStore[elementId]===undefined || elementTypeStore[elementId][1]===undefined) {
+				unknownUidCount++
+				continue
+			}
+			const uid=elementTypeStore[elementId][1].uid
+			if (uidCounts[uid]===undefined) uidCounts[uid]=0
+			uidCounts[uid]++
+		}
+		if (!hasDeletions) {
+			response.write(`<p>no deletions\n`)
+			continue
+		}
+		response.write(`<table>\n`)
+		response.write(`<tr><th>uid<th>#\n`)
+		for (const [uid,count] of Object.entries(uidCounts)) {
+			response.write(e.h`<tr><td>${uid}<td>${count}\n`)
+		}
+		if (unknownUidCount>0) {
+			response.write(e.h`<tr><td>unknown<td>${unknownUidCount}\n`)
+		}
+		response.write(`</table>\n`)
+		if (unknownUidCount>0) {
+			response.write(`<form method=post action=/load-first-versions-of-deleted-elements>\n`)
+			response.write(e.h`<input type=hidden name=type value=${elementType}>\n`)
+			response.write(`<button type=submit>Load a batch of first versions from OSM</button>\n`)
+			response.write(`</form>\n`)
+		}
+	}
 	respondTail(response)
 }
 
@@ -165,23 +211,58 @@ function serveElements(response,store,filters) {
 	respondTail(response)
 }
 
-async function serveLoad(response,store,storeFilename,changesetId) {
+async function serveLoadChangeset(response,store,storeFilename,changesetId) {
 	try {
-		await downloadChangeset(store,changesetId)
-	} catch {
-		respondHead(response,'changeset request error') // TODO http error code
+		await osm.fetchToStore(store,`/api/0.6/changeset/${changesetId}/download`)
+	} catch (ex) {
+		respondHead(response,'changeset request error',500)
 		response.write(e.h`<p>cannot load changeset ${changesetId}\n`)
+		response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
 		response.write(e.h`<p><a href=/>return to main page</a>\n`)
 		respondTail(response)
 		return
 	}
 	osm.writeStore(storeFilename,store)
-	response.writeHead(301,{'Location':'/'})
+	response.writeHead(303,{'Location':'/'})
 	response.end()
 }
 
-function respondHead(response,title) {
-	response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
+async function serveLoadFirstVersionsOfDeletedElements(response,store,storeFilename,requestedElementType) {
+	const deletedElements={}
+	for (const [changesetId,changeList] of Object.entries(store.changes)) {
+		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
+			if (elementType!=requestedElementType) continue
+			if (changeType=='delete') {
+				deletedElements[elementId]=true
+			} else {
+				delete deletedElements[elementId]
+			}
+		}
+	}
+	const multifetchList=[]
+	const elementTypeStore=store[requestedElementType+'s']
+	for (const elementId of Object.keys(deletedElements)) {
+		if (elementTypeStore[elementId]!==undefined && elementTypeStore[elementId][1]!==undefined) continue
+		multifetchList.push([requestedElementType,elementId,1])
+		if (multifetchList.length>=10000) break
+	}
+	try {
+		await osm.multifetchToStore(store,multifetchList)
+	} catch (ex) {
+		respondHead(response,'multifetch error',500)
+		response.write(e.h`<p>cannot load elements\n`)
+		response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
+		response.write(e.h`<p><a href=/>return to main page</a>\n`)
+		respondTail(response)
+		return
+	}
+	osm.writeStore(storeFilename,store)
+	response.writeHead(303,{'Location':'/'})
+	response.end()
+}
+
+function respondHead(response,title,httpCode=200) {
+	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
 	response.write(
 `<!DOCTYPE html>
 <html lang=en>
@@ -202,11 +283,4 @@ function respondTail(response) {
 `</body>
 </html>`
 	)
-}
-
-async function downloadChangeset(store,changesetId) {
-	return new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/changeset/${changesetId}/download`,res=>{
-		if (res.statusCode!=200) reject()
-		res.pipe(osm.makeParser(store).on('end',resolve))
-	}))
 }

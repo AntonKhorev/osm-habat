@@ -138,3 +138,35 @@ exports.makeParser=(store)=>{
 		}
 	})
 }
+
+exports.fetchToStore=(store,call)=>new Promise((resolve,reject)=>osm.apiGet(call,res=>{
+	if (res.statusCode!=200) reject(new Error('failed single fetch: '+call))
+	res.pipe(osm.makeParser(store).on('end',resolve))
+}))
+
+exports.multifetchToStore=async(store,multifetchList)=>{
+	// get previous versions with known numbers for a list of elements
+	// /api/0.6/nodes?nodes=123456v1,654321v2
+	// uri has to be <8000 chars, <700 elements
+	// will fail if requested version of any element is redacted
+	const queries={}
+	const queryCounts={}
+	const fullQuery=(elementType)=>`/api/0.6/${elementType}s?${elementType}s=${queries[elementType]}`
+	for (const [elementType,elementId,elementVersion] of multifetchList) {
+		if (!queries[elementType]) {
+			queries[elementType]=''
+			queryCounts[elementType]=0
+		}
+		if (queryCounts[elementType]++) queries[elementType]+=','
+		queries[elementType]+=elementId
+		if (elementVersion!==undefined) queries[elementType]+='v'+elementVersion
+		if (queryCounts[elementType]>700 || queries[elementType].length>7500) {
+			await osm.fetchToStore(store,fullQuery(elementType))
+			delete queries[elementType]
+			delete queryCounts[elementType]
+		}
+	}
+	for (const elementType of Object.keys(queries)) {
+		await osm.fetchToStore(store,fullQuery(elementType))
+	}
+}
