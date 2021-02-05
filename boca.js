@@ -62,7 +62,13 @@ function serveRoot(response,store) {
 		const count={node:cc(),way:cc(),relation:cc()}
 		for (const [changeType,elementType,elementId] of changeList) {
 			count[elementType][changeType]++
-			globalChanges[elementType][elementId]=changeType
+			if (globalChanges[elementType][elementId]=='create' && changeType=='modify') {
+				// keep 'create'
+			} else if (globalChanges[elementType][elementId]=='create' && changeType=='delete') {
+				delete globalChanges[elementType][elementId]
+			} else {
+				globalChanges[elementType][elementId]=changeType
+			}
 		}
 		response.write(e.h`<tr><td><a href=${'https://www.openstreetmap.org/changeset/'+changesetId}>${changesetId}</a>`)
 		for (const elementType of ['node','way','relation']) {
@@ -81,6 +87,16 @@ function serveRoot(response,store) {
 	}
 	response.write(`\n`)
 	response.write(`</table>\n`)
+	response.write(
+		`<details>\n`+
+		`<summary>Uses change types declared in changeset - some limitations apply</summary>\n`+
+		`<ul>\n`+
+		`<li>modifications can be trivial\n`+
+		`<li>deletes followed by undeletes are modifications\n`+
+		`<li>does not take intermittent changes from other changesets into account\n`+
+		`</ul>\n`+
+		`</details>\n`
+	)
 	response.write(`<h2>Deletion version distribution</h2>\n`)
 	const deletedVersions={node:{},way:{},relation:{}}
 	for (const [changesetId,changeList] of Object.entries(store.changes)) {
