@@ -141,10 +141,12 @@ function serveRoot(response,store) {
 	for (const elementType of ['node','way','relation']) {
 		response.write(e.h`<h3>for ${elementType} elements</h2>\n`)
 		const elementTypeStore=store[elementType+'s']
-		uidCounts={}
-		unknownUidCount=0
+		const uidCounts={}
+		let unknownUidCount=0
+		const deletedElementIds=Object.keys(deletedVersions[elementType])
+		const totalCount=deletedElementIds.length
 		let hasDeletions=false
-		for (const elementId of Object.keys(deletedVersions[elementType])) {
+		for (const elementId of deletedElementIds) {
 			hasDeletions=true
 			if (elementTypeStore[elementId]===undefined || elementTypeStore[elementId][1]===undefined) {
 				unknownUidCount++
@@ -159,12 +161,13 @@ function serveRoot(response,store) {
 			continue
 		}
 		response.write(`<table>\n`)
-		response.write(`<tr><th>uid<th>#\n`)
+		response.write(`<tr><th>uid<th>#<th>%\n`)
+		const pc=count=>e.h`<td>${count}<td>${(count/totalCount*100).toFixed(2)}%`
 		for (const [uid,count] of Object.entries(uidCounts)) {
-			response.write(e.h`<tr><td><a href=${`/uid?uid=${uid}`}>${uid}</a><td>${count}\n`)
+			response.write(e.h`<tr><td><a href=${`/uid?uid=${uid}`}>${uid}</a>`+pc(count)+`\n`)
 		}
 		if (unknownUidCount>0) {
-			response.write(e.h`<tr><td>unknown<td>${unknownUidCount}\n`)
+			response.write(e.h`<tr><td>unknown`+pc(unknownUidCount)+`\n`)
 		}
 		response.write(`</table>\n`)
 		if (unknownUidCount>0) {
