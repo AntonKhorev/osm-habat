@@ -205,23 +205,30 @@ function serveElements(response,store,filters) {
 			if (filters.change && filters.change!=changeType) continue
 			if (filters.type && filters.type!=elementType) continue
 			if (filters.version && filters.version!=elementVersion) continue
-			const elementTypeStore=store[elementType+'s']
+			const elementStore=store[elementType+'s'][elementId]
 			if (filters.uid1) {
-				if (elementTypeStore[elementId][1]===undefined) continue
-				if (elementTypeStore[elementId][1].uid!=filters.uid1) continue
+				if (elementStore[1]===undefined) continue
+				if (elementStore[1].uid!=filters.uid1) continue
 			}
 			if (first) {
 				first=false
 				response.write(`<table>\n`)
-				response.write(`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>\n`)
+				response.write(`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr><th>known major tags\n`)
 			}
 			response.write(`<tr>`)
 			response.write(e.h`<td>${elementType[0]}${elementId}`)
 			response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
-			const timestampString=new Date(elementTypeStore[elementId][elementVersion].timestamp-1000).toISOString()
+			const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
 			const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
 			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
 			response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
+			const majorTags={}
+			for (const data of Object.values(elementStore)) {
+				for (const k of ['boundary','building','highway','landuse','natural','power']) {
+					if (k in data.tags) majorTags[k]=data.tags[k]
+				}
+			}
+			response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
 			response.write(`\n`)
 		}
 	}
