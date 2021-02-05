@@ -312,7 +312,7 @@ async function serveFetchLatestVersions(response,store,storeFilename,filters) {
 		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch latest versions of elements\n`)
 	}
 	osm.writeStore(storeFilename,store)
-	response.writeHead(205) // doesn't reload the page
+	response.writeHead(303,{'Location':'/elements?'+querystring.stringify(filters)})
 	response.end()
 }
 
