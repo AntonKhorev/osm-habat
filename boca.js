@@ -4,6 +4,7 @@ const http=require('http')
 const url=require('url')
 const querystring=require('querystring')
 const open=require('open')
+const expat=require('node-expat')
 
 const e=require('./escape')
 const osm=require('./osm')
@@ -25,6 +26,8 @@ function main(storeFilename) {
 			serveStore(response,store)
 		} else if (path=='/elements') {
 			serveElements(response,store,querystring.parse(urlParse.query))
+		} else if (path=='/uid') {
+			serveUid(response,store,querystring.parse(urlParse.query).uid)
 		} else if (path=='/load-changeset') {
 			const post=await readPost(request)
 			await serveLoadChangeset(response,store,storeFilename,post.changeset)
@@ -158,7 +161,7 @@ function serveRoot(response,store) {
 		response.write(`<table>\n`)
 		response.write(`<tr><th>uid<th>#\n`)
 		for (const [uid,count] of Object.entries(uidCounts)) {
-			response.write(e.h`<tr><td>${uid}<td>${count}\n`)
+			response.write(e.h`<tr><td><a href=${`/uid?uid=${uid}`}>${uid}</a><td>${count}\n`)
 		}
 		if (unknownUidCount>0) {
 			response.write(e.h`<tr><td>unknown<td>${unknownUidCount}\n`)
@@ -211,16 +214,31 @@ function serveElements(response,store,filters) {
 	respondTail(response)
 }
 
+async function serveUid(response,store,uid) {
+	const getDisplayName=()=>new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/user/${uid}`,res=>{
+		if (res.statusCode!=200) reject(new Error(`failed user data fetch for uid ${uid}`))
+		res.pipe(new expat.Parser().on('startElement',(name,attrs)=>{
+			if (name=='user' && attrs.display_name!==undefined) {
+				res.unpipe().destroy()
+				resolve(attrs.display_name)
+			}
+		}).on('end',()=>reject(new Error(`couldn't find user's display name inside fetched data`))))
+	}))
+	let displayName
+	try {
+		displayName=await getDisplayName()
+	} catch (ex) {
+		return respondFetchError(response,ex,'user profile redirect error',`<p>redirect to user profile on osm website failed\n`)
+	}
+	response.writeHead(301,{'Location':e.u`https://www.openstreetmap.org/user/${displayName}`})
+	response.end()
+}
+
 async function serveLoadChangeset(response,store,storeFilename,changesetId) {
 	try {
 		await osm.fetchToStore(store,`/api/0.6/changeset/${changesetId}/download`)
 	} catch (ex) {
-		respondHead(response,'changeset request error',500)
-		response.write(e.h`<p>cannot load changeset ${changesetId}\n`)
-		response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
-		response.write(e.h`<p><a href=/>return to main page</a>\n`)
-		respondTail(response)
-		return
+		return respondFetchError(response,ex,'changeset request error',e.h`<p>cannot load changeset ${changesetId}\n`)
 	}
 	osm.writeStore(storeFilename,store)
 	response.writeHead(303,{'Location':'/'})
@@ -249,12 +267,7 @@ async function serveLoadFirstVersionsOfDeletedElements(response,store,storeFilen
 	try {
 		await osm.multifetchToStore(store,multifetchList)
 	} catch (ex) {
-		respondHead(response,'multifetch error',500)
-		response.write(e.h`<p>cannot load elements\n`)
-		response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
-		response.write(e.h`<p><a href=/>return to main page</a>\n`)
-		respondTail(response)
-		return
+		return respondFetchError(response,ex,'multifetch error',`<p>cannot load elements\n`)
 	}
 	osm.writeStore(storeFilename,store)
 	response.writeHead(303,{'Location':'/'})
@@ -283,4 +296,12 @@ function respondTail(response) {
 `</body>
 </html>`
 	)
+}
+
+function respondFetchError(response,ex,pageTitle,pageBody) {
+	respondHead(response,pageTitle,500)
+	response.write(pageBody)
+	response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
+	response.write(`<p><a href=/>return to main page</a>\n`)
+	respondTail(response)
 }
