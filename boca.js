@@ -137,7 +137,7 @@ function serveRoot(response,store) {
 			const href=`/elements?change=delete&type=${elementType}&version=${v+1}`
 			const count=versions.filter(x=>x==v).length
 			cumulativeCount+=count
-			response.write(e.h`<tr><td><a href=${href}>${v}</a><td>${count}<td>${(cumulativeCount/totalCount*100).toFixed(2)}%\n`)
+			response.write(e.h`<tr><td>${v}<td>${count}<td>${(cumulativeCount/totalCount*100).toFixed(2)}%<td><a href=${href}>show</a>\n`)
 		}
 		response.write(`</table>\n`)
 	}
@@ -168,7 +168,8 @@ function serveRoot(response,store) {
 		response.write(`<tr><th>uid<th>#<th>%\n`)
 		const pc=count=>e.h`<td>${count}<td>${(count/totalCount*100).toFixed(2)}%`
 		for (const [uid,count] of Object.entries(uidCounts)) {
-			response.write(e.h`<tr><td><a href=${`/uid?uid=${uid}`}>${uid}</a>`+pc(count)+`\n`)
+			const href=`/elements?change=delete&type=${elementType}&uid1=${uid}`
+			response.write(e.h`<tr><td><a href=${`/uid?uid=${uid}`}>${uid}</a>`+pc(count)+`<td><a href=${href}>show</a>\n`)
 		}
 		if (unknownUidCount>0) {
 			response.write(e.h`<tr><td>unknown`+pc(unknownUidCount)+`\n`)
@@ -192,12 +193,23 @@ function serveStore(response,store) {
 function serveElements(response,store,filters) {
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Filtered elements list</h1>\n`)
+	response.write(`<table>\n`)
+	response.write(`<tr><th>enabled filter<th>value\n`)
+	for (const [k,v] of Object.entries(filters)) {
+		response.write(e.h`<tr><td>${k}<td>${v}\n`)
+	}
+	response.write(`</table>\n`)
 	let first=true
 	for (const [changesetId,changeList] of Object.entries(store.changes)) { // TODO first accumulate all changes - or don't?
 		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
 			if (filters.change && filters.change!=changeType) continue
 			if (filters.type && filters.type!=elementType) continue
 			if (filters.version && filters.version!=elementVersion) continue
+			const elementTypeStore=store[elementType+'s']
+			if (filters.uid1) {
+				if (elementTypeStore[elementId][1]===undefined) continue
+				if (elementTypeStore[elementId][1].uid!=filters.uid1) continue
+			}
 			if (first) {
 				first=false
 				response.write(`<table>\n`)
@@ -206,7 +218,7 @@ function serveElements(response,store,filters) {
 			response.write(`<tr>`)
 			response.write(e.h`<td>${elementType[0]}${elementId}`)
 			response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
-			const timestampString=new Date(store[elementType+'s'][elementId][elementVersion].timestamp-1000).toISOString()
+			const timestampString=new Date(elementTypeStore[elementId][elementVersion].timestamp-1000).toISOString()
 			const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
 			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
 			response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
