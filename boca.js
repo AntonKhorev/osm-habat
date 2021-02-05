@@ -28,12 +28,15 @@ function main(storeFilename) {
 			serveElements(response,store,querystring.parse(urlParse.query))
 		} else if (path=='/uid') {
 			serveUid(response,store,querystring.parse(urlParse.query).uid)
-		} else if (path=='/load-changeset') {
+		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
-			await serveLoadChangeset(response,store,storeFilename,post.changeset)
-		} else if (path=='/load-first-versions-of-deleted-elements') {
+			await serveFetchChangeset(response,store,storeFilename,post.changeset)
+		} else if (path=='/fetch-first') {
 			const post=await readPost(request)
-			await serveLoadFirstVersionsOfDeletedElements(response,store,storeFilename,post.type)
+			await serveFetchFirstVersions(response,store,storeFilename,post)
+		} else if (path=='/fetch-latest') {
+			const post=await readPost(request)
+			await serveFetchLatestVersions(response,store,storeFilename,post)
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -59,9 +62,9 @@ function serveRoot(response,store) {
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
 	response.write(`<h2>Actions</h2>\n`)
-	response.write(`<form method=post action=/load-changeset>\n`)
-	response.write(`<label>Changeset to load: <input type=text name=changeset></label>\n`)
-	response.write(`<button type=submit>Load from OSM</button>\n`)
+	response.write(`<form method=post action=/fetch-changeset>\n`)
+	response.write(`<label>Changeset to fetch: <input type=text name=changeset></label>\n`)
+	response.write(`<button type=submit>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -176,9 +179,10 @@ function serveRoot(response,store) {
 		}
 		response.write(`</table>\n`)
 		if (unknownUidCount>0) {
-			response.write(`<form method=post action=/load-first-versions-of-deleted-elements>\n`)
+			response.write(`<form method=post action=/fetch-first>\n`)
 			response.write(e.h`<input type=hidden name=type value=${elementType}>\n`)
-			response.write(`<button type=submit>Load a batch of first versions from OSM</button>\n`)
+			response.write(`<input type=hidden name=change value=delete>\n`)
+			response.write(`<button type=submit>Fetch a batch of first versions from OSM</button>\n`)
 			response.write(`</form>\n`)
 		}
 	}
@@ -191,7 +195,7 @@ function serveStore(response,store) {
 }
 
 function serveElements(response,store,filters) {
-	respondHead(response,'habat-boca')
+	respondHead(response,'browse elements')
 	response.write(`<h1>Filtered elements list</h1>\n`)
 	response.write(`<table>\n`)
 	response.write(`<tr><th>enabled filter<th>value\n`)
@@ -199,43 +203,47 @@ function serveElements(response,store,filters) {
 		response.write(e.h`<tr><td>${k}<td>${v}\n`)
 	}
 	response.write(`</table>\n`)
+	const filteredChangeList=filterChanges(store,filters)
+	const typeStore=getElementTypeStore(store)
 	let first=true
-	for (const [changesetId,changeList] of Object.entries(store.changes)) { // TODO first accumulate all changes - or don't?
-		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
-			if (filters.change && filters.change!=changeType) continue
-			if (filters.type && filters.type!=elementType) continue
-			if (filters.version && filters.version!=elementVersion) continue
-			const elementStore=store[elementType+'s'][elementId]
-			if (filters.uid1) {
-				if (elementStore[1]===undefined) continue
-				if (elementStore[1].uid!=filters.uid1) continue
-			}
-			if (first) {
-				first=false
-				response.write(`<table>\n`)
-				response.write(`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr><th>known major tags\n`)
-			}
-			response.write(`<tr>`)
-			response.write(e.h`<td>${elementType[0]}${elementId}`)
-			response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
-			const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
-			const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
-			response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
-			response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
-			const majorTags={}
-			for (const data of Object.values(elementStore)) {
-				for (const k of ['boundary','building','highway','landuse','natural','power']) {
-					if (k in data.tags) majorTags[k]=data.tags[k]
-				}
-			}
-			response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
-			response.write(`\n`)
+	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
+		if (first) {
+			first=false
+			response.write(`<table>\n`)
+			response.write(
+				`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>`+
+				`<th>known major tags<th>last state\n`
+			)
 		}
+		response.write(`<tr>`)
+		response.write(e.h`<td>${elementType[0]}${elementId}`)
+		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
+		const elementStore=typeStore[elementType][elementId]
+		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
+		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
+		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
+		response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
+		const majorTags={}
+		for (const data of Object.values(elementStore)) {
+			for (const k of ['boundary','building','highway','landuse','natural','power']) {
+				if (k in data.tags) majorTags[k]=data.tags[k]
+			}
+		}
+		response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
+		const latestVersion=Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
+		response.write('<td>'+(elementStore[latestVersion].visible?'visible':'deleted'))
+		response.write(`\n`)
 	}
 	if (first) {
 		response.write(`<p>none found\n`)
 	} else {
 		response.write(`</table>\n`)
+		response.write(`<form method=post action=/fetch-latest>\n`)
+		for (const [k,v] of Object.entries(filters)) {
+			response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
+		}
+		response.write(`<button type=submit>Fetch a batch of latest versions from OSM</button>\n`)
+		response.write(`</form>`)
 	}
 	respondTail(response)
 }
@@ -260,44 +268,80 @@ async function serveUid(response,store,uid) {
 	response.end()
 }
 
-async function serveLoadChangeset(response,store,storeFilename,changesetId) {
+async function serveFetchChangeset(response,store,storeFilename,changesetId) {
 	try {
 		await osm.fetchToStore(store,`/api/0.6/changeset/${changesetId}/download`)
 	} catch (ex) {
-		return respondFetchError(response,ex,'changeset request error',e.h`<p>cannot load changeset ${changesetId}\n`)
+		return respondFetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${changesetId}\n`)
 	}
 	osm.writeStore(storeFilename,store)
 	response.writeHead(303,{'Location':'/'})
 	response.end()
 }
 
-async function serveLoadFirstVersionsOfDeletedElements(response,store,storeFilename,requestedElementType) {
-	const deletedElements={}
-	for (const [changesetId,changeList] of Object.entries(store.changes)) {
-		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
-			if (elementType!=requestedElementType) continue
-			if (changeType=='delete') {
-				deletedElements[elementId]=true
-			} else {
-				delete deletedElements[elementId]
-			}
-		}
-	}
+async function serveFetchFirstVersions(response,store,storeFilename,filters) {
+	const typeStore=getElementTypeStore(store)
+	const filteredChangeList=filterChanges(store,filters)
 	const multifetchList=[]
-	const elementTypeStore=store[requestedElementType+'s']
-	for (const elementId of Object.keys(deletedElements)) {
-		if (elementTypeStore[elementId]!==undefined && elementTypeStore[elementId][1]!==undefined) continue
-		multifetchList.push([requestedElementType,elementId,1])
+	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
+		if (typeStore[elementType][elementId]!==undefined && typeStore[elementType][elementId][1]!==undefined) continue
+		multifetchList.push([elementType,elementId,1])
 		if (multifetchList.length>=10000) break
 	}
 	try {
 		await osm.multifetchToStore(store,multifetchList)
 	} catch (ex) {
-		return respondFetchError(response,ex,'multifetch error',`<p>cannot load elements\n`)
+		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch first versions of elements\n`)
 	}
 	osm.writeStore(storeFilename,store)
 	response.writeHead(303,{'Location':'/'})
 	response.end()
+}
+
+async function serveFetchLatestVersions(response,store,storeFilename,filters) {
+	const filteredChangeList=filterChanges(store,filters)
+	const multifetchList=[]
+	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
+		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
+		multifetchList.push([elementType,elementId])
+		if (multifetchList.length>=10000) break
+	}
+	try {
+		await osm.multifetchToStore(store,multifetchList)
+	} catch (ex) {
+		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch latest versions of elements\n`)
+	}
+	osm.writeStore(storeFilename,store)
+	response.writeHead(205) // doesn't reload the page
+	response.end()
+}
+
+function filterChanges(store,filters) {
+	const typeStore=getElementTypeStore(store)
+	const filteredChangeList=[]
+	for (const [changesetId,changeList] of Object.entries(store.changes)) {
+		for (const changeListEntry of changeList) {
+			const [changeType,elementType,elementId,elementVersion]=changeListEntry
+			if (filters.change && filters.change!=changeType) continue
+			if (filters.type && filters.type!=elementType) continue
+			if (filters.version && filters.version!=elementVersion) continue
+			const elementStore=typeStore[elementType][elementId]
+			if (filters.uid1) {
+				if (elementStore[1]===undefined) continue
+				if (elementStore[1].uid!=filters.uid1) continue
+			}
+			filteredChangeList.push(changeListEntry)
+		}
+	}
+	return filteredChangeList
+}
+
+function getElementTypeStore(store) { // hack to have type in singular - TODO rename
+	return {
+		node:store.nodes,
+		way:store.ways,
+		relation:store.relation,
+	}
 }
 
 function respondHead(response,title,httpCode=200) {
