@@ -20,6 +20,7 @@ function main(storeFilename) {
 	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
 		const path=urlParse.pathname
+		let match
 		if (path=='/') {
 			serveRoot(response,store)
 		} else if (path=='/store') {
@@ -28,6 +29,9 @@ function main(storeFilename) {
 			serveElements(response,store,querystring.parse(urlParse.query))
 		} else if (path=='/uid') {
 			serveUid(response,store,querystring.parse(urlParse.query).uid)
+		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
+			const [,id]=match
+			await serveUndeleteWay(response,store,storeFilename,id)
 		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
 			await serveFetchChangeset(response,store,storeFilename,post.changeset)
@@ -228,8 +232,11 @@ function serveElements(response,store,filters) {
 			}
 		}
 		response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
-		const latestVersion=Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
+		const latestVersion=getLatestElementVersion(elementStore)
 		response.write('<td>'+(elementStore[latestVersion].visible?'visible':'deleted'))
+		if (!elementStore[latestVersion].visible && elementType=='way') {
+			response.write(e.h`<td><a href=${`/undelete/w${elementId}.osm`}>undelete.osm</a>`)
+		}
 		response.write(`\n`)
 	}
 	if (first) {
@@ -264,6 +271,103 @@ async function serveUid(response,store,uid) {
 	}
 	response.writeHead(301,{'Location':e.u`https://www.openstreetmap.org/user/${displayName}`})
 	response.end()
+}
+
+async function serveUndeleteWay(response,store,storeFilename,wayId) {
+	const getLatestWayVersion=async(wayId)=>{
+		// await osm.fetchToStore(store,`/api/0.6/way/${wayId}`) // deleted elements return 410 w/o version number
+		await osm.multifetchToStore(store,[['way',wayId]])
+		return getLatestElementVersion(store.way[wayId])
+		// probably easier just to request full history
+	}
+	const getLatestVisibleWayVersion=async(wayId,wayVz)=>{
+		let v=wayVz
+		while (v>0 && !store.way[wayId][v].visible) {
+			v--
+			if (!(v in store.way[wayId])) {
+				await osm.fetchToStore(store,`/api/0.6/way/${wayId}/${v}`)
+				// again probably easier just to request full history
+				// can estimate if such request is going to be heavy
+			}
+		}
+		if (v<=0) throw new Error('visible element version not found')
+		return v
+	}
+	const getLatestNodeVersions=async(wayId,wayVv)=>{
+		const nodeVz={}
+		for (const id of store.way[wayId][wayVv].nds) nodeVz[id]=-1
+		await osm.multifetchToStore(store,
+			Object.keys(nodeVz).map(id=>['node',id])
+		)
+		for (const id in nodeVz) {
+			nodeVz[id]=getLatestElementVersion(store.node[id])
+		}
+		return nodeVz
+	}
+	const getLatestVisibleNodeVersions=async(wayId,wayVv,nodeVz)=>{
+		const versionToCheck=(id,v)=>{
+			let vc=v
+			for (;vc>0;vc--) {
+				if (!(vc in store.node[id])) break
+				if (store.node[id][vc].visible) break
+			}
+			return vc
+		}
+		const nodeVv={}
+		for (const [id,v] of Object.entries(nodeVz)) nodeVv[id]=v
+		while (true) {
+			const fetchList=[]
+			for (const [id,v] of Object.entries(nodeVv)) {
+				const vc=versionToCheck(id,v)
+				nodeVv[id]=vc
+				if (store.node[id][vc].visible || vc<=0) continue
+				fetchList.push(['node',id,vc])
+			}
+			if (fetchList.length==0) break
+			await osm.multifetchToStore(store,fetchList)
+		}
+		for (const [id,v] of Object.entries(nodeVv)) {
+			if (v<=0) throw new Error(`visible version of node ${id} not found`)
+		}
+		return nodeVv
+	}
+	const wayVz=await getLatestWayVersion(wayId)
+	if (store.way[wayId][wayVz].visible) {
+		response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
+		response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
+		response.write(`<osm version="0.6" generator="osm-habat">\n`)
+		// do nothing
+		response.end(`</osm>\n`)
+		return
+	}
+	const wayVv=await getLatestVisibleWayVersion(wayId,wayVz)
+	const nodeVz=await getLatestNodeVersions(wayId,wayVv)
+	const nodeVv=await getLatestVisibleNodeVersions(wayId,wayVv,nodeVz)
+	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
+	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
+	response.write(`<osm version="0.6" generator="osm-habat">\n`)
+	for (const [id,vv] of Object.entries(nodeVv)) {
+		const vz=nodeVz[id]
+		response.write(e.x`  <node id="${id}"`+(vv==vz?'':' action="modify"')+e.x` version="${vz}" lat="${store.node[id][vv].lat}" lon="${store.node[id][vv].lon}"`)
+		let t=Object.entries(store.node[id][vv].tags)
+		if (t.length<=0) {
+			response.write(`/>\n`)
+		} else {
+			response.write(`>\n`)
+			for (const [k,v] of t) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
+			response.write(`  </node>\n`)
+		}
+	}
+	response.write(e.x`  <way id="${wayId}"`+(wayVv==wayVz?'':' action="modify"')+e.x` version="${wayVz}">\n`)
+	for (const id of store.way[wayId][wayVv].nds) {
+		response.write(e.x`    <nd ref="${id}" />\n`)
+	}
+	for (const [k,v] of Object.entries(store.way[wayId][wayVv].tags)) {
+		response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
+	}
+	response.write(`  </way>\n`)
+	response.end(`</osm>\n`)
+	// TODO save store if was modified
 }
 
 async function serveFetchChangeset(response,store,storeFilename,changesetId) {
@@ -362,4 +466,8 @@ function respondFetchError(response,ex,pageTitle,pageBody) {
 	response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
 	response.write(`<p><a href=/>return to main page</a>\n`)
 	respondTail(response)
+}
+
+function getLatestElementVersion(elementStore) {
+	return Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
 }
