@@ -346,9 +346,10 @@ async function serveUndeleteWay(response,store,storeFilename,wayId) {
 	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-habat">\n`)
+	const importantTags=(st,id,vv,vz)=>e.x`id="${id}" version="${vz}" changeset="${st[id][vz].changeset}" uid="${st[id][vz].uid}"`+(vv==vz?'':' action="modify"') // changeset and uid are required by josm to display element history
 	for (const [id,vv] of Object.entries(nodeVv)) {
 		const vz=nodeVz[id]
-		response.write(e.x`  <node id="${id}"`+(vv==vz?'':' action="modify"')+e.x` version="${vz}" lat="${store.node[id][vv].lat}" lon="${store.node[id][vv].lon}"`)
+		response.write(`  <node `+importantTags(store.node,id,vv,vz)+e.x` lat="${store.node[id][vv].lat}" lon="${store.node[id][vv].lon}"`)
 		let t=Object.entries(store.node[id][vv].tags)
 		if (t.length<=0) {
 			response.write(`/>\n`)
@@ -358,7 +359,7 @@ async function serveUndeleteWay(response,store,storeFilename,wayId) {
 			response.write(`  </node>\n`)
 		}
 	}
-	response.write(e.x`  <way id="${wayId}"`+(wayVv==wayVz?'':' action="modify"')+e.x` version="${wayVz}">\n`)
+	response.write(`  <way `+importantTags(store.way,wayId,wayVv,wayVz)+`>\n`)
 	for (const id of store.way[wayId][wayVv].nds) {
 		response.write(e.x`    <nd ref="${id}" />\n`)
 	}
