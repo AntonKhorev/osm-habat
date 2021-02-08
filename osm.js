@@ -12,18 +12,28 @@ exports.apiGet=(call,...args)=>{
 }
 
 exports.makeStore=()=>({
-	changes:{},
-	nodes:{},
-	ways:{},
-	relations:{},
+	changeset:{},
+	node:{},
+	way:{},
+	relation:{},
 })
 
 exports.readStore=(storeFilename)=>{
-	if (fs.existsSync(storeFilename)) {
-		return JSON.parse(fs.readFileSync(storeFilename))
-	} else {
-		return osm.makeStore()
+	if (!fs.existsSync(storeFilename)) return osm.makeStore()
+	const store=JSON.parse(fs.readFileSync(storeFilename))
+	for (const [k1,k2] of [
+		['changes','changeset'],
+		['change','changeset'],
+		['nodes','node'],
+		['ways','way'],
+		['relations','relation'],
+	]) {
+		if ((k1 in store) && !(k2 in store)) {
+			store[k2]=store[k1]
+			delete store[k1]
+		}
 	}
+	return store
 }
 
 exports.writeStore=(storeFilename,store)=>{
@@ -37,7 +47,7 @@ exports.makeParser=(store)=>{
 	}
 	let inOsmXml=0
 	let inOsmChangeXml=0
-	let changetype,changechangeset,chgs
+	let changeType,changesetId,changesetChanges
 	let inNodeXml=0, inWayXml=0, inRelationXml=0
 	let id,version,changeset,timestamp,uid,visible,tags,lat,lon,nds,members
 	const getCommonAttrs=attrs=>{
@@ -49,23 +59,23 @@ exports.makeParser=(store)=>{
 		visible=(attrs.visible=='true')
 		tags={}
 	}
-	const combineChangeset=(elementtype)=>{
-		if (changechangeset===undefined) {
-			changechangeset=changeset
-		} else if (changechangeset!=changeset) {
-			changechangeset=-1
+	const combineChangeset=(elementType)=>{
+		if (changesetId===undefined) {
+			changesetId=changeset
+		} else if (changesetId!=changeset) {
+			changesetId=-1
 		}
-		chgs.push([changetype,elementtype,id,version])
+		changesetChanges.push([changeType,elementType,id,version])
 	}
 	return (new expat.Parser()).on('startElement',(name,attrs)=>{
 		if (name=='osm') {
 			inOsmXml++
 		} else if (name=='osmChange') {
 			inOsmChangeXml++
-			chgs=[]
+			changesetChanges=[]
 		} else if (name=='create' || name=='modify' || name=='delete') {
 			if (inOsmChangeXml>0) {
-				changetype=name
+				changeType=name
 				inOsmXml++
 			}
 		} else if (name=='node') {
@@ -104,35 +114,35 @@ exports.makeParser=(store)=>{
 		if (name=='osm') {
 			inOsmXml--
 		} else if (name=='osmChange') {
-			if (changechangeset!==undefined && changechangeset>=0) {
-				store.changes[changechangeset]=chgs
+			if (changesetId!==undefined && changesetId>=0) {
+				store.changeset[changesetId]=changesetChanges
 			}
-			changechangeset=chgs=undefined
+			changesetId=changesetChanges=undefined
 			inOsmChangeXml--
 		} else if (name=='create' || name=='modify' || name=='delete') {
 			if (inOsmChangeXml>0) {
-				changetype=undefined
+				changeType=undefined
 				inOsmXml--
 			}
 		} else if (name=='node') {
 			if (inOsmXml>0) {
 				if (inOsmChangeXml>0) combineChangeset(name)
-				put(store.nodes,id,version,{changeset,timestamp,uid,visible,tags,lat,lon})
-				                id=version= changeset=timestamp=uid=visible=tags=lat=lon=undefined
+				put(store.node,id,version,{changeset,timestamp,uid,visible,tags,lat,lon})
+				               id=version= changeset=timestamp=uid=visible=tags=lat=lon=undefined
 				inNodeXml--
 			}
 		} else if (name=='way') {
 			if (inOsmXml>0) {
 				if (inOsmChangeXml>0) combineChangeset(name)
-				put(store.ways,id,version,{changeset,timestamp,uid,visible,tags,nds})
-				               id=version= changeset=timestamp=uid=visible=tags=nds=undefined
+				put(store.way,id,version,{changeset,timestamp,uid,visible,tags,nds})
+				              id=version= changeset=timestamp=uid=visible=tags=nds=undefined
 				inWayXml--
 			}
 		} else if (name=='relation') {
 			if (inOsmXml>0) {
 				if (inOsmChangeXml>0) combineChangeset(name)
-				put(store.relations,id,version,{changeset,timestamp,uid,visible,tags,members})
-				                    id=version= changeset=timestamp=uid=visible=tags=members=undefined
+				put(store.relation,id,version,{changeset,timestamp,uid,visible,tags,members})
+				                   id=version= changeset=timestamp=uid=visible=tags=members=undefined
 				inRelationXml--
 			}
 		}

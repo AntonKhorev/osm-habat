@@ -73,9 +73,9 @@ function serveRoot(response,store) {
 	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
 	const cc=()=>({create:0,modify:0,delete:0})
 	const globalChanges={node:{},way:{},relation:{}}
-	for (const [changesetId,changeList] of Object.entries(store.changes)) {
+	for (const [changesetId,changesetChanges] of Object.entries(store.changeset)) {
 		const count={node:cc(),way:cc(),relation:cc()}
-		for (const [changeType,elementType,elementId] of changeList) {
+		for (const [changeType,elementType,elementId] of changesetChanges) {
 			count[elementType][changeType]++
 			if (globalChanges[elementType][elementId]=='create' && changeType=='modify') {
 				// keep 'create'
@@ -114,8 +114,8 @@ function serveRoot(response,store) {
 	)
 	response.write(`<h2>Deletion version distribution</h2>\n`)
 	const deletedVersions={node:{},way:{},relation:{}}
-	for (const [changesetId,changeList] of Object.entries(store.changes)) {
-		for (const [changeType,elementType,elementId,elementVersion] of changeList) {
+	for (const [changesetId,changesetChanges] of Object.entries(store.changeset)) {
+		for (const [changeType,elementType,elementId,elementVersion] of changesetChanges) {
 			if (changeType=='delete') {
 				deletedVersions[elementType][elementId]=elementVersion-1
 			} else {
@@ -147,7 +147,6 @@ function serveRoot(response,store) {
 	response.write(`<h2>Deletion first vesion user count</h2>\n`)
 	for (const elementType of ['node','way','relation']) {
 		response.write(e.h`<h3>for ${elementType} elements</h2>\n`)
-		const elementTypeStore=store[elementType+'s']
 		const uidCounts={}
 		let unknownUidCount=0
 		const deletedElementIds=Object.keys(deletedVersions[elementType])
@@ -155,11 +154,11 @@ function serveRoot(response,store) {
 		let hasDeletions=false
 		for (const elementId of deletedElementIds) {
 			hasDeletions=true
-			if (elementTypeStore[elementId]===undefined || elementTypeStore[elementId][1]===undefined) {
+			if (store[elementType][elementId]===undefined || store[elementType][elementId][1]===undefined) {
 				unknownUidCount++
 				continue
 			}
-			const uid=elementTypeStore[elementId][1].uid
+			const uid=store[elementType][elementId][1].uid
 			if (uidCounts[uid]===undefined) uidCounts[uid]=0
 			uidCounts[uid]++
 		}
@@ -204,7 +203,6 @@ function serveElements(response,store,filters) {
 	}
 	response.write(`</table>\n`)
 	const filteredChangeList=filterChanges(store,filters)
-	const typeStore=getElementTypeStore(store)
 	let first=true
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
 		if (first) {
@@ -218,7 +216,7 @@ function serveElements(response,store,filters) {
 		response.write(`<tr>`)
 		response.write(e.h`<td>${elementType[0]}${elementId}`)
 		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
-		const elementStore=typeStore[elementType][elementId]
+		const elementStore=store[elementType][elementId]
 		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
 		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
 		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
@@ -280,11 +278,10 @@ async function serveFetchChangeset(response,store,storeFilename,changesetId) {
 }
 
 async function serveFetchFirstVersions(response,store,storeFilename,filters) {
-	const typeStore=getElementTypeStore(store)
 	const filteredChangeList=filterChanges(store,filters)
 	const multifetchList=[]
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
-		if (typeStore[elementType][elementId]!==undefined && typeStore[elementType][elementId][1]!==undefined) continue
+		if (store[elementType][elementId]!==undefined && store[elementType][elementId][1]!==undefined) continue
 		multifetchList.push([elementType,elementId,1])
 		if (multifetchList.length>=10000) break
 	}
@@ -317,15 +314,14 @@ async function serveFetchLatestVersions(response,store,storeFilename,filters) {
 }
 
 function filterChanges(store,filters) {
-	const typeStore=getElementTypeStore(store)
 	const filteredChangeList=[]
-	for (const [changesetId,changeList] of Object.entries(store.changes)) {
-		for (const changeListEntry of changeList) {
+	for (const [changesetId,changesetChanges] of Object.entries(store.changeset)) {
+		for (const changeListEntry of changesetChanges) {
 			const [changeType,elementType,elementId,elementVersion]=changeListEntry
 			if (filters.change && filters.change!=changeType) continue
 			if (filters.type && filters.type!=elementType) continue
 			if (filters.version && filters.version!=elementVersion) continue
-			const elementStore=typeStore[elementType][elementId]
+			const elementStore=store[elementType][elementId]
 			if (filters.uid1) {
 				if (elementStore[1]===undefined) continue
 				if (elementStore[1].uid!=filters.uid1) continue
@@ -334,14 +330,6 @@ function filterChanges(store,filters) {
 		}
 	}
 	return filteredChangeList
-}
-
-function getElementTypeStore(store) { // hack to have type in singular - TODO rename
-	return {
-		node:store.nodes,
-		way:store.ways,
-		relation:store.relation,
-	}
 }
 
 function respondHead(response,title,httpCode=200) {
