@@ -18,6 +18,14 @@ class Project {
 	saveStore() {
 		osm.writeStore(this.storeFilename,this.store)
 	}
+	getChangesetEntries() { // temporary fn declaring all changesets in scope TODO limit to declared scope
+		return Object.entries(this.store.changeset)
+	}
+	*getChanges() {
+		for (const changesetChanges of Object.values(this.store.changeset)) {
+			yield* changesetChanges
+		}
+	}
 }
 
 if (process.argv[2]===undefined) {
@@ -33,13 +41,13 @@ function main(projectDirname) {
 		const path=urlParse.pathname
 		let match
 		if (path=='/') {
-			serveRoot(response,project.store)
+			serveRoot(response,project)
 		} else if (path=='/store') {
 			serveStore(response,project.store)
 		} else if (path=='/elements') {
-			serveElements(response,project.store,querystring.parse(urlParse.query))
+			serveElements(response,project,querystring.parse(urlParse.query))
 		} else if (path=='/uid') {
-			serveUid(response,project.store,querystring.parse(urlParse.query).uid)
+			serveUid(response,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
 			const [,id]=match
 			await serveUndeleteWay(response,project,id)
@@ -73,7 +81,8 @@ async function readPost(request) {
 	})
 }
 
-function serveRoot(response,store) {
+function serveRoot(response,project) {
+	const store=project.store
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
 	response.write(`<h2>Actions</h2>\n`)
@@ -88,7 +97,7 @@ function serveRoot(response,store) {
 	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
 	const cc=()=>({create:0,modify:0,delete:0})
 	const globalChanges={node:{},way:{},relation:{}}
-	for (const [changesetId,changesetChanges] of Object.entries(store.changeset)) {
+	for (const [changesetId,changesetChanges] of project.getChangesetEntries()) {
 		const count={node:cc(),way:cc(),relation:cc()}
 		for (const [changeType,elementType,elementId] of changesetChanges) {
 			count[elementType][changeType]++
@@ -129,13 +138,11 @@ function serveRoot(response,store) {
 	)
 	response.write(`<h2>Deletion version distribution</h2>\n`)
 	const deletedVersions={node:{},way:{},relation:{}}
-	for (const [changesetId,changesetChanges] of Object.entries(store.changeset)) {
-		for (const [changeType,elementType,elementId,elementVersion] of changesetChanges) {
-			if (changeType=='delete') {
-				deletedVersions[elementType][elementId]=elementVersion-1
-			} else {
-				delete deletedVersions[elementType][elementId]
-			}
+	for (const [changeType,elementType,elementId,elementVersion] of project.getChanges()) {
+		if (changeType=='delete') {
+			deletedVersions[elementType][elementId]=elementVersion-1
+		} else {
+			delete deletedVersions[elementType][elementId]
 		}
 	}
 	for (const elementType of ['node','way','relation']) {
@@ -208,7 +215,7 @@ function serveStore(response,store) {
 	response.end(JSON.stringify(store))
 }
 
-function serveElements(response,store,filters) {
+function serveElements(response,project,filters) {
 	respondHead(response,'browse elements')
 	response.write(`<h1>Filtered elements list</h1>\n`)
 	response.write(`<table>\n`)
@@ -217,7 +224,7 @@ function serveElements(response,store,filters) {
 		response.write(e.h`<tr><td>${k}<td>${v}\n`)
 	}
 	response.write(`</table>\n`)
-	const filteredChangeList=filterChanges(store,filters)
+	const filteredChangeList=filterChanges(project,filters)
 	let first=true
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
 		if (first) {
@@ -231,7 +238,7 @@ function serveElements(response,store,filters) {
 		response.write(`<tr>`)
 		response.write(e.h`<td>${elementType[0]}${elementId}`)
 		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
-		const elementStore=store[elementType][elementId]
+		const elementStore=project.store[elementType][elementId]
 		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
 		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
 		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
@@ -264,7 +271,7 @@ function serveElements(response,store,filters) {
 	respondTail(response)
 }
 
-async function serveUid(response,store,uid) {
+async function serveUid(response,uid) {
 	const getDisplayName=()=>new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/user/${uid}`,res=>{
 		if (res.statusCode!=200) reject(new Error(`failed user data fetch for uid ${uid}`))
 		res.pipe(new expat.Parser().on('startElement',(name,attrs)=>{
@@ -395,7 +402,7 @@ async function serveFetchChangeset(response,project,changesetId) {
 }
 
 async function serveFetchFirstVersions(response,project,filters) {
-	const filteredChangeList=filterChanges(project.store,filters)
+	const filteredChangeList=filterChanges(project,filters)
 	const multifetchList=[]
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
 		if (project.store[elementType][elementId]!==undefined && project.store[elementType][elementId][1]!==undefined) continue
@@ -413,7 +420,7 @@ async function serveFetchFirstVersions(response,project,filters) {
 }
 
 async function serveFetchLatestVersions(response,project,filters) {
-	const filteredChangeList=filterChanges(project.store,filters)
+	const filteredChangeList=filterChanges(project,filters)
 	const multifetchList=[]
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
 		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
@@ -430,21 +437,19 @@ async function serveFetchLatestVersions(response,project,filters) {
 	response.end()
 }
 
-function filterChanges(store,filters) {
+function filterChanges(project,filters) {
 	const filteredChangeList=[]
-	for (const [changesetId,changesetChanges] of Object.entries(store.changeset)) {
-		for (const changeListEntry of changesetChanges) {
-			const [changeType,elementType,elementId,elementVersion]=changeListEntry
-			if (filters.change && filters.change!=changeType) continue
-			if (filters.type && filters.type!=elementType) continue
-			if (filters.version && filters.version!=elementVersion) continue
-			const elementStore=store[elementType][elementId]
-			if (filters.uid1) {
-				if (elementStore[1]===undefined) continue
-				if (elementStore[1].uid!=filters.uid1) continue
-			}
-			filteredChangeList.push(changeListEntry)
+	for (const changeListEntry of project.getChanges()) {
+		const [changeType,elementType,elementId,elementVersion]=changeListEntry
+		if (filters.change && filters.change!=changeType) continue
+		if (filters.type && filters.type!=elementType) continue
+		if (filters.version && filters.version!=elementVersion) continue
+		const elementStore=project.store[elementType][elementId]
+		if (filters.uid1) {
+			if (elementStore[1]===undefined) continue
+			if (elementStore[1].uid!=filters.uid1) continue
 		}
+		filteredChangeList.push(changeListEntry)
 	}
 	return filteredChangeList
 }
