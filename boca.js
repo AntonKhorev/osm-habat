@@ -1,5 +1,6 @@
 // bunch-of-changesets analyser
 
+const path=require('path')
 const http=require('http')
 const url=require('url')
 const querystring=require('querystring')
@@ -9,38 +10,48 @@ const expat=require('node-expat')
 const e=require('./escape')
 const osm=require('./osm')
 
+class Project {
+	constructor(dirname) {
+		this.storeFilename=path.join(dirname,'store.json')
+		this.store=osm.readStore(this.storeFilename)
+	}
+	saveStore() {
+		osm.writeStore(this.storeFilename,this.store)
+	}
+}
+
 if (process.argv[2]===undefined) {
-	console.log('need to supply store filename')
+	console.log('need to supply project directory')
 	return process.exit(1)
 }
 main(process.argv[2])
 
-function main(storeFilename) {
-	const store=osm.readStore(storeFilename)
+function main(projectDirname) {
+	const project=new Project(projectDirname)
 	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
 		const path=urlParse.pathname
 		let match
 		if (path=='/') {
-			serveRoot(response,store)
+			serveRoot(response,project.store)
 		} else if (path=='/store') {
-			serveStore(response,store)
+			serveStore(response,project.store)
 		} else if (path=='/elements') {
-			serveElements(response,store,querystring.parse(urlParse.query))
+			serveElements(response,project.store,querystring.parse(urlParse.query))
 		} else if (path=='/uid') {
-			serveUid(response,store,querystring.parse(urlParse.query).uid)
+			serveUid(response,project.store,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
 			const [,id]=match
-			await serveUndeleteWay(response,store,storeFilename,id)
+			await serveUndeleteWay(response,project,id)
 		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
-			await serveFetchChangeset(response,store,storeFilename,post.changeset)
+			await serveFetchChangeset(response,project,post.changeset)
 		} else if (path=='/fetch-first') {
 			const post=await readPost(request)
-			await serveFetchFirstVersions(response,store,storeFilename,post)
+			await serveFetchFirstVersions(response,project,post)
 		} else if (path=='/fetch-latest') {
 			const post=await readPost(request)
-			await serveFetchLatestVersions(response,store,storeFilename,post)
+			await serveFetchLatestVersions(response,project,post)
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -273,7 +284,8 @@ async function serveUid(response,store,uid) {
 	response.end()
 }
 
-async function serveUndeleteWay(response,store,storeFilename,wayId) {
+async function serveUndeleteWay(response,project,wayId) {
+	const store=project.store
 	const getLatestWayVersion=async(wayId)=>{
 		// await osm.fetchToStore(store,`/api/0.6/way/${wayId}`) // deleted elements return 410 w/o version number
 		await osm.multifetchToStore(store,[['way',wayId]])
@@ -371,37 +383,37 @@ async function serveUndeleteWay(response,store,storeFilename,wayId) {
 	// TODO save store if was modified
 }
 
-async function serveFetchChangeset(response,store,storeFilename,changesetId) {
+async function serveFetchChangeset(response,project,changesetId) {
 	try {
-		await osm.fetchToStore(store,`/api/0.6/changeset/${changesetId}/download`)
+		await osm.fetchToStore(project.store,`/api/0.6/changeset/${changesetId}/download`)
 	} catch (ex) {
 		return respondFetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${changesetId}\n`)
 	}
-	osm.writeStore(storeFilename,store)
+	project.saveStore()
 	response.writeHead(303,{'Location':'/'})
 	response.end()
 }
 
-async function serveFetchFirstVersions(response,store,storeFilename,filters) {
-	const filteredChangeList=filterChanges(store,filters)
+async function serveFetchFirstVersions(response,project,filters) {
+	const filteredChangeList=filterChanges(project.store,filters)
 	const multifetchList=[]
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
-		if (store[elementType][elementId]!==undefined && store[elementType][elementId][1]!==undefined) continue
+		if (project.store[elementType][elementId]!==undefined && project.store[elementType][elementId][1]!==undefined) continue
 		multifetchList.push([elementType,elementId,1])
 		if (multifetchList.length>=10000) break
 	}
 	try {
-		await osm.multifetchToStore(store,multifetchList)
+		await osm.multifetchToStore(project.store,multifetchList)
 	} catch (ex) {
 		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch first versions of elements\n`)
 	}
-	osm.writeStore(storeFilename,store)
+	project.saveStore()
 	response.writeHead(303,{'Location':'/'})
 	response.end()
 }
 
-async function serveFetchLatestVersions(response,store,storeFilename,filters) {
-	const filteredChangeList=filterChanges(store,filters)
+async function serveFetchLatestVersions(response,project,filters) {
+	const filteredChangeList=filterChanges(project.store,filters)
 	const multifetchList=[]
 	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
 		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
@@ -409,11 +421,11 @@ async function serveFetchLatestVersions(response,store,storeFilename,filters) {
 		if (multifetchList.length>=10000) break
 	}
 	try {
-		await osm.multifetchToStore(store,multifetchList)
+		await osm.multifetchToStore(project.store,multifetchList)
 	} catch (ex) {
 		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch latest versions of elements\n`)
 	}
-	osm.writeStore(storeFilename,store)
+	project.saveStore()
 	response.writeHead(303,{'Location':'/elements?'+querystring.stringify(filters)})
 	response.end()
 }
