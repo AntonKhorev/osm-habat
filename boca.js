@@ -1,5 +1,6 @@
 // bunch-of-changesets analyser
 
+const fs=require('fs')
 const path=require('path')
 const http=require('http')
 const url=require('url')
@@ -12,11 +13,16 @@ const osm=require('./osm')
 
 class Project {
 	constructor(dirname) {
-		this.storeFilename=path.join(dirname,'store.json')
+		this.dirname=dirname
 		this.store=osm.readStore(this.storeFilename)
+		this.user={}
+		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
 	}
 	saveStore() {
 		osm.writeStore(this.storeFilename,this.store)
+	}
+	saveUsers() {
+		fs.writeFileSync(this.usersFilename,JSON.stringify(this.user))
 	}
 	getChangesetEntries() { // temporary fn declaring all changesets in scope TODO limit to declared scope
 		return Object.entries(this.store.changeset)
@@ -26,6 +32,8 @@ class Project {
 			yield* changesetChanges
 		}
 	}
+	get storeFilename() { return path.join(this.dirname,'store.json') }
+	get usersFilename() { return path.join(this.dirname,'users.json') }
 }
 
 if (process.argv[2]===undefined) {
@@ -47,7 +55,7 @@ function main(projectDirname) {
 		} else if (path=='/elements') {
 			serveElements(response,project,querystring.parse(urlParse.query))
 		} else if (path=='/uid') {
-			serveUid(response,querystring.parse(urlParse.query).uid)
+			serveUid(response,project,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
 			const [,id]=match
 			await serveUndeleteWay(response,project,id)
@@ -271,23 +279,16 @@ function serveElements(response,project,filters) {
 	respondTail(response)
 }
 
-async function serveUid(response,uid) {
-	const getDisplayName=()=>new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/user/${uid}`,res=>{
-		if (res.statusCode!=200) reject(new Error(`failed user data fetch for uid ${uid}`))
-		res.pipe(new expat.Parser().on('startElement',(name,attrs)=>{
-			if (name=='user' && attrs.display_name!==undefined) {
-				res.unpipe().destroy()
-				resolve(attrs.display_name)
-			}
-		}).on('end',()=>reject(new Error(`couldn't find user's display name inside fetched data`))))
-	}))
-	let displayName
-	try {
-		displayName=await getDisplayName()
-	} catch (ex) {
-		return respondFetchError(response,ex,'user profile redirect error',`<p>redirect to user profile on osm website failed\n`)
+async function serveUid(response,project,uid) {
+	if (!(uid in project.user)) {
+		try {
+			await osm.fetchUserToStore(project.user,uid)
+		} catch (ex) {
+			return respondFetchError(response,ex,'user profile redirect error',`<p>redirect to user profile on osm website failed\n`)
+		}
+		project.saveUsers()
 	}
-	response.writeHead(301,{'Location':e.u`https://www.openstreetmap.org/user/${displayName}`})
+	response.writeHead(301,{'Location':e.u`https://www.openstreetmap.org/user/${project.user[uid].displayName}`})
 	response.end()
 }
 

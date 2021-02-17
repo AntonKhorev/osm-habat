@@ -150,7 +150,7 @@ exports.makeParser=(store)=>{
 }
 
 exports.fetchToStore=(store,call)=>new Promise((resolve,reject)=>osm.apiGet(call,res=>{
-	if (res.statusCode!=200) reject(new Error('failed single fetch: '+call))
+	if (res.statusCode!=200) return reject(new Error('failed single fetch: '+call))
 	res.pipe(osm.makeParser(store).on('end',resolve))
 }))
 
@@ -180,3 +180,32 @@ exports.multifetchToStore=async(store,multifetchList)=>{
 		await osm.fetchToStore(store,fullQuery(elementType))
 	}
 }
+
+exports.fetchUserToStore=(userStore,uid)=>new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/user/${uid}.json`,res=>{
+	if (res.statusCode==410) {
+		userStore[uid]={
+			changesets:[],
+			...userStore[uid],
+			gone:true,
+			id:uid,
+			displayName:'user_'+uid,
+			// changeset count is impossible to get this way
+		}
+		return resolve()
+	}
+	if (res.statusCode!=200) return reject(new Error(`failed user fetch uid ${uid}`))
+	let json=''
+	res.on('data',chunk=>{
+		json+=chunk
+	}).on('end',()=>{
+		const parsed=JSON.parse(json)
+		userStore[uid]={
+			changesets:[], // don't overwrite
+			...userStore[uid],
+			id:parsed.user.id,
+			displayName:parsed.user.display_name,
+			changesetsCount:parsed.user.changesets.count,
+		}
+		resolve()
+	})
+}))
