@@ -17,12 +17,23 @@ class Project {
 		this.store=osm.readStore(this.storeFilename)
 		this.user={}
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
+		this.data={
+			scope:[],
+		}
+		if (fs.existsSync(this.projectFilename)) {
+			this.data={...this.data,...JSON.parse(fs.readFileSync(this.projectFilename))}
+		}
 	}
 	saveStore() {
 		osm.writeStore(this.storeFilename,this.store)
 	}
 	saveUsers() {
 		fs.writeFileSync(this.usersFilename,JSON.stringify(this.user))
+	}
+	saveProject() {
+		const savedata={...this.data}
+		if (savedata.scope.length==0) delete savedata.scope
+		fs.writeFileSync(this.projectFilename,JSON.stringify(savedata,null,2))
 	}
 	getChangesetEntries() { // temporary fn declaring all changesets in scope TODO limit to declared scope
 		return Object.entries(this.store.changeset)
@@ -32,8 +43,18 @@ class Project {
 			yield* changesetChanges
 		}
 	}
+	get projectFilename() { return path.join(this.dirname,'project.json') }
 	get storeFilename() { return path.join(this.dirname,'store.json') }
 	get usersFilename() { return path.join(this.dirname,'users.json') }
+	getUserLink(uid) {
+		if (uid in this.user) {
+			const href=e.u`https://www.openstreetmap.org/user/${this.user[uid].displayName}`
+			return e.h`<a href=${href}>${uid} = ${this.user[uid].displayName}</a>`
+		} else {
+			const href=e.u`/uid?uid=${uid}`
+			return e.h`<a href=${href}>${uid} = ?</a>`
+		}
+	}
 }
 
 if (process.argv[2]===undefined) {
@@ -43,6 +64,7 @@ if (process.argv[2]===undefined) {
 main(process.argv[2])
 
 function main(projectDirname) {
+	const arr=a=>Array.isArray(a)?a:[a]
 	const project=new Project(projectDirname)
 	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
@@ -54,6 +76,12 @@ function main(projectDirname) {
 			serveStore(response,project.store)
 		} else if (path=='/elements') {
 			serveElements(response,project,querystring.parse(urlParse.query))
+		} else if (path=='/scope-user') {
+			const post=await readPost(request)
+			await serveScopeUser(response,project,arr(post.id))
+		} else if (path=='/scope-changeset') {
+			const post=await readPost(request)
+			await serveScopeChangeset(response,project,arr(post.id))
 		} else if (path=='/uid') {
 			serveUid(response,project,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
@@ -93,6 +121,21 @@ function serveRoot(response,project) {
 	const store=project.store
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
+	response.write(`<h2>Scope</h2>\n`)
+	response.write(`<pre>${JSON.stringify(project.data.scope,null,2)}</pre>\n`)
+	response.write(`<h2>Fetched data</h2>\n`)
+	const writeKeys=(store,formAction,formatId=x=>e.h`${x}`)=>{
+		response.write(`<form method=post action=${formAction}>\n`)
+		for (const id of Object.keys(store)) {
+			response.write(e.h`<div><input type=checkbox name=id value=${id}>`+formatId(id)+`</div>\n`)
+		}
+		response.write(`<div><button type=submit>Add to scope</button></div>\n`)
+		response.write(`</form>\n`)
+	}
+	response.write(`<h3>Fetched users</h3>\n`)
+	writeKeys(project.user,`/scope-user`,id=>project.getUserLink(id))
+	response.write(`<h3>Fetched changesets</h3>\n`)
+	writeKeys(project.store.changeset,`/scope-changeset`)
 	response.write(`<h2>Actions</h2>\n`)
 	response.write(`<form method=post action=/fetch-changeset>\n`)
 	response.write(`<label>Changeset to fetch: <input type=text name=changeset></label>\n`)
@@ -197,11 +240,11 @@ function serveRoot(response,project) {
 			continue
 		}
 		response.write(`<table>\n`)
-		response.write(`<tr><th>uid<th>#<th>%\n`)
+		response.write(`<tr><th>user<th>#<th>%\n`)
 		const pc=count=>e.h`<td>${count}<td>${(count/totalCount*100).toFixed(2)}%`
 		for (const [uid,count] of Object.entries(uidCounts)) {
 			const href=`/elements?change=delete&type=${elementType}&uid1=${uid}`
-			response.write(e.h`<tr><td><a href=${`/uid?uid=${uid}`}>${uid}</a>`+pc(count)+`<td><a href=${href}>show</a>\n`)
+			response.write(e.h`<tr><td>`+project.getUserLink(uid)+pc(count)+`<td><a href=${href}>show</a>\n`)
 		}
 		if (unknownUidCount>0) {
 			response.write(e.h`<tr><td>unknown`+pc(unknownUidCount)+`\n`)
@@ -277,6 +320,20 @@ function serveElements(response,project,filters) {
 		response.write(`</form>`)
 	}
 	respondTail(response)
+}
+
+async function serveScopeUser(response,project,ids) {
+	for (const id of ids) project.data.scope.push(['user',id])
+	project.saveProject()
+	response.writeHead(303,{'Location':'/'})
+	response.end()
+}
+
+async function serveScopeChangeset(response,project,ids) {
+	for (const id of ids) project.data.scope.push(['changeset',id])
+	project.saveProject()
+	response.writeHead(303,{'Location':'/'})
+	response.end()
 }
 
 async function serveUid(response,project,uid) {
