@@ -64,7 +64,7 @@ if (process.argv[2]===undefined) {
 main(process.argv[2])
 
 function main(projectDirname) {
-	const arr=a=>Array.isArray(a)?a:[a]
+	const arr=a=>(Array.isArray(a)?a:[a]).map(x=>Number(x))
 	const project=new Project(projectDirname)
 	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
@@ -82,6 +82,9 @@ function main(projectDirname) {
 		} else if (path=='/scope-changeset') {
 			const post=await readPost(request)
 			await serveScopeChangeset(response,project,arr(post.id))
+		} else if (path=='/descope') {
+			const post=await readPost(request)
+			await serveDescope(response,project,arr(post.idx))
 		} else if (path=='/uid') {
 			serveUid(response,project,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
@@ -122,7 +125,12 @@ function serveRoot(response,project) {
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
 	response.write(`<h2>Scope</h2>\n`)
-	response.write(`<pre>${JSON.stringify(project.data.scope,null,2)}</pre>\n`)
+	response.write(`<form method=post action=/descope>\n`)
+	for (const [idx,scopeElement] of Object.entries(project.data.scope)) {
+		response.write(e.h`<div><input type=checkbox name=idx value=${idx}><code>${JSON.stringify(scopeElement)}</code></div>\n`)
+	}
+	response.write(`<div><button type=submit>Remove from scope</button></div>\n`)
+	response.write(`</form>\n`)
 	response.write(`<h2>Fetched data</h2>\n`)
 	const writeKeys=(store,formAction,formatId=x=>e.h`${x}`)=>{
 		response.write(`<form method=post action=${formAction}>\n`)
@@ -331,6 +339,13 @@ async function serveScopeUser(response,project,ids) {
 
 async function serveScopeChangeset(response,project,ids) {
 	for (const id of ids) project.data.scope.push(['changeset',id])
+	project.saveProject()
+	response.writeHead(303,{'Location':'/'})
+	response.end()
+}
+
+async function serveDescope(response,project,idxs) {
+	project.data.scope=project.data.scope.filter((v,i)=>!idxs.includes(i))
 	project.saveProject()
 	response.writeHead(303,{'Location':'/'})
 	response.end()
