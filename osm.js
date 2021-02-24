@@ -209,3 +209,31 @@ exports.fetchUserToStore=(userStore,uid)=>new Promise((resolve,reject)=>osm.apiG
 		resolve()
 	})
 }))
+
+exports.fetchChangesetsMetadata=(call)=>new Promise((resolve,reject)=>osm.apiGet(call,res=>{
+	if (res.statusCode!=200) return reject(new Error(`failed changesets fetch`))
+	let uid,lastCreatedAt
+	const changesets=[]
+	let changeset
+	res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
+		if (name=='changeset') {
+			changeset={
+				...attrs,
+				tags:{},
+			}
+			uid=attrs.uid
+			lastCreatedAt=attrs.created_at
+		} else if (name=='tag') {
+			if (changeset) {
+				changeset.tags[attrs.k]=attrs.v
+			}
+		}
+	}).on('endElement',(name)=>{
+		if (name=='changeset') {
+			changesets.push(changeset)
+			changeset=undefined
+		}
+	}).on('end',()=>{
+		resolve([changesets,uid,lastCreatedAt])
+	}))
+}))

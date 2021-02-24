@@ -99,6 +99,9 @@ function main(projectDirname) {
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
 			const [,id]=match
 			await serveUndeleteWay(response,project,id)
+		} else if (path=='/fetch-user') {
+			const post=await readPost(request)
+			await serveFetchUser(response,project,post.user)
 		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
 			await serveFetchChangeset(response,project,post.changeset)
@@ -154,6 +157,10 @@ function serveRoot(response,project) {
 	response.write(`<h3>Fetched changesets</h3>\n`)
 	writeKeys(project.store.changeset,`/scope-changeset`)
 	response.write(`<h2>Actions</h2>\n`)
+	response.write(`<form method=post action=/fetch-user>\n`)
+	response.write(`<label>User to fetch: <input type=text name=user></label>\n`)
+	response.write(`<button type=submit>Fetch from OSM</button>\n`)
+	response.write(`</form>\n`)
 	response.write(`<form method=post action=/fetch-changeset>\n`)
 	response.write(`<label>Changeset to fetch: <input type=text name=changeset></label>\n`)
 	response.write(`<button type=submit>Fetch from OSM</button>\n`)
@@ -356,6 +363,50 @@ async function serveScopeChangeset(response,project,ids) {
 async function serveDescope(response,project,idxs) {
 	project.data.scope=project.data.scope.filter((v,i)=>!idxs.includes(i))
 	project.saveProject()
+	response.writeHead(303,{'Location':'/'})
+	response.end()
+}
+
+async function serveFetchUser(response,project,userString) {
+	const mergeChangesets=(changesets1,changesets2)=>{
+		const changesetsMap={}
+		for (const changeset of changesets1) changesetsMap[changeset.id]=changeset
+		for (const changeset of changesets2) changesetsMap[changeset.id]=changeset
+		const changesetsIds=Object.keys(changesetsMap)
+		changesetsIds.sort((x,y)=>(x-y))
+		return changesetsIds.map(cid=>changesetsMap[cid])
+	}
+	const addUserByName=async(userName)=>{
+		const [changesets,uid]=await osm.fetchChangesetsMetadata(e.u`/api/0.6/changesets?display_name=${userName}`)
+		await osm.fetchUserToStore(project.user,uid)
+		project.user[uid].changesets=mergeChangesets(project.user[uid].changesets,changesets)
+	}
+	try {
+		if (/^[1-9]\d*$/.test(userString)) {
+			await osm.fetchUserToStore(project.user,userString)
+		} else {
+			const userUrl=new URL(userString)
+			if (userUrl.host=='www.openstreetmap.org') {
+				const [,userPathDir,userPathEnd]=userUrl.pathname.split('/')
+				if (userPathDir=='user') {
+					const userName=decodeURIComponent(userPathEnd)
+					await addUserByName(userName)
+				} else {
+					throw new Error(`fetch user: invalid osm url path ${userUrl.pathname}`)
+				}
+			} else if (userUrl.host=='hdyc.neis-one.org') {
+				const userName=decodeURIComponent(userUrl.search).substr(1)
+				await addUserByName(userName)
+			} else if (userUrl.host=='resultmaps.neis-one.org') {
+				await osm.fetchUserToStore(project.user,userUrl.searchParams.get('uid'))
+			} else {
+				throw new Error(`fetch user: unrecognized host ${userUrl.host}`)
+			}
+		}
+	} catch (ex) {
+		return respondFetchError(response,ex,'user fetch error',e.h`<p>user fetch failed for input <code>${userString}</code>\n`)
+	}
+	project.saveUsers()
 	response.writeHead(303,{'Location':'/'})
 	response.end()
 }
