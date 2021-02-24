@@ -35,11 +35,20 @@ class Project {
 		if (savedata.scope.length==0) delete savedata.scope
 		fs.writeFileSync(this.projectFilename,JSON.stringify(savedata,null,2))
 	}
-	getChangesetEntries() { // temporary fn declaring all changesets in scope TODO limit to declared scope
-		return Object.entries(this.store.changeset)
+	*getChangesetEntries() {
+		const cids={}
+		for (const [scopeElementType,scopeElementId] of this.data.scope) {
+			if (scopeElementType!="changeset") continue // TODO user
+			cids[scopeElementId]=true
+		}
+		const sortedCids=Object.keys(cids)
+		sortedCids.sort((x,y)=>(x-y))
+		for (const cid of sortedCids) {
+			if (cid in this.store.changeset) yield [cid,this.store.changeset[cid]]
+		}
 	}
 	*getChanges() {
-		for (const changesetChanges of Object.values(this.store.changeset)) {
+		for (const [,changesetChanges] of this.getChangesetEntries()) {
 			yield* changesetChanges
 		}
 	}
