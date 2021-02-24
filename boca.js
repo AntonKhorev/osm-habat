@@ -421,7 +421,7 @@ async function serveUndeleteWay(response,project,wayId) {
 			for (const [id,v] of Object.entries(nodeVv)) {
 				const vc=versionToCheck(id,v)
 				nodeVv[id]=vc
-				if (store.node[id][vc].visible || vc<=0) continue
+				if (((vc in store.node[id]) && store.node[id][vc].visible) || vc<=0) continue
 				fetchList.push(['node',id,vc])
 			}
 			if (fetchList.length==0) break
