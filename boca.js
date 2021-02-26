@@ -81,9 +81,16 @@ main(process.argv[2])
 function main(projectDirname) {
 	const arr=a=>(Array.isArray(a)?a:[a]).map(x=>Number(x))
 	const project=new Project(projectDirname)
+	const matchUser=(response,match)=>{
+		const [,uid]=match
+		if (uid in project.user) return project.user[uid]
+		response.writeHead(404)
+		response.end(`User #${uid} not found`)
+	}
 	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
 		const path=urlParse.pathname
+		const userPathMatch=(subpath)=>path.match(new RegExp('^/user/([1-9]\\d*)/'+subpath+'$'))
 		let match
 		if (path=='/') {
 			serveRoot(response,project)
@@ -117,12 +124,18 @@ function main(projectDirname) {
 		} else if (path=='/fetch-latest') {
 			const post=await readPost(request)
 			await serveFetchLatestVersions(response,project,post)
-		} else if (match=path.match(new RegExp('^/user/([^/]*)/$'))) {
-			const [,uid]=match
-			serveUser(response,project,uid)
-		} else if (match=path.match(new RegExp('^/user/([^/]*)/fetch-metadata$'))) {
-			const [,uid]=match
-			await serveFetchUserMetadata(response,project,uid)
+		} else if (match=userPathMatch('')) {
+			const user=matchUser(response,match)
+			if (!user) return
+			serveUser(response,project,user)
+		} else if (match=userPathMatch('bbox.osm')) {
+			const user=matchUser(response,match)
+			if (!user) return
+			serveBbox(response,project,user)
+		} else if (match=userPathMatch('fetch-metadata')) {
+			const user=matchUser(response,match)
+			if (!user) return
+			await serveFetchUserMetadata(response,project,user)
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -296,13 +309,7 @@ function serveRoot(response,project) {
 	respondTail(response)
 }
 
-function serveUser(response,project,uid) {
-	if (!(uid in project.user)) {
-		response.writeHead(404)
-		response.end(`User #${uid} not found`)
-		return
-	}
-	const user=project.user[uid]
+function serveUser(response,project,user) {
 	respondHead(response,'user '+user.displayName)
 	const osmHref=e.u`https://www.openstreetmap.org/user/${user.displayName}`
 	const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"uids":[{"label":"${user.id}","value":"${user.id}"}],"date__gte":[{"label":"","value":""}]}`)
@@ -316,7 +323,7 @@ function serveUser(response,project,uid) {
 	response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
 		`## ${user.displayName}\n`+
 		`\n`+
-		`* uid ${user.uid}\n`+
+		`* uid ${user.id}\n`+
 		`* changesets count ${user.changesetsCount}\n`+
 		`* dwg ticket `+
 	`</code></pre></details>\n`)
@@ -373,7 +380,40 @@ function serveUser(response,project,uid) {
 	}
 	response.write(`\n`)
 	response.write(`</dl>\n`)
+	response.write(`<h2>Areas</h2>\n`)
+	response.write(`<ul>\n`)
+	response.write(`<li><a href=bbox.osm>bbox josm file</a>\n`)
+	response.write(`</ul>\n`)
 	respondTail(response)
+}
+
+function serveBbox(response,project,user) {
+	response.writeHead(200,{
+		'Content-Type':'application/xml; charset=utf-8',
+		'Content-Disposition':'attachment; filename="bbox.osm"',
+	})
+	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
+	response.write(`<osm version="0.6" generator="osm-habat" download="never" upload="never">\n`)
+	let nCsetsWithBbox=0
+	for (let i=0;i<user.changesets.length;i++) {
+		const changeset=project.changeset[user.changesets[i]]
+		if (changeset.min_lat && changeset.min_lon && changeset.max_lat && changeset.max_lon) {
+			const k=nCsetsWithBbox*4
+			response.write(e.x`  <node id="-${k+1}" lat="${changeset.min_lat}" lon="${changeset.min_lon}" />\n`)
+			response.write(e.x`  <node id="-${k+2}" lat="${changeset.max_lat}" lon="${changeset.min_lon}" />\n`)
+			response.write(e.x`  <node id="-${k+3}" lat="${changeset.max_lat}" lon="${changeset.max_lon}" />\n`)
+			response.write(e.x`  <node id="-${k+4}" lat="${changeset.min_lat}" lon="${changeset.max_lon}" />\n`)
+			nCsetsWithBbox++
+		}
+	}
+	for (let i=0;i<nCsetsWithBbox;i++) {
+		response.write(e.x`  <way id="-${i+1}">\n`)
+		for (let j=0;j<=4;j++) {
+			response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
+		}
+		response.write(e.x`  </way>\n`)
+	}
+	response.end(`</osm>\n`)
 }
 
 function serveStore(response,store) {
@@ -495,13 +535,12 @@ async function serveFetchUser(response,project,userString) {
 	response.end()
 }
 
-async function serveFetchUserMetadata(response,project,uid) {
+async function serveFetchUserMetadata(response,project,user) {
 	try {
-		await osm.fetchUserToStore(project.user,uid)
-		const user=project.user[uid]
+		await osm.fetchUserToStore(project.user,user.id)
 		let timestamp
 		while (user.changesetsCount-user.changesets.length>0) {
-			let requestPath=e.u`/api/0.6/changesets?user=${uid}`
+			let requestPath=e.u`/api/0.6/changesets?user=${user.id}`
 			if (timestamp!==undefined) requestPath+=e.u`&time=2001-01-01,${timestamp}`
 			const [changesets,,newTimestamp]=await osm.fetchChangesetsToStore(project.changeset,requestPath)
 			user.changesets=mergeChangesets(user.changesets,changesets)
@@ -509,7 +548,7 @@ async function serveFetchUserMetadata(response,project,uid) {
 			if (changesets.length==0) break
 		}
 	} catch (ex) {
-		return respondFetchError(response,ex,'user fetch metadata error',e.h`<p>user fetch metadata failed for user #${uid}\n`)
+		return respondFetchError(response,ex,'user fetch metadata error',e.h`<p>user fetch metadata failed for user #${user.id}\n`)
 	}
 	project.saveChangesets()
 	project.saveUsers()
