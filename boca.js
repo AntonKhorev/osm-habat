@@ -394,22 +394,25 @@ function serveBbox(response,project,user) {
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-habat" download="never" upload="never">\n`)
-	let nCsetsWithBbox=0
+	const csets=[]
 	for (let i=0;i<user.changesets.length;i++) {
 		const changeset=project.changeset[user.changesets[i]]
 		if (changeset.min_lat && changeset.min_lon && changeset.max_lat && changeset.max_lon) {
-			const k=nCsetsWithBbox*4
+			const k=csets.length*4
 			response.write(e.x`  <node id="-${k+1}" lat="${changeset.min_lat}" lon="${changeset.min_lon}" />\n`)
 			response.write(e.x`  <node id="-${k+2}" lat="${changeset.max_lat}" lon="${changeset.min_lon}" />\n`)
 			response.write(e.x`  <node id="-${k+3}" lat="${changeset.max_lat}" lon="${changeset.max_lon}" />\n`)
 			response.write(e.x`  <node id="-${k+4}" lat="${changeset.min_lat}" lon="${changeset.max_lon}" />\n`)
-			nCsetsWithBbox++
+			csets.push(changeset.id)
 		}
 	}
-	for (let i=0;i<nCsetsWithBbox;i++) {
+	for (let i=0;i<csets.length;i++) {
 		response.write(e.x`  <way id="-${i+1}">\n`)
 		for (let j=0;j<=4;j++) {
 			response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
+			response.write(e.x`    <tag k="url" v="https://www.openstreetmap.org/changeset/${csets[i]}" />\n`)
+			const comment=project.changeset[csets[i]].tags.comment
+			if (comment!==undefined) response.write(e.x`    <tag k="name" v="${comment}" />\n`)
 		}
 		response.write(e.x`  </way>\n`)
 	}
