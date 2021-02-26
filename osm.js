@@ -210,7 +210,7 @@ exports.fetchUserToStore=(userStore,uid)=>new Promise((resolve,reject)=>osm.apiG
 	})
 }))
 
-exports.fetchChangesetsMetadata=(call)=>new Promise((resolve,reject)=>osm.apiGet(call,res=>{
+exports.fetchChangesetsToStore=(changesetStore,call)=>new Promise((resolve,reject)=>osm.apiGet(call,res=>{
 	if (res.statusCode!=200) return reject(new Error(`failed changesets fetch`))
 	let uid,lastCreatedAt
 	const changesets=[]
@@ -218,7 +218,7 @@ exports.fetchChangesetsMetadata=(call)=>new Promise((resolve,reject)=>osm.apiGet
 	res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
 		if (name=='changeset' && attrs.open=='false') { // ignore open changesets b/c they may change
 			changeset={tags:{}}
-			for (const k of ['id','comments_count','changes_count']) changeset[k]=Number(attrs[k])
+			for (const k of ['id','comments_count','changes_count','uid']) changeset[k]=Number(attrs[k])
 			for (const k of ['created_at','closed_at','min_lat','min_lon','max_lat','max_lon']) changeset[k]=attrs[k]
 			uid=Number(attrs.uid)
 			lastCreatedAt=attrs.created_at
@@ -229,7 +229,8 @@ exports.fetchChangesetsMetadata=(call)=>new Promise((resolve,reject)=>osm.apiGet
 		}
 	}).on('endElement',(name)=>{
 		if (name=='changeset') {
-			changesets.push(changeset)
+			changesets.push(changeset.id)
+			changesetStore[changeset.id]=changeset
 			changeset=undefined
 		}
 	}).on('end',()=>{

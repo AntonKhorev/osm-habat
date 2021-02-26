@@ -17,6 +17,8 @@ class Project {
 		this.store=osm.readStore(this.storeFilename)
 		this.user={}
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
+		this.changeset={}
+		if (fs.existsSync(this.changesetsFilename)) this.user=JSON.parse(fs.readFileSync(this.changesetsFilename))
 		this.data={
 			scope:[],
 		}
@@ -29,6 +31,9 @@ class Project {
 	}
 	saveUsers() {
 		fs.writeFileSync(this.usersFilename,JSON.stringify(this.user))
+	}
+	saveChangesets() {
+		fs.writeFileSync(this.changesetsFilename,JSON.stringify(this.changeset))
 	}
 	saveProject() {
 		const savedata={...this.data}
@@ -55,6 +60,7 @@ class Project {
 	get projectFilename() { return path.join(this.dirname,'project.json') }
 	get storeFilename() { return path.join(this.dirname,'store.json') }
 	get usersFilename() { return path.join(this.dirname,'users.json') }
+	get changesetsFilename() { return path.join(this.dirname,'changesets.json') }
 	getUserLink(uid) {
 		if (uid in this.user) {
 			const href=e.u`https://www.openstreetmap.org/user/${this.user[uid].displayName}`
@@ -369,15 +375,16 @@ async function serveDescope(response,project,idxs) {
 
 async function serveFetchUser(response,project,userString) {
 	const mergeChangesets=(changesets1,changesets2)=>{
-		const changesetsMap={}
-		for (const changeset of changesets1) changesetsMap[changeset.id]=changeset
-		for (const changeset of changesets2) changesetsMap[changeset.id]=changeset
-		const changesetsIds=Object.keys(changesetsMap)
-		changesetsIds.sort((x,y)=>(x-y))
-		return changesetsIds.map(cid=>changesetsMap[cid])
+		const changesetsSet=new Set()
+		for (const id of changesets1) changesetsSet.add(id)
+		for (const id of changesets2) changesetsSet.add(id)
+		const changesets=[...changesetsSet]
+		changesets.sort((x,y)=>(x-y))
+		return changesets
 	}
 	const addUserByName=async(userName)=>{
-		const [changesets,uid]=await osm.fetchChangesetsMetadata(e.u`/api/0.6/changesets?display_name=${userName}`)
+		const [changesets,uid]=await osm.fetchChangesetsToStore(project.changeset,e.u`/api/0.6/changesets?display_name=${userName}`)
+		project.saveChangesets()
 		await osm.fetchUserToStore(project.user,uid)
 		project.user[uid].changesets=mergeChangesets(project.user[uid].changesets,changesets)
 	}
