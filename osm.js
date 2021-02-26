@@ -182,6 +182,7 @@ exports.multifetchToStore=async(store,multifetchList)=>{
 }
 
 exports.fetchUserToStore=(userStore,uid)=>new Promise((resolve,reject)=>osm.apiGet(`/api/0.6/user/${uid}.json`,res=>{
+	const updateTimestamp=Date.now()
 	if (res.statusCode==410) {
 		userStore[uid]={
 			changesets:[],
@@ -190,6 +191,7 @@ exports.fetchUserToStore=(userStore,uid)=>new Promise((resolve,reject)=>osm.apiG
 			id:uid,
 			displayName:'user_'+uid,
 			// changeset count is impossible to get this way
+			updateTimestamp,
 		}
 		return resolve()
 	}
@@ -205,6 +207,7 @@ exports.fetchUserToStore=(userStore,uid)=>new Promise((resolve,reject)=>osm.apiG
 			id:parsed.user.id,
 			displayName:parsed.user.display_name,
 			changesetsCount:parsed.user.changesets.count,
+			updateTimestamp,
 		}
 		resolve()
 	})
@@ -219,7 +222,8 @@ exports.fetchChangesetsToStore=(changesetStore,call)=>new Promise((resolve,rejec
 		if (name=='changeset' && attrs.open=='false') { // ignore open changesets b/c they may change
 			changeset={tags:{}}
 			for (const k of ['id','comments_count','changes_count','uid']) changeset[k]=Number(attrs[k])
-			for (const k of ['created_at','closed_at','min_lat','min_lon','max_lat','max_lon']) changeset[k]=attrs[k]
+			for (const k of ['created_at','closed_at']) changeset[k]=Date.parse(attrs[k])
+			for (const k of ['min_lat','min_lon','max_lat','max_lon']) changeset[k]=attrs[k]
 			uid=Number(attrs.uid)
 			lastCreatedAt=attrs.created_at
 		} else if (name=='tag') {

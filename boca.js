@@ -301,8 +301,75 @@ function serveUser(response,project,uid) {
 	}
 	const user=project.user[uid]
 	respondHead(response,'user '+user.displayName)
-	const userOsmUrl=e.u`https://www.openstreetmap.org/user/${user.displayName}`
-	response.write(e.h`<h1>User #${user.id} <a href=${userOsmUrl}>${user.displayName}</a></h1>\n`)
+	const osmHref=e.u`https://www.openstreetmap.org/user/${user.displayName}`
+	const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"uids":[{"label":"${user.id}","value":"${user.id}"}],"date__gte":[{"label":"","value":""}]}`)
+	const hdycHref=e.u`http://hdyc.neis-one.org/?${user.displayName}`
+	response.write(e.h`<h1>User #${user.id} <a href=${osmHref}>${user.displayName}</a></h1>\n`)
+	response.write(e.h`<ul>\n`)
+	response.write(e.h`<li>last update was on ${Date(user.updateTimestamp)}\n`)
+	response.write(e.h`<li>downloaded metadata of ${user.changesets.length}/${user.changesetsCount} changesets\n`)
+	response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
+	response.write(e.h`</ul>\n`)
+	response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
+		`## ${user.displayName}\n`+
+		`\n`+
+		`* uid ${user.uid}\n`+
+		`* changesets count ${user.changesetsCount}\n`+
+		`* dwg ticket `+
+	`</code></pre></details>\n`)
+	response.write(`<form method=post action=fetch-metadata>\n`)
+	response.write(`<button type=submit>Update user and changesets metadata</button>\n`)
+	response.write(`</form>`)
+	response.write(`<h2>Changesets</h2>\n`)
+	let currentYear,currentMonth
+	const createdBys={}
+	const sources={}
+	const changesetsWithComments=[]
+	for (let i=0;i<user.changesets.length;i++) {
+		const changeset=project.changeset[user.changesets[i]]
+		const date=new Date(changeset.created_at)
+		if (i==0) {
+			response.write(e.h`<dl>\n<dt>${date} <dd>first known changeset`)
+		}
+		if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
+			currentYear=date.getFullYear()
+			currentMonth=date.getMonth()
+			response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
+		}
+		response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset.id}>${changeset.id}</a>`)
+		if (i>=user.changesets.length-1) {
+			response.write(e.h`\n<dt>${date} <dd>last known changeset`)
+			response.write(`\n</dl>\n`)
+		}
+		const createdBy=changeset.tags.created_by??'(unknown)'
+		createdBys[createdBy]=(createdBys[createdBy]??0)+1
+		const source=changeset.tags.source??'(unknown)'
+		sources[source]=(sources[source]??0)+1
+		if (changeset.comments_count>0) changesetsWithComments.push(changeset.id)
+	}
+	response.write(`<h2>Editors</h2>\n`)
+	response.write(`<dl>\n`)
+	for (const editor in createdBys) {
+		response.write(e.h`<dt>${editor} <dd>${createdBys[editor]} changesets\n`)
+	}
+	response.write(`</dl>\n`)
+	response.write(`<h2>Sources</h2>\n`)
+	response.write(`<dl>\n`)
+	for (const source in sources) {
+		response.write(e.h`<dt>${source} <dd>${sources[source]} changesets\n`)
+	}
+	response.write(`</dl>\n`)
+	response.write(`<h2>Comments</h2>\n`)
+	response.write(`<dl>\n`)
+	response.write(`<dt>Changesets with comments <dd>`)
+	if (changesetsWithComments.length==0) {
+		response.write(`none`)
+	}
+	for (const id of changesetsWithComments) {
+		response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
+	}
+	response.write(`\n`)
+	response.write(`</dl>\n`)
 	respondTail(response)
 }
 
