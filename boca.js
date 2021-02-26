@@ -18,7 +18,7 @@ class Project {
 		this.user={}
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
 		this.changeset={}
-		if (fs.existsSync(this.changesetsFilename)) this.user=JSON.parse(fs.readFileSync(this.changesetsFilename))
+		if (fs.existsSync(this.changesetsFilename)) this.changeset=JSON.parse(fs.readFileSync(this.changesetsFilename))
 		this.data={
 			scope:[],
 		}
@@ -87,6 +87,9 @@ function main(projectDirname) {
 		let match
 		if (path=='/') {
 			serveRoot(response,project)
+		} else if (match=path.match(new RegExp('^/user/([^/]*)/$'))) {
+			const [,uid]=match
+			serveUser(response,project,uid)
 		} else if (path=='/store') {
 			serveStore(response,project.store)
 		} else if (path=='/elements') {
@@ -139,7 +142,6 @@ async function readPost(request) {
 }
 
 function serveRoot(response,project) {
-	const store=project.store
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
 	response.write(`<h2>Scope</h2>\n`)
@@ -159,7 +161,7 @@ function serveRoot(response,project) {
 		response.write(`</form>\n`)
 	}
 	response.write(`<h3>Fetched users</h3>\n`)
-	writeKeys(project.user,`/scope-user`,id=>project.getUserLink(id))
+	writeKeys(project.user,`/scope-user`,id=>project.getUserLink(id)+e.h` <a href=${'/user/'+id+'/'}>view</a>`)
 	response.write(`<h3>Fetched changesets</h3>\n`)
 	writeKeys(project.store.changeset,`/scope-changeset`)
 	response.write(`<h2>Actions</h2>\n`)
@@ -257,11 +259,11 @@ function serveRoot(response,project) {
 		let hasDeletions=false
 		for (const elementId of deletedElementIds) {
 			hasDeletions=true
-			if (store[elementType][elementId]===undefined || store[elementType][elementId][1]===undefined) {
+			if (project.store[elementType][elementId]===undefined || project.store[elementType][elementId][1]===undefined) {
 				unknownUidCount++
 				continue
 			}
-			const uid=store[elementType][elementId][1].uid
+			const uid=project.store[elementType][elementId][1].uid
 			if (uidCounts[uid]===undefined) uidCounts[uid]=0
 			uidCounts[uid]++
 		}
@@ -288,6 +290,19 @@ function serveRoot(response,project) {
 			response.write(`</form>\n`)
 		}
 	}
+	respondTail(response)
+}
+
+function serveUser(response,project,uid) {
+	if (!(uid in project.user)) {
+		response.writeHead(404)
+		response.end(`User #${uid} not found`)
+		return
+	}
+	const user=project.user[uid]
+	respondHead(response,'user '+user.displayName)
+	const userOsmUrl=e.u`https://www.openstreetmap.org/user/${user.displayName}`
+	response.write(e.h`<h1>User #${user.id} <a href=${userOsmUrl}>${user.displayName}</a></h1>\n`)
 	respondTail(response)
 }
 
@@ -597,7 +612,7 @@ function filterChanges(project,filters) {
 function respondHead(response,title,httpCode=200) {
 	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
 	response.write(
-`<!DOCTYPE html>
+e.h`<!DOCTYPE html>
 <html lang=en>
 <head>
 <meta charset=utf-8>
