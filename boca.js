@@ -87,9 +87,6 @@ function main(projectDirname) {
 		let match
 		if (path=='/') {
 			serveRoot(response,project)
-		} else if (match=path.match(new RegExp('^/user/([^/]*)/$'))) {
-			const [,uid]=match
-			serveUser(response,project,uid)
 		} else if (path=='/store') {
 			serveStore(response,project.store)
 		} else if (path=='/elements') {
@@ -120,6 +117,12 @@ function main(projectDirname) {
 		} else if (path=='/fetch-latest') {
 			const post=await readPost(request)
 			await serveFetchLatestVersions(response,project,post)
+		} else if (match=path.match(new RegExp('^/user/([^/]*)/$'))) {
+			const [,uid]=match
+			serveUser(response,project,uid)
+		} else if (match=path.match(new RegExp('^/user/([^/]*)/fetch-metadata$'))) {
+			const [,uid]=match
+			await serveFetchUserMetadata(response,project,uid)
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -456,14 +459,6 @@ async function serveDescope(response,project,idxs) {
 }
 
 async function serveFetchUser(response,project,userString) {
-	const mergeChangesets=(changesets1,changesets2)=>{
-		const changesetsSet=new Set()
-		for (const id of changesets1) changesetsSet.add(id)
-		for (const id of changesets2) changesetsSet.add(id)
-		const changesets=[...changesetsSet]
-		changesets.sort((x,y)=>(x-y))
-		return changesets
-	}
 	const addUserByName=async(userName)=>{
 		const [changesets,uid]=await osm.fetchChangesetsToStore(project.changeset,e.u`/api/0.6/changesets?display_name=${userName}`)
 		project.saveChangesets()
@@ -497,6 +492,28 @@ async function serveFetchUser(response,project,userString) {
 	}
 	project.saveUsers()
 	response.writeHead(303,{'Location':'/'})
+	response.end()
+}
+
+async function serveFetchUserMetadata(response,project,uid) {
+	try {
+		await osm.fetchUserToStore(project.user,uid)
+		const user=project.user[uid]
+		let timestamp
+		while (user.changesetsCount-user.changesets.length>0) {
+			let requestPath=e.u`/api/0.6/changesets?user=${uid}`
+			if (timestamp!==undefined) requestPath+=e.u`&time=2001-01-01,${timestamp}`
+			const [changesets,,newTimestamp]=await osm.fetchChangesetsToStore(project.changeset,requestPath)
+			user.changesets=mergeChangesets(user.changesets,changesets)
+			timestamp=newTimestamp
+			if (changesets.length==0) break
+		}
+	} catch (ex) {
+		return respondFetchError(response,ex,'user fetch metadata error',e.h`<p>user fetch metadata failed for user #${uid}\n`)
+	}
+	project.saveChangesets()
+	project.saveUsers()
+	response.writeHead(303,{'Location':'.'})
 	response.end()
 }
 
@@ -710,4 +727,13 @@ function respondFetchError(response,ex,pageTitle,pageBody) {
 
 function getLatestElementVersion(elementStore) {
 	return Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
+}
+
+function mergeChangesets(changesets1,changesets2) {
+	const changesetsSet=new Set()
+	for (const id of changesets1) changesetsSet.add(id)
+	for (const id of changesets2) changesetsSet.add(id)
+	const changesets=[...changesetsSet]
+	changesets.sort((x,y)=>(x-y))
+	return changesets
 }
