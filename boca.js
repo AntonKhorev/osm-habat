@@ -174,9 +174,12 @@ function serveRoot(response,project) {
 	response.write(`<h2>Fetched data</h2>\n`)
 	const writeKeys=(store,formAction,formatId=x=>e.h`${x}`)=>{
 		response.write(`<form method=post action=${formAction}>\n`)
-		for (const id of Object.keys(store)) {
+		const ids=Object.keys(store)
+		if (ids.length>20) response.write(`<div style='column-width:7em'>\n`)
+		for (const id of ids) {
 			response.write(e.h`<div><input type=checkbox name=id value=${id}>`+formatId(id)+`</div>\n`)
 		}
+		if (ids.length>20) response.write(`</div>\n`)
 		response.write(`<div><button type=submit>Add to scope</button></div>\n`)
 		response.write(`</form>\n`)
 	}
