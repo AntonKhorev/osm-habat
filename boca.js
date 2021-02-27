@@ -342,6 +342,7 @@ function serveUser(response,project,user) {
 		`<div>☐ changes not downloaded</div>\n`+
 		`<div>☑ changes fully downloaded</div>\n`+
 		`<div>☒ changes downloaded, some are missing probably due to redaction</div>\n`+
+		`<div>○ empty changeset</div>\n`+
 	`</details>\n`)
 	let currentYear,currentMonth
 	const editors={}
@@ -359,7 +360,9 @@ function serveUser(response,project,user) {
 			response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 		}
 		response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset.id}>${changeset.id}</a>`)
-		if (!(changeset.id in project.store.changeset)) {
+		if (changeset.changes_count==0) {
+			response.write(`○`)
+		} else if (!(changeset.id in project.store.changeset)) {
 			response.write(`☐`)
 		} else {
 			const nMissingChanges=changeset.changes_count-project.store.changeset[changeset.id].length
@@ -598,7 +601,8 @@ async function serveFetchUserData(response,project,user) {
 	let nDownloads=0
 	for (let i=0;i<user.changesets.length;i++) {
 		if (nDownloads>=100) break
-		changesetId=user.changesets[i]
+		const changesetId=user.changesets[i]
+		if (project.changeset[changesetId].changes_count==0) continue
 		if (changesetId in project.store.changeset) continue
 		try {
 			await osm.fetchToStore(project.store,`/api/0.6/changeset/${changesetId}/download`)
