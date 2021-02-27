@@ -332,7 +332,7 @@ function serveUser(response,project,user) {
 	response.write(`</form>`)
 	response.write(`<h2>Changesets</h2>\n`)
 	let currentYear,currentMonth
-	const createdBys={}
+	const editors={}
 	const sources={}
 	const changesetsWithComments=[]
 	for (let i=0;i<user.changesets.length;i++) {
@@ -351,16 +351,29 @@ function serveUser(response,project,user) {
 			response.write(e.h`\n<dt>${date} <dd>last known changeset`)
 			response.write(`\n</dl>\n`)
 		}
-		const createdBy=changeset.tags.created_by??'(unknown)'
-		createdBys[createdBy]=(createdBys[createdBy]??0)+1
+		const inc=(group,item)=>{
+			if (!(group in editors)) editors[group]={}
+			if (!(item in editors[group])) editors[group][item]=0
+			editors[group][item]++
+		}
+		if (/^iD\s/.test(changeset.tags.created_by)) {
+			inc('iD',changeset.tags.created_by)
+		} else {
+			inc('(other)',changeset.tags.created_by??'(unknown)')
+		}
 		const source=changeset.tags.source??'(unknown)'
 		sources[source]=(sources[source]??0)+1
 		if (changeset.comments_count>0) changesetsWithComments.push(changeset.id)
 	}
 	response.write(`<h2>Editors</h2>\n`)
 	response.write(`<dl>\n`)
-	for (const editor in createdBys) {
-		response.write(e.h`<dt>${editor} <dd>${createdBys[editor]} changesets\n`)
+	for (const [group,items] of Object.entries(editors)) {
+		const sum=Object.values(items).reduce((x,y)=>x+y)
+		response.write(e.h`<dt>${group} <dd>${sum} changesets`)
+		for (const [item,count] of Object.entries(items)) {
+			response.write(e.h` - <em>${item}</em> ${count}`)
+		}
+		response.write(`\n`)
 	}
 	response.write(`</dl>\n`)
 	response.write(`<h2>Sources</h2>\n`)
