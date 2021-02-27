@@ -136,6 +136,10 @@ function main(projectDirname) {
 			const user=matchUser(response,match)
 			if (!user) return
 			await serveFetchUserMetadata(response,project,user)
+		} else if (match=userPathMatch('fetch-data')) {
+			const user=matchUser(response,match)
+			if (!user) return
+			await serveFetchUserData(response,project,user)
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -327,10 +331,18 @@ function serveUser(response,project,user) {
 		`* changesets count ${user.changesetsCount}\n`+
 		`* dwg ticket `+
 	`</code></pre></details>\n`)
-	response.write(`<form method=post action=fetch-metadata>\n`)
-	response.write(`<button type=submit>Update user and changesets metadata</button>\n`)
-	response.write(`</form>`)
+	response.write(`<form method=post action=fetch-metadata>`)
+	response.write(`<button type=submit>Update user and changesets metadata</button>`)
+	response.write(`</form>\n`)
+	response.write(`<form method=post action=fetch-data>`)
+	response.write(`<button type=submit>Fetch a batch of changesets data</button> `)
+	response.write(`</form>\n`)
 	response.write(`<h2>Changesets</h2>\n`)
+	response.write(`<details><summary>legend</summary>`+
+		`<div>☐ changes not downloaded</div>\n`+
+		`<div>☑ changes fully downloaded</div>\n`+
+		`<div>☒ changes downloaded, some are missing probably due to redaction</div>\n`+
+	`</details>\n`)
 	let currentYear,currentMonth
 	const editors={}
 	const sources={}
@@ -347,6 +359,16 @@ function serveUser(response,project,user) {
 			response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 		}
 		response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset.id}>${changeset.id}</a>`)
+		if (!(changeset.id in project.store.changeset)) {
+			response.write(`☐`)
+		} else {
+			const nMissingChanges=changeset.changes_count-project.store.changeset[changeset.id].length
+			if (nMissingChanges==0) {
+				response.write(`☑`)
+			} else {
+				response.write(e.h`<span title=${nMissingChanges+' missing changes'}>☒</span>`)
+			}
+		}
 		if (i>=user.changesets.length-1) {
 			response.write(e.h`\n<dt>${date} <dd>last known changeset`)
 			response.write(`\n</dl>\n`)
@@ -568,6 +590,24 @@ async function serveFetchUserMetadata(response,project,user) {
 	}
 	project.saveChangesets()
 	project.saveUsers()
+	response.writeHead(303,{'Location':'.'})
+	response.end()
+}
+
+async function serveFetchUserData(response,project,user) {
+	let nDownloads=0
+	for (let i=0;i<user.changesets.length;i++) {
+		if (nDownloads>=100) break
+		changesetId=user.changesets[i]
+		if (changesetId in project.store.changeset) continue
+		try {
+			await osm.fetchToStore(project.store,`/api/0.6/changeset/${changesetId}/download`)
+		} catch (ex) {
+			return respondFetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${changesetId}\n`)
+		}
+		nDownloads++
+	}
+	if (nDownloads>0) project.saveStore()
 	response.writeHead(303,{'Location':'.'})
 	response.end()
 }
