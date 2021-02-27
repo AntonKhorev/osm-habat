@@ -128,6 +128,10 @@ function main(projectDirname) {
 			const user=matchUser(response,match)
 			if (!user) return
 			serveUser(response,project,user)
+		} else if (match=userPathMatch('keys')) {
+			const user=matchUser(response,match)
+			if (!user) return
+			serveUserKeys(response,project,user)
 		} else if (match=userPathMatch('bbox.osm')) {
 			const user=matchUser(response,match)
 			if (!user) return
@@ -435,6 +439,9 @@ function serveUser(response,project,user) {
 		}
 	}
 	response.write(`<h2>Changes</h2>\n`)
+	response.write(`<ul>\n`)
+	response.write(`<li><a href=keys>changed keys</a>\n`)
+	response.write(`</ul>\n`)
 	const elementChanges={node:{},way:{},relation:{}}
 	const elementVersions={node:{},way:{},relation:{}}
 	for (const [changeType,elementType,elementId,elementVersion] of getChanges()) {
@@ -463,6 +470,95 @@ function serveUser(response,project,user) {
 	response.write(`</table>\n`)
 
 	respondTail(response)
+}
+
+function serveUserKeys(response,project,user) {
+	respondHead(response,'key analysis of user '+user.displayName)
+	const osmHref=e.u`https://www.openstreetmap.org/user/${user.displayName}`
+	response.write(e.h`<h1>User #${user.id} <a href=${osmHref}>${user.displayName}</a></h1>\n`)
+	const getChanges=function*(){ // TODO pass iterator to fn
+		for (const cid of user.changesets) {
+			if (cid in project.store.changeset) {
+				yield* project.store.changeset[cid]
+			}
+		}
+	}
+	const knownKeyCount={}
+	const knownKeyChangesets={}
+	const knownTagCount={}
+	const unknownKeyCount={}
+	const unknownKeyChangesets={}
+	const unknownTagCount={}
+	const hitKey=(a,k)=>{
+		a[k]=(a[k]||0)+1
+	}
+	const hitKeyChangeset=(a,k,cid)=>{
+		if (a[k]===undefined) a[k]=new Set()
+		a[k].add(cid)
+	}
+	const hitTag=(a,k,v)=>{
+		if (a[k]===undefined) a[k]={}
+		a[k][v]=(a[k][v]||0)+1
+	}
+	for (const [changeType,elementType,elementId,elementVersion] of getChanges()) {
+		const elementStore=project.store[elementType][elementId]
+		for (const [k,v] of Object.entries(elementStore[elementVersion].tags)) {
+			if (changeType=='create' || (
+				changeType=='modify' &&
+				elementStore[elementVersion-1]!==undefined &&
+				elementStore[elementVersion-1].tags[k]!=v
+			)) {
+				hitKey(knownKeyCount,k)
+				hitKeyChangeset(knownKeyChangesets,k,elementStore[elementVersion].changeset)
+				hitTag(knownTagCount,k,v)
+			} else if (
+				changeType=='modify' &&
+				elementStore[elementVersion-1]===undefined
+			) {
+				hitKey(unknownKeyCount,k)
+				hitKeyChangeset(unknownKeyChangesets,k,elementStore[elementVersion].changeset)
+				hitTag(unknownTagCount,k,v)
+			}
+		}
+	}
+	writeKeyTable('Known key edits',knownKeyCount,knownKeyChangesets,knownTagCount)
+	writeKeyTable('Possible key edits',unknownKeyCount,unknownKeyChangesets,unknownTagCount)
+	respondTail(response)
+
+	function writeKeyTable(title,keyCount,keyChangesets,tagCount) {
+		const maxValues=5
+		const maxChangesets=5
+		response.write(e.h`<h2>${title}</h2>\n`)
+		response.write(`<table>\n`)
+		response.write(`<tr><th>count<th>key<th>values<th>changesets\n`)
+		for (const [key,count] of Object.entries(keyCount).sort((a,b)=>(b[1]-a[1]))) {
+			const encodedKey=encodeURIComponent(key)
+			response.write(e.h`<tr><td>${count}<td><a href=${'https://wiki.openstreetmap.org/wiki/Key:'+encodedKey}>${key}</a><td>`)
+			const values=Object.entries(tagCount[key]).sort((a,b)=>(b[1]-a[1]))
+			for (const [i,[v,c]] of values.entries()) {
+				if (i>0) response.write(`, `)
+				if (i>=maxValues) {
+					response.write(e.h`<em>${values.length-maxValues} more values<em>`)
+					break
+				}
+				const encodedTag=encodeURIComponent(key+'='+v)
+				response.write(e.h`<a href=${'https://wiki.openstreetmap.org/wiki/Tag:'+encodedTag}>${v}</a>×${c}`)
+			}
+			response.write(`<td>`)
+			let i=0
+			let cs=keyChangesets[key]
+			for (const cid of cs) {
+				if (i==0 || i==cs.size-1 || cs.size<=maxChangesets) {
+					response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+cid}>${cid}</a>`)
+				} else if (i==1) {
+					response.write(e.h` ...${cs.size-2} more changesets...`)
+				}
+				i++
+			}
+			response.write(`\n`)
+		}
+		response.write(`</table>\n`)
+	}
 }
 
 function serveBbox(response,project,user) {
@@ -640,7 +736,7 @@ async function serveFetchUserMetadata(response,project,user) {
 async function serveFetchUserData(response,project,user) {
 	let nDownloads=0
 	for (let i=0;i<user.changesets.length;i++) {
-		if (nDownloads>=100) break
+		if (nDownloads>=1000) break
 		const changesetId=user.changesets[i]
 		if (project.changeset[changesetId].changes_count==0) continue
 		if (changesetId in project.store.changeset) continue
