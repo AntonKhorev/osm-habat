@@ -425,6 +425,43 @@ function serveUser(response,project,user) {
 	response.write(`<ul>\n`)
 	response.write(`<li><a href=bbox.osm>bbox josm file</a>\n`)
 	response.write(`</ul>\n`)
+
+	// change formulas TODO make fn
+	const getChanges=function*(){ // TODO pass iterator to fn
+		for (const cid of user.changesets) {
+			if (cid in project.store.changeset) {
+				yield* project.store.changeset[cid]
+			}
+		}
+	}
+	response.write(`<h2>Changes</h2>\n`)
+	const elementChanges={node:{},way:{},relation:{}}
+	const elementVersions={node:{},way:{},relation:{}}
+	for (const [changeType,elementType,elementId,elementVersion] of getChanges()) {
+		const C=changeType[0].toUpperCase()
+		if (elementChanges[elementType][elementId]===undefined) {
+			elementChanges[elementType][elementId]=C
+		} else {
+			if (elementVersions[elementType][elementId]+1!=elementVersion) elementChanges[elementType][elementId]+='-'
+			elementChanges[elementType][elementId]+=C
+		}
+		elementVersions[elementType][elementId]=elementVersion
+	}
+	response.write(`<table>\n`)
+	response.write(`<tr><th>change<th>nodes<th>ways<th>relations\n`)
+	const changeFormulasTable={}
+	const nwr=['node','way','relation']
+	for (let i=0;i<nwr.length;i++) {
+		for (const changeFormula of Object.values(elementChanges[nwr[i]])) {
+			if (changeFormulasTable[changeFormula]===undefined) changeFormulasTable[changeFormula]=[0,0,0]
+			changeFormulasTable[changeFormula][i]++
+		}
+	}
+	for (const [changeFormula,row] of Object.entries(changeFormulasTable)) {
+		response.write(e.h`<tr><td>${changeFormula}<td>${row[0]}<td>${row[1]}<td>${row[2]}\n`)
+	}
+	response.write(`</table>\n`)
+
 	respondTail(response)
 }
 
