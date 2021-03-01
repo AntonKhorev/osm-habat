@@ -82,8 +82,12 @@ class Project {
 		}
 		*/
 		for (const line of this.scope[scope]) {
+			let match
 			if (line.match(/^[1-9]\d*$/)) {
 				cids.add(line)
+			} else if (match=line.match(/changeset\/([1-9]\d*)$/)) {
+				const [,cid]=match
+				cids.add(cid)
 			}
 		}
 		const sortedCids=[...cids]
