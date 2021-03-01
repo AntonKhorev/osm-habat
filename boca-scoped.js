@@ -125,6 +125,36 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 	}
 }
 
+exports.analyzeFormulas=(response,project,changesets)=>{
+	response.write(`<h2>Change formulas</h2>\n`)
+	const elementChanges={node:{},way:{},relation:{}}
+	const elementVersions={node:{},way:{},relation:{}}
+	for (const [changeType,elementType,elementId,elementVersion] of project.getChangesFromChangesets(changesets)) {
+		const C=changeType[0].toUpperCase()
+		if (elementChanges[elementType][elementId]===undefined) {
+			elementChanges[elementType][elementId]=C
+		} else {
+			if (elementVersions[elementType][elementId]+1!=elementVersion) elementChanges[elementType][elementId]+='-'
+			elementChanges[elementType][elementId]+=C
+		}
+		elementVersions[elementType][elementId]=elementVersion
+	}
+	response.write(`<table>\n`)
+	response.write(`<tr><th>change<th>nodes<th>ways<th>relations\n`)
+	const changeFormulasTable={}
+	const nwr=['node','way','relation']
+	for (let i=0;i<nwr.length;i++) {
+		for (const changeFormula of Object.values(elementChanges[nwr[i]])) {
+			if (changeFormulasTable[changeFormula]===undefined) changeFormulasTable[changeFormula]=[0,0,0]
+			changeFormulasTable[changeFormula][i]++
+		}
+	}
+	for (const [changeFormula,row] of Object.entries(changeFormulasTable)) {
+		response.write(e.h`<tr><td>${changeFormula}<td>${row[0]}<td>${row[1]}<td>${row[2]}\n`)
+	}
+	response.write(`</table>\n`)
+}
+
 exports.viewElements=(response,project,changesets,filters)=>{
 	response.write(`<h2>Filtered elements list</h2>\n`)
 	response.write(`<table>\n`)

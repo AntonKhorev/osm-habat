@@ -103,33 +103,20 @@ class View {
 	constructor(project) {
 		this.project=project
 	}
-	writeNavigation(response) {
-		response.write(`<h1>All changeset data</h1>\n`)
-		response.write(`<nav><ul>\n`)
-		response.write(`<li><a href=/>root</a>\n`)
-		response.write(`<li><a href=.>main view</a>\n`)
-		response.write(`<li><a href=elements>elements</a>\n`)
-		response.write(`<li><a href=counts>element counts</a>\n`)
-		response.write(`<li><a href=deletes>deletion distributions</a>\n`)
-		response.write(`</ul></nav>\n`)
-	}
 	serveMain(response) {
-		respondHead(response,'all changeset data')
-		this.writeNavigation(response)
-		// TODO list changesets
-		respondTail(response)
+		this.writeHead(response)
+		this.writeMain(response)
+		this.writeTail(response)
 	}
 	serveByChangeset(response,insides) {
-		respondHead(response,'all changeset data')
-		this.writeNavigation(response)
+		this.writeHead(response)
 		insides(response,this.project,this.project.getAllChangesets())
-		respondTail(response)
+		this.writeTail(response)
 	}
 	serveByElement(response,insides,filters) {
-		respondHead(response,'all changeset data')
-		this.writeNavigation(response)
+		this.writeHead(response)
 		insides(response,this.project,this.project.getAllChangesets(),filters)
-		respondTail(response)
+		this.writeTail(response)
 	}
 	async serveFetchElements(response,insides,filters,redirectHref,errorMessage) {
 		try {
@@ -148,6 +135,12 @@ class View {
 			this.serveByElement(response,bocaScoped.viewElements,passGetQuery())
 		} else if (route=='counts') {
 			this.serveByChangeset(response,bocaScoped.analyzeCounts)
+		} else if (route=='formulas') {
+			this.serveByChangeset(response,bocaScoped.analyzeFormulas)
+		/*
+		} else if (route=='keys') {
+			this.serveByChangeset(response,bocaScoped.analyzeKeys)
+		*/
 		} else if (route=='deletes') {
 			this.serveByChangeset(response,bocaScoped.analyzeDeletes)
 		} else if (route=='fetch-first') {
@@ -169,13 +162,159 @@ class View {
 				`<p>cannot fetch latest versions of elements\n`
 			)
 		} else {
-			response.writeHead(404)
-			response.end(`All-downloaded-changesets route not defined`)
+			return false
 		}
+		return true
+	}
+	writeHead(response) {
+		respondHead(response,this.getTitle())
+		this.writeHeading(response)
+		response.write(`<nav><ul>\n`)
+		response.write(`<li><a href=/>root</a>\n`)
+		response.write(`<li><a href=.>main view</a>\n`)
+		response.write(`<li><a href=elements>elements</a>\n`)
+		response.write(`<li><a href=counts>element counts</a>\n`)
+		response.write(`<li><a href=formulas>change formulas</a>\n`)
+		//response.write(`<li><a href=keys>changed keys</a>\n`)
+		response.write(`<li><a href=deletes>deletion distributions</a>\n`)
+		response.write(`</ul></nav>\n`)
+	}
+	writeTail(response) {
+		respondTail(response)
 	}
 }
 
 class AllView extends View {
+	getTitle() {
+		return 'all changeset data'
+	}
+	writeHeading(response) {
+		response.write(`<h1>All changeset data</h1>\n`)
+	}
+	writeMain(response) {
+		// TODO write some summary of all changesets
+	}
+}
+
+class UserView extends View {
+	constructor(project,user) {
+		super(project)
+		this.user=user
+	}
+	getTitle() {
+		return 'user '+this.user.displayName
+	}
+	writeHeading(response) {
+		const osmHref=e.u`https://www.openstreetmap.org/user/${this.user.displayName}`
+		response.write(e.h`<h1>User #${this.user.id} <a href=${osmHref}>${this.user.displayName}</a></h1>\n`)
+	}
+	writeMain(response) {
+		const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"uids":[{"label":"${this.user.id}","value":"${this.user.id}"}],"date__gte":[{"label":"","value":""}]}`)
+		const hdycHref=e.u`http://hdyc.neis-one.org/?${this.user.displayName}`
+		response.write(e.h`<ul>\n`)
+		response.write(e.h`<li>last update was on ${Date(this.user.updateTimestamp)}\n`)
+		response.write(e.h`<li>downloaded metadata of ${this.user.changesets.length}/${this.user.changesetsCount} changesets\n`)
+		response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
+		response.write(e.h`</ul>\n`)
+		response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
+			`## ${this.user.displayName}\n`+
+			`\n`+
+			`* uid ${this.user.id}\n`+
+			`* changesets count ${this.user.changesetsCount}\n`+
+			`* dwg ticket `+
+		`</code></pre></details>\n`)
+		response.write(`<form method=post action=fetch-metadata>`)
+		response.write(`<button type=submit>Update user and changesets metadata</button>`)
+		response.write(`</form>\n`)
+		response.write(`<form method=post action=fetch-data>`)
+		response.write(`<button type=submit>Fetch a batch of changesets data</button> `)
+		response.write(`</form>\n`)
+		response.write(`<h2>Changesets</h2>\n`)
+		response.write(`<details><summary>legend</summary>`+
+			`<div>☐ changes not downloaded</div>\n`+
+			`<div>☑ changes fully downloaded</div>\n`+
+			`<div>☒ changes downloaded, some are missing probably due to redaction</div>\n`+
+			`<div>○ empty changeset</div>\n`+
+		`</details>\n`)
+		let currentYear,currentMonth
+		const editors={}
+		const sources={}
+		const changesetsWithComments=[]
+		for (let i=0;i<this.user.changesets.length;i++) {
+			const changeset=this.project.changeset[this.user.changesets[i]]
+			const date=new Date(changeset.created_at)
+			if (i==0) {
+				response.write(e.h`<dl>\n<dt>${date} <dd>first known changeset`)
+			}
+			if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
+				currentYear=date.getFullYear()
+				currentMonth=date.getMonth()
+				response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
+			}
+			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset.id}>${changeset.id}</a>`)
+			if (changeset.changes_count==0) {
+				response.write(`○`)
+			} else if (!(changeset.id in this.project.store.changeset)) {
+				response.write(`☐`)
+			} else {
+				const nMissingChanges=changeset.changes_count-this.project.store.changeset[changeset.id].length
+				if (nMissingChanges==0) {
+					response.write(`☑`)
+				} else {
+					response.write(e.h`<span title=${nMissingChanges+' missing changes'}>☒</span>`)
+				}
+			}
+			if (i>=this.user.changesets.length-1) {
+				response.write(e.h`\n<dt>${date} <dd>last known changeset`)
+				response.write(`\n</dl>\n`)
+			}
+			const inc=(group,item)=>{
+				if (!(group in editors)) editors[group]={}
+				if (!(item in editors[group])) editors[group][item]=0
+				editors[group][item]++
+			}
+			if (/^iD\s/.test(changeset.tags.created_by)) {
+				inc('iD',changeset.tags.created_by)
+			} else {
+				inc('(other)',changeset.tags.created_by??'(unknown)')
+			}
+			const source=changeset.tags.source??'(unknown)'
+			sources[source]=(sources[source]??0)+1
+			if (changeset.comments_count>0) changesetsWithComments.push(changeset.id)
+		}
+		response.write(`<h2>Editors</h2>\n`)
+		response.write(`<dl>\n`)
+		for (const [group,items] of Object.entries(editors)) {
+			const sum=Object.values(items).reduce((x,y)=>x+y)
+			response.write(e.h`<dt>${group} <dd>${sum} changesets`)
+			for (const [item,count] of Object.entries(items)) {
+				response.write(e.h` - <em>${item}</em> ${count}`)
+			}
+			response.write(`\n`)
+		}
+		response.write(`</dl>\n`)
+		response.write(`<h2>Sources</h2>\n`)
+		response.write(`<dl>\n`)
+		for (const source in sources) {
+			response.write(e.h`<dt>${source} <dd>${sources[source]} changesets\n`)
+		}
+		response.write(`</dl>\n`)
+		response.write(`<h2>Comments</h2>\n`)
+		response.write(`<dl>\n`)
+		response.write(`<dt>Changesets with comments <dd>`)
+		if (changesetsWithComments.length==0) {
+			response.write(`none`)
+		}
+		for (const id of changesetsWithComments) {
+			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
+		}
+		response.write(`\n`)
+		response.write(`</dl>\n`)
+		response.write(`<h2>Areas</h2>\n`)
+		response.write(`<ul>\n`)
+		response.write(`<li><a href=bbox.osm>bbox josm file</a>\n`)
+		response.write(`</ul>\n`)
+	}
 }
 
 if (process.argv[2]===undefined) {
@@ -206,13 +345,18 @@ function main(projectDirname) {
 			const post=await readPost(request)
 			await serveFetchChangeset(response,project,post.changeset)
 		} else if (match=path.match(new RegExp('^/all/([^/]*)$'))) {
-			const view=new AllView(project)
 			const [,subpath]=match
-			view.serveRoute(response,subpath,
+			const view=new AllView(project)
+			if (await view.serveRoute(response,subpath,
 				()=>querystring.parse(urlParse.query),
 				()=>readPost(request)
-			)
-		} else if (match=path.match(new RegExp('^/user/([1-9]\\d*)/([a-z]*)$'))) {
+			)) {
+				// ok
+			} else {
+				response.writeHead(404)
+				response.end(`All-downloaded-changesets route not defined`)
+			}
+		} else if (match=path.match(new RegExp('^/user/([1-9]\\d*)/([^/]*)$'))) {
 			const [,uid,subpath]=match
 			if (!(uid in project.user)) {
 				response.writeHead(404)
@@ -220,34 +364,27 @@ function main(projectDirname) {
 				return
 			}
 			const user=project.user[uid]
-			if (subpath=='') {
-				serveUser(response,project,user)
+			const view=new UserView(project,user)
+			if (await view.serveRoute(response,subpath,
+				()=>querystring.parse(urlParse.query),
+				()=>readPost(request)
+			)) {
+				// ok
+			} else if (subpath=='bbox.osm') {
+				serveBbox(response,project,user)
+			} else if (subpath=='fetch-metadata') {
+				await serveFetchUserMetadata(response,project,user)
+			} else if (subpath=='fetch-data') {
+				await serveFetchUserData(response,project,user)
 			} else {
 				response.writeHead(404)
-				response.end(`User #${uid} route not defined`)
-				return
+				response.end(`User route not defined`)
 			}
 		/*
-		} else if (match=userPathMatch('')) {
-			const user=matchUser(response,match)
-			if (!user) return
-			serveUser(response,project,user)
 		} else if (match=userPathMatch('keys')) {
 			const user=matchUser(response,match)
 			if (!user) return
 			serveUserKeys(response,project,user)
-		} else if (match=userPathMatch('bbox.osm')) {
-			const user=matchUser(response,match)
-			if (!user) return
-			serveBbox(response,project,user)
-		} else if (match=userPathMatch('fetch-metadata')) {
-			const user=matchUser(response,match)
-			if (!user) return
-			await serveFetchUserMetadata(response,project,user)
-		} else if (match=userPathMatch('fetch-data')) {
-			const user=matchUser(response,match)
-			if (!user) return
-			await serveFetchUserData(response,project,user)
 		*/
 		} else {
 			response.writeHead(404)
@@ -306,172 +443,6 @@ function serveRoot(response,project) {
 	response.write(`<button type=submit>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
-	respondTail(response)
-}
-
-function serveAll(response,project,insides) {
-	respondHead(response,'all changeset data')
-	response.write(`<nav><ul>\n`)
-	response.write(`<li><a href=counts>element counts</a>\n`)
-	response.write(`<li><a href=deletes>deletion distributions</a>\n`)
-	response.write(`</ul></nav>\n`)
-	if (insides) {
-		insides(response,project,project.getAllChangesets())
-	} else {
-		// TODO list changesets
-	}
-	respondTail(response)
-}
-
-function serveUser(response,project,user) {
-	respondHead(response,'user '+user.displayName)
-	const osmHref=e.u`https://www.openstreetmap.org/user/${user.displayName}`
-	const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"uids":[{"label":"${user.id}","value":"${user.id}"}],"date__gte":[{"label":"","value":""}]}`)
-	const hdycHref=e.u`http://hdyc.neis-one.org/?${user.displayName}`
-	response.write(e.h`<h1>User #${user.id} <a href=${osmHref}>${user.displayName}</a></h1>\n`)
-	response.write(e.h`<ul>\n`)
-	response.write(e.h`<li>last update was on ${Date(user.updateTimestamp)}\n`)
-	response.write(e.h`<li>downloaded metadata of ${user.changesets.length}/${user.changesetsCount} changesets\n`)
-	response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
-	response.write(e.h`</ul>\n`)
-	response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
-		`## ${user.displayName}\n`+
-		`\n`+
-		`* uid ${user.id}\n`+
-		`* changesets count ${user.changesetsCount}\n`+
-		`* dwg ticket `+
-	`</code></pre></details>\n`)
-	response.write(`<form method=post action=fetch-metadata>`)
-	response.write(`<button type=submit>Update user and changesets metadata</button>`)
-	response.write(`</form>\n`)
-	response.write(`<form method=post action=fetch-data>`)
-	response.write(`<button type=submit>Fetch a batch of changesets data</button> `)
-	response.write(`</form>\n`)
-	response.write(`<h2>Changesets</h2>\n`)
-	response.write(`<details><summary>legend</summary>`+
-		`<div>☐ changes not downloaded</div>\n`+
-		`<div>☑ changes fully downloaded</div>\n`+
-		`<div>☒ changes downloaded, some are missing probably due to redaction</div>\n`+
-		`<div>○ empty changeset</div>\n`+
-	`</details>\n`)
-	let currentYear,currentMonth
-	const editors={}
-	const sources={}
-	const changesetsWithComments=[]
-	for (let i=0;i<user.changesets.length;i++) {
-		const changeset=project.changeset[user.changesets[i]]
-		const date=new Date(changeset.created_at)
-		if (i==0) {
-			response.write(e.h`<dl>\n<dt>${date} <dd>first known changeset`)
-		}
-		if (currentYear!=date.getFullYear() || currentMonth!=date.getMonth()) {
-			currentYear=date.getFullYear()
-			currentMonth=date.getMonth()
-			response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
-		}
-		response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset.id}>${changeset.id}</a>`)
-		if (changeset.changes_count==0) {
-			response.write(`○`)
-		} else if (!(changeset.id in project.store.changeset)) {
-			response.write(`☐`)
-		} else {
-			const nMissingChanges=changeset.changes_count-project.store.changeset[changeset.id].length
-			if (nMissingChanges==0) {
-				response.write(`☑`)
-			} else {
-				response.write(e.h`<span title=${nMissingChanges+' missing changes'}>☒</span>`)
-			}
-		}
-		if (i>=user.changesets.length-1) {
-			response.write(e.h`\n<dt>${date} <dd>last known changeset`)
-			response.write(`\n</dl>\n`)
-		}
-		const inc=(group,item)=>{
-			if (!(group in editors)) editors[group]={}
-			if (!(item in editors[group])) editors[group][item]=0
-			editors[group][item]++
-		}
-		if (/^iD\s/.test(changeset.tags.created_by)) {
-			inc('iD',changeset.tags.created_by)
-		} else {
-			inc('(other)',changeset.tags.created_by??'(unknown)')
-		}
-		const source=changeset.tags.source??'(unknown)'
-		sources[source]=(sources[source]??0)+1
-		if (changeset.comments_count>0) changesetsWithComments.push(changeset.id)
-	}
-	response.write(`<h2>Editors</h2>\n`)
-	response.write(`<dl>\n`)
-	for (const [group,items] of Object.entries(editors)) {
-		const sum=Object.values(items).reduce((x,y)=>x+y)
-		response.write(e.h`<dt>${group} <dd>${sum} changesets`)
-		for (const [item,count] of Object.entries(items)) {
-			response.write(e.h` - <em>${item}</em> ${count}`)
-		}
-		response.write(`\n`)
-	}
-	response.write(`</dl>\n`)
-	response.write(`<h2>Sources</h2>\n`)
-	response.write(`<dl>\n`)
-	for (const source in sources) {
-		response.write(e.h`<dt>${source} <dd>${sources[source]} changesets\n`)
-	}
-	response.write(`</dl>\n`)
-	response.write(`<h2>Comments</h2>\n`)
-	response.write(`<dl>\n`)
-	response.write(`<dt>Changesets with comments <dd>`)
-	if (changesetsWithComments.length==0) {
-		response.write(`none`)
-	}
-	for (const id of changesetsWithComments) {
-		response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
-	}
-	response.write(`\n`)
-	response.write(`</dl>\n`)
-	response.write(`<h2>Areas</h2>\n`)
-	response.write(`<ul>\n`)
-	response.write(`<li><a href=bbox.osm>bbox josm file</a>\n`)
-	response.write(`</ul>\n`)
-
-	// change formulas TODO make fn
-	const getChanges=function*(){ // TODO pass iterator to fn
-		for (const cid of user.changesets) {
-			if (cid in project.store.changeset) {
-				yield* project.store.changeset[cid]
-			}
-		}
-	}
-	response.write(`<h2>Changes</h2>\n`)
-	response.write(`<ul>\n`)
-	response.write(`<li><a href=keys>changed keys</a>\n`)
-	response.write(`</ul>\n`)
-	const elementChanges={node:{},way:{},relation:{}}
-	const elementVersions={node:{},way:{},relation:{}}
-	for (const [changeType,elementType,elementId,elementVersion] of getChanges()) {
-		const C=changeType[0].toUpperCase()
-		if (elementChanges[elementType][elementId]===undefined) {
-			elementChanges[elementType][elementId]=C
-		} else {
-			if (elementVersions[elementType][elementId]+1!=elementVersion) elementChanges[elementType][elementId]+='-'
-			elementChanges[elementType][elementId]+=C
-		}
-		elementVersions[elementType][elementId]=elementVersion
-	}
-	response.write(`<table>\n`)
-	response.write(`<tr><th>change<th>nodes<th>ways<th>relations\n`)
-	const changeFormulasTable={}
-	const nwr=['node','way','relation']
-	for (let i=0;i<nwr.length;i++) {
-		for (const changeFormula of Object.values(elementChanges[nwr[i]])) {
-			if (changeFormulasTable[changeFormula]===undefined) changeFormulasTable[changeFormula]=[0,0,0]
-			changeFormulasTable[changeFormula][i]++
-		}
-	}
-	for (const [changeFormula,row] of Object.entries(changeFormulasTable)) {
-		response.write(e.h`<tr><td>${changeFormula}<td>${row[0]}<td>${row[1]}<td>${row[2]}\n`)
-	}
-	response.write(`</table>\n`)
-
 	respondTail(response)
 }
 
