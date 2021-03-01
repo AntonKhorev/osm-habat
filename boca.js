@@ -134,8 +134,10 @@ function main(projectDirname) {
 			serveRoot(response,project)
 		} else if (path=='/store') {
 			serveStore(response,project.store)
+		/*
 		} else if (path=='/elements') {
 			serveElements(response,project,querystring.parse(urlParse.query))
+		*/
 		} else if (path=='/uid') {
 			serveUid(response,project,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
@@ -147,9 +149,11 @@ function main(projectDirname) {
 		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
 			await serveFetchChangeset(response,project,post.changeset)
+		/*
 		} else if (path=='/fetch-first') {
 			const post=await readPost(request)
 			await serveFetchFirstVersions(response,project,post)
+		*/
 		} else if (path=='/fetch-latest') {
 			const post=await readPost(request)
 			await serveFetchLatestVersions(response,project,post)
@@ -157,8 +161,10 @@ function main(projectDirname) {
 			const [,subpath]=match
 			if (subpath=='') {
 				serveAll(response,project)
-			} else if (subpath=='count') {
-				serveAll(response,project,bocaAnalysis.analyzeCount)
+			} else if (subpath=='counts') {
+				serveAll(response,project,bocaAnalysis.analyzeCounts)
+			} else if (subpath=='deletes') {
+				serveAll(response,project,bocaAnalysis.analyzeDeletes)
 			} else {
 				response.writeHead(404)
 				response.end(`<em>All</em> route not defined`)
@@ -257,88 +263,14 @@ function serveRoot(response,project) {
 	response.write(`<button type=submit>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
-
-	/*
-	response.write(`<h2>Deletion version distribution</h2>\n`)
-	const deletedVersions={node:{},way:{},relation:{}}
-	for (const [changeType,elementType,elementId,elementVersion] of project.getChanges()) {
-		if (changeType=='delete') {
-			deletedVersions[elementType][elementId]=elementVersion-1
-		} else {
-			delete deletedVersions[elementType][elementId]
-		}
-	}
-	for (const elementType of ['node','way','relation']) {
-		response.write(e.h`<h3>for ${elementType} elements</h2>\n`)
-		const versions=Object.values(deletedVersions[elementType])
-		let maxVersion=0 // Math.max(...versions) - can't use it on large arrays
-		for (const v of versions) if (maxVersion<v) maxVersion=v
-		if (maxVersion<=0) {
-			response.write(`<p>no deletions\n`)
-			continue
-		}
-		response.write(`<table>\n`)
-		response.write(`<tr><th>V<th>#<th>cum%\n`)
-		const totalCount=versions.length
-		let cumulativeCount=0
-		for (let v=1;v<=maxVersion;v++) {
-			const href=`/elements?change=delete&type=${elementType}&version=${v+1}`
-			const count=versions.filter(x=>x==v).length
-			cumulativeCount+=count
-			response.write(e.h`<tr><td>${v}<td>${count}<td>${(cumulativeCount/totalCount*100).toFixed(2)}%<td><a href=${href}>show</a>\n`)
-		}
-		response.write(`</table>\n`)
-	}
-	response.write(`<h2>Deletion first vesion user count</h2>\n`)
-	for (const elementType of ['node','way','relation']) {
-		response.write(e.h`<h3>for ${elementType} elements</h2>\n`)
-		const uidCounts={}
-		let unknownUidCount=0
-		const deletedElementIds=Object.keys(deletedVersions[elementType])
-		const totalCount=deletedElementIds.length
-		let hasDeletions=false
-		for (const elementId of deletedElementIds) {
-			hasDeletions=true
-			if (project.store[elementType][elementId]===undefined || project.store[elementType][elementId][1]===undefined) {
-				unknownUidCount++
-				continue
-			}
-			const uid=project.store[elementType][elementId][1].uid
-			if (uidCounts[uid]===undefined) uidCounts[uid]=0
-			uidCounts[uid]++
-		}
-		if (!hasDeletions) {
-			response.write(`<p>no deletions\n`)
-			continue
-		}
-		response.write(`<table>\n`)
-		response.write(`<tr><th>user<th>#<th>%\n`)
-		const pc=count=>e.h`<td>${count}<td>${(count/totalCount*100).toFixed(2)}%`
-		for (const [uid,count] of Object.entries(uidCounts)) {
-			const href=`/elements?change=delete&type=${elementType}&uid1=${uid}`
-			response.write(e.h`<tr><td>`+project.getUserLink(uid)+pc(count)+`<td><a href=${href}>show</a>\n`)
-		}
-		if (unknownUidCount>0) {
-			response.write(e.h`<tr><td>unknown`+pc(unknownUidCount)+`\n`)
-		}
-		response.write(`</table>\n`)
-		if (unknownUidCount>0) {
-			response.write(`<form method=post action=/fetch-first>\n`)
-			response.write(e.h`<input type=hidden name=type value=${elementType}>\n`)
-			response.write(`<input type=hidden name=change value=delete>\n`)
-			response.write(`<button type=submit>Fetch a batch of first versions from OSM</button>\n`)
-			response.write(`</form>\n`)
-		}
-	}
-	*/
-
 	respondTail(response)
 }
 
 function serveAll(response,project,insides) {
 	respondHead(response,'all changeset data')
 	response.write(`<nav><ul>\n`)
-	response.write(`<li><a href=count>element counts</a>\n`)
+	response.write(`<li><a href=counts>element counts</a>\n`)
+	response.write(`<li><a href=deletes>deletion distributions</a>\n`)
 	response.write(`</ul></nav>\n`)
 	if (insides) {
 		insides(response,project,project.getAllChangesets())
