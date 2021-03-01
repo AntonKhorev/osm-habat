@@ -81,7 +81,7 @@ class Project {
 			cids[scopeElementId]=true
 		}
 		*/
-		for (const line of this.scopes[scope]) {
+		for (const line of this.scope[scope]) {
 			if (line.match(/^[1-9]\d*$/)) {
 				cids.add(line)
 			}
@@ -194,6 +194,29 @@ class AllView extends View {
 	}
 	writeMain(response) {
 		// TODO write some summary of all changesets
+	}
+}
+
+class ScopeView extends View {
+	constructor(project,scope) {
+		super(project)
+		this.scope=scope
+	}
+	getChangesets() {
+		return this.project.getScopeChangesets(this.scope)
+	}
+	getTitle() {
+		return 'scope "'+this.scope+'"'
+	}
+	writeHeading(response) {
+		response.write(e.h`<h1>Scope "${this.scope}"</h1>\n`)
+	}
+	writeMain(response) {
+		response.write(`<textarea>\n`)
+		for (const line of this.project.scope[this.scope]) {
+			response.write(e.h`${line}\n`)
+		}
+		response.write(`</textarea>`)
 	}
 }
 
@@ -360,6 +383,23 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`All-downloaded-changesets route not defined`)
 			}
+		} else if (match=path.match(new RegExp('^/scope/([^/]*)/([^/]*)$'))) {
+			const [,scope,subpath]=match
+			if (!(scope in project.scope)) {
+				response.writeHead(404)
+				response.end(`Scope "${scope}" not found`)
+				return
+			}
+			const view=new ScopeView(project,scope)
+			if (await view.serveRoute(response,subpath,
+				()=>querystring.parse(urlParse.query),
+				()=>readPost(request)
+			)) {
+				// ok
+			} else {
+				response.writeHead(404)
+				response.end(`Scope route not defined`)
+			}
 		} else if (match=path.match(new RegExp('^/user/([1-9]\\d*)/([^/]*)$'))) {
 			const [,uid,subpath]=match
 			if (!(uid in project.user)) {
@@ -413,7 +453,7 @@ function serveRoot(response,project) {
 	response.write(`<p><a href=/all/>All completely downloaded changesets.</a></p>\n`)
 	response.write(`<h3>Scopes</h3>\n`)
 	response.write(`<ul>\n`)
-	for (const scope in project.scopes) {
+	for (const scope in project.scope) {
 		const href=e.u`/scope/${scope}/`
 		response.write(e.h`<li><a href=${href}>${scope}</a>\n`)
 	}
