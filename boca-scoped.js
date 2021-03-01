@@ -1,6 +1,7 @@
-// scoped operations
+// scoped operations - receive changesets iterator
 
 const e=require('./escape')
+const osm=require('./osm')
 
 exports.analyzeCounts=(response,project,changesets)=>{
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -74,7 +75,7 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 		const totalCount=versions.length
 		let cumulativeCount=0
 		for (let v=1;v<=maxVersion;v++) {
-			const href=`/elements?change=delete&type=${elementType}&version=${v+1}`
+			const href=`elements?change=delete&type=${elementType}&version=${v+1}`
 			const count=versions.filter(x=>x==v).length
 			cumulativeCount+=count
 			response.write(e.h`<tr><td>${v}<td>${count}<td>${(cumulativeCount/totalCount*100).toFixed(2)}%<td><a href=${href}>show</a>\n`)
@@ -122,4 +123,98 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 			response.write(`</form>\n`)
 		}
 	}
+}
+
+exports.viewElements=(response,project,changesets,filters)=>{
+	response.write(`<h2>Filtered elements list</h2>\n`)
+	response.write(`<table>\n`)
+	response.write(`<tr><th>enabled filter<th>value\n`)
+	for (const [k,v] of Object.entries(filters)) {
+		response.write(e.h`<tr><td>${k}<td>${v}\n`)
+	}
+	response.write(`</table>\n`)
+	let first=true
+	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
+		if (first) {
+			first=false
+			response.write(`<table>\n`)
+			response.write(
+				`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>`+
+				`<th>known major tags<th>last state\n`
+			)
+		}
+		response.write(`<tr>`)
+		response.write(e.h`<td>${elementType[0]}${elementId}`)
+		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
+		const elementStore=project.store[elementType][elementId]
+		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
+		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
+		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
+		response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
+		const majorTags={}
+		for (const data of Object.values(elementStore)) {
+			for (const k of ['boundary','building','highway','landuse','natural','power']) {
+				if (k in data.tags) majorTags[k]=data.tags[k]
+			}
+		}
+		response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
+		const latestVersion=getLatestElementVersion(elementStore)
+		response.write('<td>'+(elementStore[latestVersion].visible?'visible':'deleted'))
+		if (!elementStore[latestVersion].visible && elementType=='way') {
+			const href=`/undelete/w${elementId}.osm`
+			response.write(e.h`<td><a href=${href}>undelete.osm</a>`)
+		}
+		response.write(`\n`)
+	}
+	if (first) {
+		response.write(`<p>none found\n`)
+	} else {
+		response.write(`</table>\n`)
+		response.write(`<form method=post action=fetch-latest>\n`)
+		for (const [k,v] of Object.entries(filters)) {
+			response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
+		}
+		response.write(`<button type=submit>Fetch a batch of latest versions from OSM</button>\n`)
+		response.write(`</form>`)
+	}
+}
+
+exports.fetchFirstVersions=async(response,project,changesets,filters)=>{
+	const multifetchList=[]
+	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
+		if (project.store[elementType][elementId]!==undefined && project.store[elementType][elementId][1]!==undefined) continue
+		multifetchList.push([elementType,elementId,1])
+		if (multifetchList.length>=10000) break
+	}
+	await osm.multifetchToStore(project.store,multifetchList)
+}
+
+exports.fetchLatestVersions=async(response,project,changesets,filters)=>{
+	const multifetchList=[]
+	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
+		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
+		multifetchList.push([elementType,elementId])
+		if (multifetchList.length>=10000) break
+	}
+	await osm.multifetchToStore(project.store,multifetchList)
+}
+
+function *filterChanges(project,changesets,filters) {
+	const filteredChangeList=[]
+	for (const changeListEntry of project.getChangesFromChangesets(changesets)) {
+		const [changeType,elementType,elementId,elementVersion]=changeListEntry
+		if (filters.change && filters.change!=changeType) continue
+		if (filters.type && filters.type!=elementType) continue
+		if (filters.version && filters.version!=elementVersion) continue
+		const elementStore=project.store[elementType][elementId]
+		if (filters.uid1) {
+			if (elementStore[1]===undefined) continue
+			if (elementStore[1].uid!=filters.uid1) continue
+		}
+		yield changeListEntry
+	}
+}
+
+function getLatestElementVersion(elementStore) {
+	return Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
 }

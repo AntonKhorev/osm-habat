@@ -122,29 +122,42 @@ class View {
 	constructor(project) {
 		this.project=project
 	}
-	serveNavigation(response) {
+	writeNavigation(response) {
 		response.write(`<nav><ul>\n`)
+		response.write(`<li><a href=/>root</a>\n`)
+		response.write(`<li><a href=.>main view</a>\n`)
+		response.write(`<li><a href=elements>elements</a>\n`)
 		response.write(`<li><a href=counts>element counts</a>\n`)
 		response.write(`<li><a href=deletes>deletion distributions</a>\n`)
 		response.write(`</ul></nav>\n`)
 	}
 	serveMain(response) {
 		respondHead(response,'all changeset data')
-		this.serveNavigation(response)
+		this.writeNavigation(response)
 		// TODO list changesets
 		respondTail(response)
 	}
 	serveByChangeset(response,insides) {
 		respondHead(response,'all changeset data')
-		this.serveNavigation(response)
+		this.writeNavigation(response)
 		insides(response,this.project,this.project.getAllChangesets())
 		respondTail(response)
 	}
-	serveByElement(response,filters,insides) {
+	serveByElement(response,insides,filters) {
 		respondHead(response,'all changeset data')
-		this.serveNavigation(response)
-		//insides(response,this.project,this.project.getAllChangesets())
+		this.writeNavigation(response)
+		insides(response,this.project,this.project.getAllChangesets(),filters)
 		respondTail(response)
+	}
+	async serveFetchElements(response,insides,filters,redirectHref,errorMessage) {
+		try {
+			await insides(response,this.project,this.project.getAllChangesets(),filters)
+		} catch (ex) {
+			return respondFetchError(response,ex,'elements fetch error',errorMessage)
+		}
+		this.project.saveStore()
+		response.writeHead(303,{'Location':redirectHref})
+		response.end()
 	}
 }
 
@@ -178,27 +191,35 @@ function main(projectDirname) {
 		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
 			await serveFetchChangeset(response,project,post.changeset)
-		/*
-		} else if (path=='/fetch-first') {
-			const post=await readPost(request)
-			await serveFetchFirstVersions(response,project,post)
-		*/
-		} else if (path=='/fetch-latest') {
-			const post=await readPost(request)
-			await serveFetchLatestVersions(response,project,post)
-		} else if (match=path.match(new RegExp('^/all/([a-z]*)$'))) {
+		} else if (match=path.match(new RegExp('^/all/([^/]*)$'))) {
 			const view=new AllView(project)
 			const [,subpath]=match
 			if (subpath=='') {
 				view.serveMain(response)
-			/*
 			} else if (subpath=='elements') {
-				view.serveByElement(response,querystring.parse(urlParse.query), )
-			*/
+				view.serveByElement(response,bocaScoped.viewElements,querystring.parse(urlParse.query))
 			} else if (subpath=='counts') {
 				view.serveByChangeset(response,bocaScoped.analyzeCounts)
 			} else if (subpath=='deletes') {
 				view.serveByChangeset(response,bocaScoped.analyzeDeletes)
+			} else if (subpath=='fetch-first') {
+				const filters=await readPost(request)
+				await view.serveFetchElements(
+					response,
+					bocaScoped.fetchFirstVersions,
+					filters,
+					'.',
+					`<p>cannot fetch first versions of elements\n`
+				)
+			} else if (subpath=='fetch-latest') {
+				const filters=await readPost(request)
+				await view.serveFetchElements(
+					response,
+					bocaScoped.fetchLatestVersions,
+					filters,
+					'elements?'+querystring.stringify(filters),
+					`<p>cannot fetch latest versions of elements\n`
+				)
 			} else {
 				response.writeHead(404)
 				response.end(`<em>All</em> route not defined`)
@@ -592,62 +613,6 @@ function serveStore(response,store) {
 	response.end(JSON.stringify(store))
 }
 
-function serveElements(response,project,filters) {
-	respondHead(response,'browse elements')
-	response.write(`<h1>Filtered elements list</h1>\n`)
-	response.write(`<table>\n`)
-	response.write(`<tr><th>enabled filter<th>value\n`)
-	for (const [k,v] of Object.entries(filters)) {
-		response.write(e.h`<tr><td>${k}<td>${v}\n`)
-	}
-	response.write(`</table>\n`)
-	const filteredChangeList=filterChanges(project,filters)
-	let first=true
-	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
-		if (first) {
-			first=false
-			response.write(`<table>\n`)
-			response.write(
-				`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>`+
-				`<th>known major tags<th>last state\n`
-			)
-		}
-		response.write(`<tr>`)
-		response.write(e.h`<td>${elementType[0]}${elementId}`)
-		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
-		const elementStore=project.store[elementType][elementId]
-		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
-		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
-		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
-		response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
-		const majorTags={}
-		for (const data of Object.values(elementStore)) {
-			for (const k of ['boundary','building','highway','landuse','natural','power']) {
-				if (k in data.tags) majorTags[k]=data.tags[k]
-			}
-		}
-		response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
-		const latestVersion=getLatestElementVersion(elementStore)
-		response.write('<td>'+(elementStore[latestVersion].visible?'visible':'deleted'))
-		if (!elementStore[latestVersion].visible && elementType=='way') {
-			response.write(e.h`<td><a href=${`/undelete/w${elementId}.osm`}>undelete.osm</a>`)
-		}
-		response.write(`\n`)
-	}
-	if (first) {
-		response.write(`<p>none found\n`)
-	} else {
-		response.write(`</table>\n`)
-		response.write(`<form method=post action=/fetch-latest>\n`)
-		for (const [k,v] of Object.entries(filters)) {
-			response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
-		}
-		response.write(`<button type=submit>Fetch a batch of latest versions from OSM</button>\n`)
-		response.write(`</form>`)
-	}
-	respondTail(response)
-}
-
 async function serveFetchUser(response,project,userString) {
 	const addUserByName=async(userName)=>{
 		const [changesets,uid]=await osm.fetchChangesetsToStore(project.changeset,e.u`/api/0.6/changesets?display_name=${userName}`)
@@ -846,59 +811,6 @@ async function serveFetchChangeset(response,project,changesetId) {
 	project.saveStore()
 	response.writeHead(303,{'Location':'/'})
 	response.end()
-}
-
-async function serveFetchFirstVersions(response,project,filters) {
-	const filteredChangeList=filterChanges(project,filters)
-	const multifetchList=[]
-	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
-		if (project.store[elementType][elementId]!==undefined && project.store[elementType][elementId][1]!==undefined) continue
-		multifetchList.push([elementType,elementId,1])
-		if (multifetchList.length>=10000) break
-	}
-	try {
-		await osm.multifetchToStore(project.store,multifetchList)
-	} catch (ex) {
-		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch first versions of elements\n`)
-	}
-	project.saveStore()
-	response.writeHead(303,{'Location':'/'})
-	response.end()
-}
-
-async function serveFetchLatestVersions(response,project,filters) {
-	const filteredChangeList=filterChanges(project,filters)
-	const multifetchList=[]
-	for (const [changeType,elementType,elementId,elementVersion] of filteredChangeList) {
-		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
-		multifetchList.push([elementType,elementId])
-		if (multifetchList.length>=10000) break
-	}
-	try {
-		await osm.multifetchToStore(project.store,multifetchList)
-	} catch (ex) {
-		return respondFetchError(response,ex,'multifetch error',`<p>cannot fetch latest versions of elements\n`)
-	}
-	project.saveStore()
-	response.writeHead(303,{'Location':'/elements?'+querystring.stringify(filters)})
-	response.end()
-}
-
-function filterChanges(project,filters) {
-	const filteredChangeList=[]
-	for (const changeListEntry of project.getChanges()) {
-		const [changeType,elementType,elementId,elementVersion]=changeListEntry
-		if (filters.change && filters.change!=changeType) continue
-		if (filters.type && filters.type!=elementType) continue
-		if (filters.version && filters.version!=elementVersion) continue
-		const elementStore=project.store[elementType][elementId]
-		if (filters.uid1) {
-			if (elementStore[1]===undefined) continue
-			if (elementStore[1].uid!=filters.uid1) continue
-		}
-		filteredChangeList.push(changeListEntry)
-	}
-	return filteredChangeList
 }
 
 function respondHead(response,title,httpCode=200) {
