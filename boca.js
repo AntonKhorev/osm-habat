@@ -10,6 +10,7 @@ const expat=require('node-expat')
 
 const e=require('./escape')
 const osm=require('./osm')
+const bocaAnalysis=require('./boca-analysis')
 
 class Project {
 	constructor(dirname) {
@@ -19,11 +20,19 @@ class Project {
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
 		this.changeset={}
 		if (fs.existsSync(this.changesetsFilename)) this.changeset=JSON.parse(fs.readFileSync(this.changesetsFilename))
-		this.data={
-			scope:[],
-		}
-		if (fs.existsSync(this.projectFilename)) {
-			this.data={...this.data,...JSON.parse(fs.readFileSync(this.projectFilename))}
+		this.scopes={}
+		if (fs.existsSync(this.scopesFilename)) {
+			const text=String(fs.readFileSync(this.scopesFilename))
+			let scope
+			for (const line of text.split(/\r\n|\r|\n/)) {
+				let match
+				if (match=line.match(/^#+\s*(.*\S)\s*$/)) {
+					[,scope]=match
+					if (!(scope in this.scopes)) this.scopes[scope]=[]
+				} else {
+					this.scopes[scope]?.push(line)
+				}
+			}
 		}
 	}
 	saveStore() {
@@ -35,32 +44,16 @@ class Project {
 	saveChangesets() {
 		fs.writeFileSync(this.changesetsFilename,JSON.stringify(this.changeset))
 	}
-	saveProject() {
+	saveScopes() {
 		const savedata={...this.data}
 		if (savedata.scope.length==0) delete savedata.scope
 		fs.writeFileSync(this.projectFilename,JSON.stringify(savedata,null,2))
 	}
-	*getChangesetEntries() {
-		const cids={}
-		for (const [scopeElementType,scopeElementId] of this.data.scope) {
-			if (scopeElementType!="changeset") continue // TODO user
-			cids[scopeElementId]=true
-		}
-		const sortedCids=Object.keys(cids)
-		sortedCids.sort((x,y)=>(x-y))
-		for (const cid of sortedCids) {
-			if (cid in this.store.changeset) yield [cid,this.store.changeset[cid]]
-		}
-	}
-	*getChanges() {
-		for (const [,changesetChanges] of this.getChangesetEntries()) {
-			yield* changesetChanges
-		}
-	}
-	get projectFilename() { return path.join(this.dirname,'project.json') }
+
 	get storeFilename() { return path.join(this.dirname,'store.json') }
 	get usersFilename() { return path.join(this.dirname,'users.json') }
 	get changesetsFilename() { return path.join(this.dirname,'changesets.json') }
+	get scopesFilename() { return path.join(this.dirname,'scopes.txt') }
 	getUserLink(uid) {
 		if (uid in this.user) {
 			const href=e.u`https://www.openstreetmap.org/user/${this.user[uid].displayName}`
@@ -70,6 +63,59 @@ class Project {
 			return e.h`<a href=${href}>${uid} = ?</a>`
 		}
 	}
+
+	// changeset data/change iterators
+	getAllChangesets() {
+		return Object.entries(this.store.changeset)
+	}
+	*getUserChangesets(user) {
+		for (const cid of user.changesets) {
+			if (cid in project.store.changeset) {
+				yield* project.store.changeset[cid]
+			}
+		}
+	}
+	*getScopeChangesets(scope) {
+		const cids=new Set()
+		/*
+		for (const [scopeElementType,scopeElementId] of this.data.scope) {
+			if (scopeElementType!="changeset") continue // TODO user
+			cids[scopeElementId]=true
+		}
+		*/
+		for (const line of this.scopes[scope]) {
+			if (line.match(/^[1-9]\d*$/)) {
+				cids.add(line)
+			}
+		}
+		const sortedCids=[...cids]
+		sortedCids.sort((x,y)=>(x-y))
+		for (const cid of sortedCids) {
+			if (cid in this.store.changeset) yield [cid,this.store.changeset[cid]]
+		}
+	}
+	*getChangesFromChangesets(changesets) {
+		for (const [,changesetChanges] of changesets) {
+			yield* changesetChanges
+		}
+	}
+	/*
+	getAllChanges() {
+		return this.getChangesFromChangesets(
+			this.getAllChangesets()
+		)
+	}
+	getUserChanges(user) {
+		return this.getChangesFromChangesets(
+			this.getUserChangesets(user)
+		)
+	}
+	getScopeChanges(scope) {
+		return this.getChangesFromChangesets(
+			this.getScopeChangesets(scope)
+		)
+	}
+	*/
 }
 
 if (process.argv[2]===undefined) {
@@ -79,18 +125,10 @@ if (process.argv[2]===undefined) {
 main(process.argv[2])
 
 function main(projectDirname) {
-	const arr=a=>(Array.isArray(a)?a:[a]).map(x=>Number(x))
 	const project=new Project(projectDirname)
-	const matchUser=(response,match)=>{
-		const [,uid]=match
-		if (uid in project.user) return project.user[uid]
-		response.writeHead(404)
-		response.end(`User #${uid} not found`)
-	}
 	const server=http.createServer(async(request,response)=>{
 		const urlParse=url.parse(request.url)
 		const path=urlParse.pathname
-		const userPathMatch=(subpath)=>path.match(new RegExp('^/user/([1-9]\\d*)/'+subpath+'$'))
 		let match
 		if (path=='/') {
 			serveRoot(response,project)
@@ -98,15 +136,6 @@ function main(projectDirname) {
 			serveStore(response,project.store)
 		} else if (path=='/elements') {
 			serveElements(response,project,querystring.parse(urlParse.query))
-		} else if (path=='/scope-user') {
-			const post=await readPost(request)
-			await serveScopeUser(response,project,arr(post.id))
-		} else if (path=='/scope-changeset') {
-			const post=await readPost(request)
-			await serveScopeChangeset(response,project,arr(post.id))
-		} else if (path=='/descope') {
-			const post=await readPost(request)
-			await serveDescope(response,project,arr(post.idx))
 		} else if (path=='/uid') {
 			serveUid(response,project,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
@@ -124,6 +153,32 @@ function main(projectDirname) {
 		} else if (path=='/fetch-latest') {
 			const post=await readPost(request)
 			await serveFetchLatestVersions(response,project,post)
+		} else if (match=path.match(new RegExp('^/all/([a-z]*)$'))) {
+			const [,subpath]=match
+			if (subpath=='') {
+				serveAll(response,project)
+			} else if (subpath=='count') {
+				serveAll(response,project,bocaAnalysis.analyzeCount)
+			} else {
+				response.writeHead(404)
+				response.end(`<em>All</em> route not defined`)
+				return
+			}
+		} else if (match=path.match(new RegExp('^/user/([1-9]\\d*)/([a-z]*)$'))) {
+			const [,uid,subpath]=match
+			if (!(uid in project.user)) {
+				response.writeHead(404)
+				response.end(`User #${uid} not found`)
+				return
+			}
+			if (subpath=='') {
+				serveUser(response,project,user)
+			} else {
+				response.writeHead(404)
+				response.end(`User #${uid} route not defined`)
+				return
+			}
+		/*
 		} else if (match=userPathMatch('')) {
 			const user=matchUser(response,match)
 			if (!user) return
@@ -144,6 +199,7 @@ function main(projectDirname) {
 			const user=matchUser(response,match)
 			if (!user) return
 			await serveFetchUserData(response,project,user)
+		*/
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
@@ -168,29 +224,29 @@ async function readPost(request) {
 function serveRoot(response,project) {
 	respondHead(response,'habat-boca')
 	response.write(`<h1>Bunch-of-changesets analyser</h1>\n`)
-	response.write(`<h2>Scope</h2>\n`)
-	response.write(`<form method=post action=/descope>\n`)
-	for (const [idx,scopeElement] of Object.entries(project.data.scope)) {
-		response.write(e.h`<div><input type=checkbox name=idx value=${idx}><code>${JSON.stringify(scopeElement)}</code></div>\n`)
+	response.write(`<h2>Views</h2>\n`)
+	response.write(`<h3>All</h3>\n`)
+	response.write(`<p><a href=/all/>All completely downloaded changesets.</a></p>\n`)
+	response.write(`<h3>Scopes</h3>\n`)
+	response.write(`<ul>\n`)
+	for (const scope in project.scopes) {
+		const href=e.u`/scope/${scope}/`
+		response.write(e.h`<li><a href=${href}>${scope}</a>\n`)
 	}
-	response.write(`<div><button type=submit>Remove from scope</button></div>\n`)
-	response.write(`</form>\n`)
-	response.write(`<h2>Fetched data</h2>\n`)
-	const writeKeys=(store,formAction,formatId=x=>e.h`${x}`)=>{
-		response.write(`<form method=post action=${formAction}>\n`)
-		const ids=Object.keys(store)
-		if (ids.length>20) response.write(`<div style='column-width:7em'>\n`)
-		for (const id of ids) {
-			response.write(e.h`<div><input type=checkbox name=id value=${id}>`+formatId(id)+`</div>\n`)
-		}
-		if (ids.length>20) response.write(`</div>\n`)
-		response.write(`<div><button type=submit>Add to scope</button></div>\n`)
-		response.write(`</form>\n`)
-	}
+	response.write(`</ul>\n`)
 	response.write(`<h3>Fetched users</h3>\n`)
-	writeKeys(project.user,`/scope-user`,id=>project.getUserLink(id)+e.h` <a href=${'/user/'+id+'/'}>view</a>`)
-	response.write(`<h3>Fetched changesets</h3>\n`)
-	writeKeys(project.store.changeset,`/scope-changeset`)
+	response.write(`<ul>\n`)
+	for (const uid in project.users) {
+		const href=e.u`/user/${uid}/`
+		response.write(e.h`<li>${project.getUserLink(uid)} <a href=${href}>view</a>\n`)
+	}
+	response.write(`</ul>\n`)
+	response.write(`<h3>Fetched data of changesets</h3>\n`)
+	response.write(`<div>`)
+	for (const cid in project.store.changeset) {
+		response.write(e.h`${cid} `)
+	}
+	response.write(`</div>\n`)
 	response.write(`<h2>Actions</h2>\n`)
 	response.write(`<form method=post action=/fetch-user>\n`)
 	response.write(`<label>User to fetch: <input type=text name=user></label>\n`)
@@ -201,51 +257,8 @@ function serveRoot(response,project) {
 	response.write(`<button type=submit>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
-	response.write(`<h2>Changeset element counts</h2>\n`)
-	response.write(`<table>\n`)
-	response.write(`<tr><th rowspan=2>changeset<th colspan=3>nodes<th colspan=3>ways<th colspan=3>rels\n`)
-	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
-	const cc=()=>({create:0,modify:0,delete:0})
-	const globalChanges={node:{},way:{},relation:{}}
-	for (const [changesetId,changesetChanges] of project.getChangesetEntries()) {
-		const count={node:cc(),way:cc(),relation:cc()}
-		for (const [changeType,elementType,elementId] of changesetChanges) {
-			count[elementType][changeType]++
-			if (globalChanges[elementType][elementId]=='create' && changeType=='modify') {
-				// keep 'create'
-			} else if (globalChanges[elementType][elementId]=='create' && changeType=='delete') {
-				delete globalChanges[elementType][elementId]
-			} else {
-				globalChanges[elementType][elementId]=changeType
-			}
-		}
-		response.write(e.h`<tr><td><a href=${'https://www.openstreetmap.org/changeset/'+changesetId}>${changesetId}</a>`)
-		for (const elementType of ['node','way','relation']) {
-			c=count[elementType]
-			response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
-		}
-		response.write(`\n`)
-	}
-	response.write(e.h`<tr><td>total`)
-	for (const elementType of ['node','way','relation']) {
-		const c=cc()
-		for (const changeType of Object.values(globalChanges[elementType])) {
-			c[changeType]++
-		}
-		response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
-	}
-	response.write(`\n`)
-	response.write(`</table>\n`)
-	response.write(
-		`<details>\n`+
-		`<summary>Uses change types declared in changeset - some limitations apply</summary>\n`+
-		`<ul>\n`+
-		`<li>modifications can be trivial\n`+
-		`<li>deletes followed by undeletes are modifications\n`+
-		`<li>does not take intermittent changes from other changesets into account\n`+
-		`</ul>\n`+
-		`</details>\n`
-	)
+
+	/*
 	response.write(`<h2>Deletion version distribution</h2>\n`)
 	const deletedVersions={node:{},way:{},relation:{}}
 	for (const [changeType,elementType,elementId,elementVersion] of project.getChanges()) {
@@ -316,6 +329,21 @@ function serveRoot(response,project) {
 			response.write(`<button type=submit>Fetch a batch of first versions from OSM</button>\n`)
 			response.write(`</form>\n`)
 		}
+	}
+	*/
+
+	respondTail(response)
+}
+
+function serveAll(response,project,insides) {
+	respondHead(response,'all changeset data')
+	response.write(`<nav><ul>\n`)
+	response.write(`<li><a href=count>element counts</a>\n`)
+	response.write(`</ul></nav>\n`)
+	if (insides) {
+		insides(response,project,project.getAllChangesets())
+	} else {
+		// TODO list changesets
 	}
 	respondTail(response)
 }
@@ -652,27 +680,6 @@ function serveElements(response,project,filters) {
 		response.write(`</form>`)
 	}
 	respondTail(response)
-}
-
-async function serveScopeUser(response,project,ids) {
-	for (const id of ids) project.data.scope.push(['user',id])
-	project.saveProject()
-	response.writeHead(303,{'Location':'/'})
-	response.end()
-}
-
-async function serveScopeChangeset(response,project,ids) {
-	for (const id of ids) project.data.scope.push(['changeset',id])
-	project.saveProject()
-	response.writeHead(303,{'Location':'/'})
-	response.end()
-}
-
-async function serveDescope(response,project,idxs) {
-	project.data.scope=project.data.scope.filter((v,i)=>!idxs.includes(i))
-	project.saveProject()
-	response.writeHead(303,{'Location':'/'})
-	response.end()
 }
 
 async function serveFetchUser(response,project,userString) {
