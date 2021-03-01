@@ -68,8 +68,8 @@ class Project {
 	}
 	*getUserChangesets(user) {
 		for (const cid of user.changesets) {
-			if (cid in project.store.changeset) {
-				yield* project.store.changeset[cid]
+			if (cid in this.store.changeset) {
+				yield [cid,this.store.changeset[cid]]
 			}
 		}
 	}
@@ -110,17 +110,17 @@ class View {
 	}
 	serveByChangeset(response,insides) {
 		this.writeHead(response)
-		insides(response,this.project,this.project.getAllChangesets())
+		insides(response,this.project,this.getChangesets())
 		this.writeTail(response)
 	}
 	serveByElement(response,insides,filters) {
 		this.writeHead(response)
-		insides(response,this.project,this.project.getAllChangesets(),filters)
+		insides(response,this.project,this.getChangesets(),filters)
 		this.writeTail(response)
 	}
 	async serveFetchElements(response,insides,filters,redirectHref,errorMessage) {
 		try {
-			await insides(response,this.project,this.project.getAllChangesets(),filters)
+			await insides(response,this.project,this.getChangesets(),filters)
 		} catch (ex) {
 			return respondFetchError(response,ex,'elements fetch error',errorMessage)
 		}
@@ -183,6 +183,9 @@ class View {
 }
 
 class AllView extends View {
+	getChangesets() {
+		return this.project.getAllChangesets()
+	}
 	getTitle() {
 		return 'all changeset data'
 	}
@@ -198,6 +201,9 @@ class UserView extends View {
 	constructor(project,user) {
 		super(project)
 		this.user=user
+	}
+	getChangesets() {
+		return this.project.getUserChangesets(this.user)
 	}
 	getTitle() {
 		return 'user '+this.user.displayName
