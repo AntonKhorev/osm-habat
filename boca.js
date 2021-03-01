@@ -10,7 +10,7 @@ const expat=require('node-expat')
 
 const e=require('./escape')
 const osm=require('./osm')
-const bocaAnalysis=require('./boca-analysis')
+const bocaScoped=require('./boca-scoped')
 
 class Project {
 	constructor(dirname) {
@@ -118,6 +118,39 @@ class Project {
 	*/
 }
 
+class View {
+	constructor(project) {
+		this.project=project
+	}
+	serveNavigation(response) {
+		response.write(`<nav><ul>\n`)
+		response.write(`<li><a href=counts>element counts</a>\n`)
+		response.write(`<li><a href=deletes>deletion distributions</a>\n`)
+		response.write(`</ul></nav>\n`)
+	}
+	serveMain(response) {
+		respondHead(response,'all changeset data')
+		this.serveNavigation(response)
+		// TODO list changesets
+		respondTail(response)
+	}
+	serveByChangeset(response,insides) {
+		respondHead(response,'all changeset data')
+		this.serveNavigation(response)
+		insides(response,this.project,this.project.getAllChangesets())
+		respondTail(response)
+	}
+	serveByElement(response,filters,insides) {
+		respondHead(response,'all changeset data')
+		this.serveNavigation(response)
+		//insides(response,this.project,this.project.getAllChangesets())
+		respondTail(response)
+	}
+}
+
+class AllView extends View {
+}
+
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
 	return process.exit(1)
@@ -134,10 +167,6 @@ function main(projectDirname) {
 			serveRoot(response,project)
 		} else if (path=='/store') {
 			serveStore(response,project.store)
-		/*
-		} else if (path=='/elements') {
-			serveElements(response,project,querystring.parse(urlParse.query))
-		*/
 		} else if (path=='/uid') {
 			serveUid(response,project,querystring.parse(urlParse.query).uid)
 		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
@@ -158,13 +187,18 @@ function main(projectDirname) {
 			const post=await readPost(request)
 			await serveFetchLatestVersions(response,project,post)
 		} else if (match=path.match(new RegExp('^/all/([a-z]*)$'))) {
+			const view=new AllView(project)
 			const [,subpath]=match
 			if (subpath=='') {
-				serveAll(response,project)
+				view.serveMain(response)
+			/*
+			} else if (subpath=='elements') {
+				view.serveByElement(response,querystring.parse(urlParse.query), )
+			*/
 			} else if (subpath=='counts') {
-				serveAll(response,project,bocaAnalysis.analyzeCounts)
+				view.serveByChangeset(response,bocaScoped.analyzeCounts)
 			} else if (subpath=='deletes') {
-				serveAll(response,project,bocaAnalysis.analyzeDeletes)
+				view.serveByChangeset(response,bocaScoped.analyzeDeletes)
 			} else {
 				response.writeHead(404)
 				response.end(`<em>All</em> route not defined`)

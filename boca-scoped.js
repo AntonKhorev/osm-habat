@@ -1,3 +1,5 @@
+// scoped operations
+
 const e=require('./escape')
 
 exports.analyzeCounts=(response,project,changesets)=>{
