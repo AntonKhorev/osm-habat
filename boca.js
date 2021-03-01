@@ -20,7 +20,7 @@ class Project {
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
 		this.changeset={}
 		if (fs.existsSync(this.changesetsFilename)) this.changeset=JSON.parse(fs.readFileSync(this.changesetsFilename))
-		this.scopes={}
+		this.scope={}
 		if (fs.existsSync(this.scopesFilename)) {
 			const text=String(fs.readFileSync(this.scopesFilename))
 			let scope
@@ -28,9 +28,9 @@ class Project {
 				let match
 				if (match=line.match(/^#+\s*(.*\S)\s*$/)) {
 					[,scope]=match
-					if (!(scope in this.scopes)) this.scopes[scope]=[]
+					if (!(scope in this.scope)) this.scope[scope]=[]
 				} else {
-					this.scopes[scope]?.push(line)
+					this.scope[scope]?.push(line)
 				}
 			}
 		}
@@ -45,9 +45,7 @@ class Project {
 		fs.writeFileSync(this.changesetsFilename,JSON.stringify(this.changeset))
 	}
 	saveScopes() {
-		const savedata={...this.data}
-		if (savedata.scope.length==0) delete savedata.scope
-		fs.writeFileSync(this.projectFilename,JSON.stringify(savedata,null,2))
+		// TODO
 	}
 
 	get storeFilename() { return path.join(this.dirname,'store.json') }
@@ -99,23 +97,6 @@ class Project {
 			yield* changesetChanges
 		}
 	}
-	/*
-	getAllChanges() {
-		return this.getChangesFromChangesets(
-			this.getAllChangesets()
-		)
-	}
-	getUserChanges(user) {
-		return this.getChangesFromChangesets(
-			this.getUserChangesets(user)
-		)
-	}
-	getScopeChanges(scope) {
-		return this.getChangesFromChangesets(
-			this.getScopeChangesets(scope)
-		)
-	}
-	*/
 }
 
 class View {
@@ -123,6 +104,7 @@ class View {
 		this.project=project
 	}
 	writeNavigation(response) {
+		response.write(`<h1>All changeset data</h1>\n`)
 		response.write(`<nav><ul>\n`)
 		response.write(`<li><a href=/>root</a>\n`)
 		response.write(`<li><a href=.>main view</a>\n`)
@@ -159,6 +141,38 @@ class View {
 		response.writeHead(303,{'Location':redirectHref})
 		response.end()
 	}
+	async serveRoute(response,route,passGetQuery,passPostQuery) {
+		if (route=='') {
+			this.serveMain(response)
+		} else if (route=='elements') {
+			this.serveByElement(response,bocaScoped.viewElements,passGetQuery())
+		} else if (route=='counts') {
+			this.serveByChangeset(response,bocaScoped.analyzeCounts)
+		} else if (route=='deletes') {
+			this.serveByChangeset(response,bocaScoped.analyzeDeletes)
+		} else if (route=='fetch-first') {
+			const filters=await passPostQuery()
+			await this.serveFetchElements(
+				response,
+				bocaScoped.fetchFirstVersions,
+				filters,
+				'deletes',
+				`<p>cannot fetch first versions of elements\n`
+			)
+		} else if (route=='fetch-latest') {
+			const filters=await passPostQuery()
+			await this.serveFetchElements(
+				response,
+				bocaScoped.fetchLatestVersions,
+				filters,
+				'elements?'+querystring.stringify(filters),
+				`<p>cannot fetch latest versions of elements\n`
+			)
+		} else {
+			response.writeHead(404)
+			response.end(`All-downloaded-changesets route not defined`)
+		}
+	}
 }
 
 class AllView extends View {
@@ -194,37 +208,10 @@ function main(projectDirname) {
 		} else if (match=path.match(new RegExp('^/all/([^/]*)$'))) {
 			const view=new AllView(project)
 			const [,subpath]=match
-			if (subpath=='') {
-				view.serveMain(response)
-			} else if (subpath=='elements') {
-				view.serveByElement(response,bocaScoped.viewElements,querystring.parse(urlParse.query))
-			} else if (subpath=='counts') {
-				view.serveByChangeset(response,bocaScoped.analyzeCounts)
-			} else if (subpath=='deletes') {
-				view.serveByChangeset(response,bocaScoped.analyzeDeletes)
-			} else if (subpath=='fetch-first') {
-				const filters=await readPost(request)
-				await view.serveFetchElements(
-					response,
-					bocaScoped.fetchFirstVersions,
-					filters,
-					'.',
-					`<p>cannot fetch first versions of elements\n`
-				)
-			} else if (subpath=='fetch-latest') {
-				const filters=await readPost(request)
-				await view.serveFetchElements(
-					response,
-					bocaScoped.fetchLatestVersions,
-					filters,
-					'elements?'+querystring.stringify(filters),
-					`<p>cannot fetch latest versions of elements\n`
-				)
-			} else {
-				response.writeHead(404)
-				response.end(`<em>All</em> route not defined`)
-				return
-			}
+			view.serveRoute(response,subpath,
+				()=>querystring.parse(urlParse.query),
+				()=>readPost(request)
+			)
 		} else if (match=path.match(new RegExp('^/user/([1-9]\\d*)/([a-z]*)$'))) {
 			const [,uid,subpath]=match
 			if (!(uid in project.user)) {
@@ -232,6 +219,7 @@ function main(projectDirname) {
 				response.end(`User #${uid} not found`)
 				return
 			}
+			const user=project.user[uid]
 			if (subpath=='') {
 				serveUser(response,project,user)
 			} else {
@@ -297,9 +285,9 @@ function serveRoot(response,project) {
 	response.write(`</ul>\n`)
 	response.write(`<h3>Fetched users</h3>\n`)
 	response.write(`<ul>\n`)
-	for (const uid in project.users) {
+	for (const uid in project.user) {
 		const href=e.u`/user/${uid}/`
-		response.write(e.h`<li>${project.getUserLink(uid)} <a href=${href}>view</a>\n`)
+		response.write(`<li>`+project.getUserLink(uid)+e.h` <a href=${href}>view</a>\n`)
 	}
 	response.write(`</ul>\n`)
 	response.write(`<h3>Fetched data of changesets</h3>\n`)
