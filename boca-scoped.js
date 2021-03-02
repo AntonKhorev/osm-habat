@@ -2,6 +2,7 @@
 
 const e=require('./escape')
 const osm=require('./osm')
+const ParentChecker=require('./boca-parent')
 
 exports.analyzeCounts=(response,project,changesets)=>{
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -230,6 +231,62 @@ exports.analyzeKeys=(response,project,changesets)=>{
 			response.write(`\n`)
 		}
 		response.write(`</table>\n`)
+	}
+}
+
+exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
+	response.write(`<h2>Changes per element</h2>\n`)
+	for (const [cid,changes] of changesets) {
+		response.write(`<h3><a href=${'https://www.openstreetmap.org/changeset/'+cid}>Changeset #${cid}</a></h3>\n`)
+		previousWayVersion={}
+		const parentChecker=new ParentChecker()
+		for (const [,etype,eid,ev] of changes) {
+			if (etype!='way') continue
+			const currentWay=project.store[etype][eid][ev]
+			const previousWay=project.store[etype][eid][ev-1]
+			if (currentWay.visible) parentChecker.addCurrentWay(eid,currentWay.nds)
+			if (previousWay?.visible) {
+				previousWayVersion[eid]=ev-1
+				parentChecker.addPreviousWay(eid,previousWay.nds)
+			}
+		}
+		for (const [,etype,eid,ev] of changes) {
+			let changeType
+			let pid,pv
+			const currentElement=project.store[etype][eid][ev]
+			const previousElement=project.store[etype][eid][ev-1]
+			if (!previousElement?.visible && currentElement.visible) {
+				if (ev==1) {
+					changeType='create'
+				} else {
+					changeType='undelete'
+					pid=eid; pv=ev-1
+				}
+				if (etype=='way') {
+					const splitPid=parentChecker.getParentWay(eid)
+					if (splitPid) {
+						changeType='split-'+changeType
+						pid=splitPid
+						pv=previousWayVersion[pid]
+					}
+				}
+			} else if (previousElement?.visible && currentElement.visible) {
+				changeType='modify'
+				pid=eid; pv=ev-1
+			} else if (previousElement?.visible && !currentElement.visible) {
+				changeType='delete'
+				pid=eid; pv=ev-1
+			} else if (!previousElement?.visible && !currentElement.visible) {
+				changeType='degenerate-delete'
+				pid=eid; pv=ev-1
+			}
+			const t=etype[0]
+			response.write(e.h`<h4>${changeType} ${etype} #${eid}</h4>\n`)
+			response.write(`<table>\n`)
+			response.write(`<tr><th>previous<th>current\n`)
+			response.write(e.h`<tr><td>${pid?t+pid+'v'+pv:''}<td>${t}${eid}v${ev}\n`)
+			response.write(`</table>\n`)
+		}
 	}
 }
 
