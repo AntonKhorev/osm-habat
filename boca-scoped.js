@@ -290,8 +290,19 @@ exports.viewElements=(response,project,changesets,filters)=>{
 exports.fetchFirstVersions=async(response,project,changesets,filters)=>{
 	const multifetchList=[]
 	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
-		if (project.store[elementType][elementId]!==undefined && project.store[elementType][elementId][1]!==undefined) continue
+		if (project.store[elementType][elementId]?.[1]) continue
 		multifetchList.push([elementType,elementId,1])
+		if (multifetchList.length>=10000) break
+	}
+	await osm.multifetchToStore(project.store,multifetchList)
+}
+
+exports.fetchPreviousVersions=async(response,project,changesets,filters)=>{
+	const multifetchList=[]
+	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
+		if (elementVersion<=1) continue
+		if (project.store[elementType][elementId]?.[elementVersion-1]) continue
+		multifetchList.push([elementType,elementId,elementVersion-1])
 		if (multifetchList.length>=10000) break
 	}
 	await osm.multifetchToStore(project.store,multifetchList)

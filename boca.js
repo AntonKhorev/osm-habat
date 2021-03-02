@@ -151,6 +151,15 @@ class View {
 			this.serveByChangeset(response,bocaScoped.analyzeKeys)
 		} else if (route=='deletes') {
 			this.serveByChangeset(response,bocaScoped.analyzeDeletes)
+		} else if (route=='fetch-previous') {
+			const filters=await passPostQuery()
+			await this.serveFetchElements(
+				response,
+				bocaScoped.fetchPreviousVersions,
+				filters,
+				'.',
+				`<p>cannot fetch previous versions of elements\n`
+			)
 		} else if (route=='fetch-first') {
 			const filters=await passPostQuery()
 			await this.serveFetchElements(
@@ -188,6 +197,10 @@ class View {
 		response.write(`</ul></nav>\n`)
 	}
 	writeTail(response) {
+		response.write(`<hr/>\n`)
+		response.write(`<form method=post action=fetch-previous>`)
+		response.write(`<button type=submit>Fetch a batch of previous versions</button>`)
+		response.write(`</form>\n`)
 		respondTail(response)
 	}
 }
