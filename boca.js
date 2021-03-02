@@ -18,6 +18,14 @@ element filters are the obstacle to path-based redirects: . and ..
 sometimes need to replicate the filter in the redirect location, sometimes not
 */
 
+const osmchaFilterTag=e.independentValuesEscape(value=>{
+	if (!Array.isArray(value)) value=[value]
+	return '['+value.map(singleValue=>{
+		const cEscapedValue=String(singleValue).replace(/\\/g,'\\\\').replace(/"/g,'\\"')
+		return `{"label":"${cEscapedValue}","value":"${cEscapedValue}"}`
+	}).join(',')+']'
+})
+
 class Project {
 	constructor(dirname) {
 		this.dirname=dirname
@@ -235,6 +243,13 @@ class ScopeView extends View {
 		response.write(e.h`<h1>Scope "${this.scope}"</h1>\n`)
 	}
 	writeMain(response) {
+		const cids=[]
+		for (const [cid,] of this.getChangesets()) cids.push(cid)
+		const osmchaFilter=osmchaFilterTag`{"ids":${cids},"date__gte":${''}}`
+		const osmchaHref=e.u`https://osmcha.org/?filters=${osmchaFilter}`
+		response.write(e.h`<ul>\n`)
+		response.write(e.h`<li>external tools: <a href=${osmchaHref}>osmcha</a></li>\n`)
+		response.write(e.h`</ul>\n`)
 		response.write(`<textarea>\n`)
 		for (const line of this.project.scope[this.scope]) {
 			response.write(e.h`${line}\n`)
@@ -259,7 +274,8 @@ class UserView extends View {
 		response.write(e.h`<h1>User #${this.user.id} <a href=${osmHref}>${this.user.displayName}</a></h1>\n`)
 	}
 	writeMain(response) {
-		const osmchaHref=`https://osmcha.org/filters?filters=`+encodeURIComponent(`{"uids":[{"label":"${this.user.id}","value":"${this.user.id}"}],"date__gte":[{"label":"","value":""}]}`)
+		const osmchaFilter=osmchaFilterTag`{"uids":${this.user.id},"date__gte":${''}}`
+		const osmchaHref=e.u`https://osmcha.org/?filters=${osmchaFilter}`
 		const hdycHref=e.u`http://hdyc.neis-one.org/?${this.user.displayName}`
 		response.write(e.h`<ul>\n`)
 		response.write(e.h`<li>last update was on ${Date(this.user.updateTimestamp)}\n`)

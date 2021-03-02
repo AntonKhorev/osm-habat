@@ -38,18 +38,14 @@ function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
 		.replace(/\r/g,'&#xD;')
 }
 
-exports.x=(strings,...values)=>{
+const independentValuesEscape=escapeFn=>(strings,...values)=>{
 	let result=strings[0]
 	for (let i=0;i<values.length;i++) {
-		result+=xmlEscape(values[i])+strings[i+1]
+		result+=escapeFn(values[i])+strings[i+1]
 	}
 	return result
 }
+exports.independentValuesEscape=independentValuesEscape
 
-exports.u=(strings,...values)=>{
-	let result=strings[0]
-	for (let i=0;i<values.length;i++) {
-		result+=encodeURIComponent(values[i])+strings[i+1]
-	}
-	return result
-}
+exports.x=independentValuesEscape(xmlEscape)
+exports.u=independentValuesEscape(encodeURIComponent)
