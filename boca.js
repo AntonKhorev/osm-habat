@@ -12,6 +12,12 @@ const e=require('./escape')
 const osm=require('./osm')
 const bocaScoped=require('./boca-scoped')
 
+/*
+TODO maybe redirects from fetches to: request.headers.referer??'.'
+element filters are the obstacle to path-based redirects: . and ..
+sometimes need to replicate the filter in the redirect location, sometimes not
+*/
+
 class Project {
 	constructor(dirname) {
 		this.dirname=dirname
