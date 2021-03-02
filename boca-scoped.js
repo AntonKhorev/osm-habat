@@ -235,6 +235,8 @@ exports.analyzeKeys=(response,project,changesets)=>{
 }
 
 exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
+	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
+	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
 	response.write(`<h2>Changes per element</h2>\n`)
 	for (const [cid,changes] of changesets) {
 		response.write(`<h3><a href=${'https://www.openstreetmap.org/changeset/'+cid}>Changeset #${cid}</a></h3>\n`)
@@ -280,11 +282,18 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				changeType='degenerate-delete'
 				pid=eid; pv=ev-1
 			}
-			const t=etype[0]
-			response.write(e.h`<h4>${changeType} ${etype} #${eid}</h4>\n`)
+			const parentElement=project.store[etype][pid]?.[pv]
+			if (
+				(!parentElement || Object.keys(parentElement.tags).length==0) &&
+				Object.keys(currentElement.tags).length==0
+			) {
+				response.write(e.h`<h4>${changeType} untagged `+makeElementHeaderHtml(etype,eid)+`</h4>\n`)
+				continue
+			}
+			response.write(e.h`<h4>${changeType} `+makeElementHeaderHtml(etype,eid)+`</h4>\n`)
 			response.write(`<table>\n`)
 			response.write(`<tr><th>previous<th>current\n`)
-			response.write(e.h`<tr><td>${pid?t+pid+'v'+pv:''}<td>${t}${eid}v${ev}\n`)
+			response.write(`<tr><td>${makeElementTableHtml(etype,pid,pv)}<td>${makeElementTableHtml(etype,eid,ev)}\n`)
 			response.write(`</table>\n`)
 		}
 	}
