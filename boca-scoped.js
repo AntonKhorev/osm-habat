@@ -292,8 +292,17 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			}
 			response.write(e.h`<h4>${changeType} `+makeElementHeaderHtml(etype,eid)+`</h4>\n`)
 			response.write(`<table>\n`)
-			response.write(`<tr><th>previous<th>current\n`)
-			response.write(`<tr><td>${makeElementTableHtml(etype,pid,pv)}<td>${makeElementTableHtml(etype,eid,ev)}\n`)
+			response.write(`<tr><th>tags<th>previous<th>current\n`)
+			response.write(`<tr><td><td>${makeElementTableHtml(etype,pid,pv)}<td>${makeElementTableHtml(etype,eid,ev)}\n`)
+			for (const k of Object.keys({...parentElement?.tags,...currentElement.tags})) {
+				const v1=parentElement?.tags[k]
+				const v2=currentElement.tags[k]
+				let change
+				if (v1==undefined && v2!=undefined) change='create'
+				if (v1!=undefined && v2==undefined) change='delete'
+				if (v1!=undefined && v2!=undefined && v1!=v2) change='modify'
+				response.write(e.h`<tr class=${change} data-key=${k}><td>${k}<td>${v1}<td>${v2}\n`)
+			}
 			response.write(`</table>\n`)
 		}
 	}

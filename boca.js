@@ -773,6 +773,9 @@ e.h`<!DOCTYPE html>
 <title>${title}</title>
 <style>
 table td { text-align: right }
+.create {background: #CFC}
+.modify {background: #FFC}
+.delete {background: #FCC}
 </style>
 </head>
 <body>

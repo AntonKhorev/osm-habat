@@ -4,8 +4,8 @@
 exports.h=(strings,...values)=>{
 	return strings.reduce((r,s,i)=>{
 		let v=values[i-1]
-		if (r.slice(-1)=='=') {
-			if (v===false || v===undefined) {
+		if (r.slice(-1)=='=') { // attribute value
+			if (v==null || v===false) { // nullish or false, but not 0 or empty string
 				return r.replace(/\s+[a-zA-Z0-9-]+=$/,'')+s // TODO more permitting attr name regexp
 			} else if (v===true) {
 				return r.replace(/=$/,'')+s
@@ -21,9 +21,13 @@ exports.h=(strings,...values)=>{
 				v=v.replace(/"/g,'&quot;')
 				return r+'"'+v+'"'+s
 			}
-		} else {
-			v=String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-			return r+v+s
+		} else { // everything else
+			if (v==null) {
+				return r+s
+			} else {
+				v=String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+				return r+v+s
+			}
 		}
 	})
 }
