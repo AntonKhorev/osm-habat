@@ -341,6 +341,9 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				}
 			}
 			response.write(`<h3>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+			const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
+			const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
+			response.write(`<div>external tools: <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a></div>\n`)
 			response.write(`<table>`)
 			response.write(`\n<tr><th>changeset`)
 			iterate((ev,edata)=>{
