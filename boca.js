@@ -159,6 +159,8 @@ class View {
 			this.serveByChangeset(response,bocaScoped.analyzeKeys)
 		} else if (route=='deletes') {
 			this.serveByChangeset(response,bocaScoped.analyzeDeletes)
+		} else if (route=='cpcpe') {
+			this.serveByChangeset(response,bocaScoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='cpe') {
 			this.serveByChangeset(response,bocaScoped.analyzeChangesPerElement)
 		} else if (route=='fetch-previous') {
@@ -204,6 +206,7 @@ class View {
 		response.write(`<li><a href=formulas>change formulas</a>\n`)
 		response.write(`<li><a href=keys>changed keys</a>\n`)
 		response.write(`<li><a href=deletes>deletion distributions</a>\n`)
+		response.write(`<li><a href=cpcpe>changes per changeset per element</a>\n`)
 		response.write(`<li><a href=cpe>changes per element</a>\n`)
 		response.write(`</ul></nav>\n`)
 	}

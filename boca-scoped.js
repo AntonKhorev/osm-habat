@@ -234,10 +234,10 @@ exports.analyzeKeys=(response,project,changesets)=>{
 	}
 }
 
-exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
+exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
 	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
-	response.write(`<h2>Changes per element</h2>\n`)
+	response.write(`<h2>Changes per changeset per element</h2>\n`)
 	for (const [cid,changes] of changesets) {
 		response.write(`<h3><a href=${'https://www.openstreetmap.org/changeset/'+cid}>Changeset #${cid}</a></h3>\n`)
 		previousWayVersion={}
@@ -302,6 +302,43 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				if (v1!=undefined && v2==undefined) change='delete'
 				if (v1!=undefined && v2!=undefined && v1!=v2) change='modify'
 				response.write(e.h`<tr class=${change} data-key=${k}><td>${k}<td>${v1}<td>${v2}\n`)
+			}
+			response.write(`</table>\n`)
+		}
+	}
+}
+
+exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
+	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
+	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
+	response.write(`<h2>Changes per changeset per element</h2>\n`)
+	const elements={node:{},way:{},relation:{}}
+	for (const [cid,changes] of changesets) {
+		// TODO parent check
+		for (const [,etype,eid,ev] of changes) {
+			if (!elements[etype][eid]) elements[etype][eid]=[]
+			elements[etype][eid].push(ev)
+		}
+	}
+	for (const etype of ['node','way','relation']) {
+		for (const eid in elements[etype]) {
+			const targetVersions=new Set(elements[etype][eid])
+			const minVersion=elements[etype][eid][0]-1
+			const maxVersion=getLatestElementVersion(project.store[etype][eid])
+			response.write(`<h3>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+			response.write(`<table>\n`)
+			response.write(`<tr><th>changeset\n`)
+			for (let ev=minVersion;ev<=maxVersion;ev++) {
+				if (ev==0) {
+					// TODO output parent
+					continue
+				}
+				const edata=project.store[etype][eid][ev]
+				if (!edata) continue
+				response.write(`<td>`)
+				if (targetVersions.has(ev)) response.write(`<strong>`)
+				response.write(e.h`<a>${edata.changeset}</a>`)
+				if (targetVersions.has(ev)) response.write(`</strong>`)
 			}
 			response.write(`</table>\n`)
 		}
@@ -409,6 +446,6 @@ function *filterChanges(project,changesets,filters) {
 	}
 }
 
-function getLatestElementVersion(elementStore) {
+function getLatestElementVersion(elementStore) { // TODO remove copypaste
 	return Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
 }
