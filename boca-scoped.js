@@ -325,22 +325,56 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			const targetVersions=new Set(elements[etype][eid])
 			const minVersion=elements[etype][eid][0]-1
 			const maxVersion=getLatestElementVersion(project.store[etype][eid])
-			response.write(`<h3>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
-			response.write(`<table>\n`)
-			response.write(`<tr><th>changeset\n`)
-			for (let ev=minVersion;ev<=maxVersion;ev++) {
-				if (ev==0) {
-					// TODO output parent
-					continue
+			const iterate=(fn)=>{
+				let pv
+				let pdata={}
+				for (let ev=minVersion;ev<=maxVersion;ev++) {
+					if (ev==0) {
+						// TODO output parent
+						continue
+					}
+					const edata=project.store[etype][eid][ev]
+					if (!edata) continue
+					fn(ev,edata,eid,pv,pdata)
+					pv=ev
+					pdata=edata
 				}
-				const edata=project.store[etype][eid][ev]
-				if (!edata) continue
+			}
+			response.write(`<h3>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+			response.write(`<table>`)
+			response.write(`\n<tr><th>changeset`)
+			iterate((ev,edata)=>{
 				response.write(`<td>`)
 				if (targetVersions.has(ev)) response.write(`<strong>`)
 				response.write(e.h`<a>${edata.changeset}</a>`)
 				if (targetVersions.has(ev)) response.write(`</strong>`)
+			})
+			response.write(`\n<tr><th>element`)
+			iterate((ev,edata)=>{
+				response.write(`<td>`+makeElementTableHtml(etype,eid,ev))
+			})
+			response.write(`\n<tr><th>visible`)
+			iterate((ev,edata,pid,pv,pdata)=>{
+				let change
+				if (edata.visible!=!!pdata.visible) change='modify'
+				response.write(e.h`<td class=${change}>${(edata.visible?'yes':'no')}`)
+			})
+			const allTags={}
+			iterate((ev,edata)=>Object.assign(allTags,edata.tags))
+			response.write(`\n<tr><th>tags`)
+			for (const k in allTags) {
+				response.write(e.h`\n<tr><td>${k}`)
+				iterate((ev,edata,pid,pv,pdata)=>{
+					let v1=pdata.tags?.[k]
+					let v2=edata.tags[k]
+					let change
+					if (v1==undefined && v2!=undefined) change='create'
+					if (v1!=undefined && v2==undefined) change='delete'
+					if (v1!=undefined && v2!=undefined && v1!=v2) change='modify'
+					response.write(e.h`<td class=${change}>${v2}`)
+				})
 			}
-			response.write(`</table>\n`)
+			response.write(`\n</table>\n`)
 		}
 	}
 }
