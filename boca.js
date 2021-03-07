@@ -799,6 +799,9 @@ table td { text-align: right }
 .create {background: #CFC}
 .modify {background: #FFC}
 .delete {background: #FCC}
+section.element h3 {
+	display: inline-block
+}
 </style>
 </head>
 <body>

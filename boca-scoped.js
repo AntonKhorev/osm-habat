@@ -317,7 +317,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 		return e.h`<time>${format(new Date(timestamp))}</time>`
 	}
-	response.write(`<h2>Changes per changeset per element</h2>\n`)
+	response.write(`<h2>Changes per element</h2>\n`)
 	const elements={node:{},way:{},relation:{}}
 	for (const [cid,changes] of changesets) {
 		// TODO parent check
@@ -346,10 +346,12 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					pdata=edata
 				}
 			}
+			response.write(`<section class=element>\n`)
 			response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+			const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
 			const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 			const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
-			response.write(`<div>external tools: <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a></div>\n`)
+			response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
 			response.write(`<form method=post>\n`)
 			response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
 			response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
@@ -395,6 +397,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			}
 			response.write(`\n</table>\n`)
 			response.write(`</form>\n`)
+			response.write(`</section>\n`)
 		}
 	}
 }
