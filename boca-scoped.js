@@ -240,18 +240,7 @@ exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ //
 	response.write(`<h2>Changes per changeset per element</h2>\n`)
 	for (const [cid,changes] of changesets) {
 		response.write(`<h3><a href=${'https://www.openstreetmap.org/changeset/'+cid}>Changeset #${cid}</a></h3>\n`)
-		previousWayVersion={}
-		const parentChecker=new ParentChecker()
-		for (const [,etype,eid,ev] of changes) {
-			if (etype!='way') continue
-			const currentWay=project.store[etype][eid][ev]
-			const previousWay=project.store[etype][eid][ev-1]
-			if (currentWay.visible) parentChecker.addCurrentWay(eid,currentWay.nds)
-			if (previousWay?.visible) {
-				previousWayVersion[eid]=ev-1
-				parentChecker.addPreviousWay(eid,previousWay.nds)
-			}
-		}
+		const parentQuery=createParentQuery(project,changes)
 		for (const [,etype,eid,ev] of changes) {
 			let changeType
 			let pid,pv
@@ -265,11 +254,10 @@ exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ //
 					pid=eid; pv=ev-1
 				}
 				if (etype=='way') {
-					const splitPid=parentChecker.getParentWay(eid)
-					if (splitPid) {
+					const pq=parentQuery(eid)
+					if (pq) {
+						[pid,pv]=pq
 						changeType='split-'+changeType
-						pid=splitPid
-						pv=previousWayVersion[pid]
 					}
 				}
 			} else if (previousElement?.visible && currentElement.visible) {
@@ -318,42 +306,51 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		return e.h`<time>${format(new Date(timestamp))}</time>`
 	}
 	response.write(`<h2>Changes per element</h2>\n`)
-	const elements={node:{},way:{},relation:{}}
+	const elementVersions={node:{},way:{},relation:{}}
+	const wayParents={}
 	for (const [cid,changes] of changesets) {
-		// TODO parent check
+		const parentQuery=createParentQuery(project,changes)
 		for (const [,etype,eid,ev] of changes) {
-			if (!elements[etype][eid]) elements[etype][eid]=[]
-			elements[etype][eid].push(ev)
+			if (!elementVersions[etype][eid]) elementVersions[etype][eid]=[]
+			elementVersions[etype][eid].push(ev)
+			if (etype=='way' && ev==1) {
+				wayParents[eid]=parentQuery(eid)
+			}
 		}
 	}
 	for (const etype of ['node','way','relation']) {
-		for (const eid in elements[etype]) {
-			const targetVersions=new Set(elements[etype][eid])
-			const minVersion=elements[etype][eid][0]-1
+		for (const eid in elementVersions[etype]) {
+			const targetVersions=new Set(elementVersions[etype][eid])
+			const minVersion=elementVersions[etype][eid][0]-1
 			const maxVersion=osm.topVersion(project.store[etype][eid])
 			const iterate=(fn)=>{
-				let pv
+				let pid,pv
 				let pdata={}
 				for (let ev=minVersion;ev<=maxVersion;ev++) {
+					let cid=eid
+					let cv=ev
+					let cdata=project.store[etype][eid][ev]
 					if (ev==0) {
-						// TODO output parent
-						continue
+						if (etype=='way' && wayParents[eid]) {
+							[cid,cv]=wayParents[eid]
+							cdata=project.store[etype][cid][cv]
+						} else {
+							continue
+						}
 					}
-					const edata=project.store[etype][eid][ev]
-					if (!edata) continue
+					if (!cdata) continue
 					const tdClasses=[]
-					if (targetVersions.has(ev)) { // TODO check if it's not a different parent element
+					if (targetVersions.has(ev)) { // don't check cv to avoid targeting parents
 						tdClasses.push('target')
 					}
-					let output=fn(ev,edata,eid,pv,pdata)
+					let output=fn(cid,cv,cdata,pid,pv,pdata)
 					if (Array.isArray(output)) {
 						let tdClass
 						[output,tdClass]=output
 						tdClasses.push(tdClass)
 					}
 					response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
-					pv=ev
-					pdata=edata
+					[pid,pv,pdata]=[cid,cv,cdata]
 				}
 			}
 			response.write(`<section class=element>\n`)
@@ -367,31 +364,31 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
 			response.write(`<table>`)
 			response.write(`\n<tr><th>element`)
-			iterate((ev,edata)=>makeElementTableHtml(etype,eid,ev))
+			iterate((cid,cv,cdata)=>makeElementTableHtml(etype,cid,cv))
 			response.write(`<td><button formaction=fetch-history>Update history</button>`)
 			response.write(`\n<tr><th>changeset`)
-			iterate((ev,edata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+edata.changeset}>${edata.changeset}</a>`)
+			iterate((cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
 			response.write(`<th>last updated on`)
 			response.write(`\n<tr><th>timestamp`)
-			iterate((ev,edata)=>makeTimestampHtml(edata.timestamp))
+			iterate((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
 			response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
 			response.write(`\n<tr><th>visible`)
-			iterate((ev,edata,pid,pv,pdata)=>{
+			iterate((cid,cv,cdata,pid,pv,pdata)=>{
 				let change
-				if (edata.visible!=!!pdata.visible) change='modify'
-				return [(edata.visible?'yes':'no'),change]
+				if (cdata.visible!=!!pdata.visible) change='modify'
+				return [(cdata.visible?'yes':'no'),change]
 			})
 			response.write(`\n<tr><th>tags`)
 			const allTags={}
-			iterate((ev,edata)=>{
-				Object.assign(allTags,edata.tags)
+			iterate((cid,cv,cdata)=>{
+				Object.assign(allTags,cdata.tags)
 				return ''
 			})
 			for (const k in allTags) {
 				response.write(e.h`\n<tr><td>${k}`)
-				iterate((ev,edata,pid,pv,pdata)=>{
+				iterate((cid,cv,cdata,pid,pv,pdata)=>{
 					let v1=pdata.tags?.[k]
-					let v2=edata.tags[k]
+					let v2=cdata.tags[k]
 					let change
 					if (v1==undefined && v2!=undefined) change='create'
 					if (v1!=undefined && v2==undefined) change='delete'
@@ -504,5 +501,24 @@ function *filterChanges(project,changesets,filters) {
 			if (elementStore[1].uid!=filters.uid1) continue
 		}
 		yield changeListEntry
+	}
+}
+
+function createParentQuery(project,changes) {
+	const previousWayVersion={}
+	const parentChecker=new ParentChecker()
+	for (const [,etype,eid,ev] of changes) {
+		if (etype!='way') continue
+		const currentWay=project.store[etype][eid][ev]
+		const previousWay=project.store[etype][eid][ev-1]
+		if (currentWay.visible) parentChecker.addCurrentWay(eid,currentWay.nds)
+		if (previousWay?.visible) {
+			previousWayVersion[eid]=ev-1
+			parentChecker.addPreviousWay(eid,previousWay.nds)
+		}
+	}
+	return (eid)=>{
+		const pid=parentChecker.getParentWay(eid)
+		if (pid) return [pid,previousWayVersion[pid]]
 	}
 }
