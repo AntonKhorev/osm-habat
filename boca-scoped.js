@@ -311,6 +311,12 @@ exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ //
 exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
 	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
+	const makeTimestampHtml=(timestamp)=>{
+		if (timestamp==null) return 'unknown'
+		const pad=n=>n.toString().padStart(2,'0')
+		const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+		return e.h`<time>${format(new Date(timestamp))}</time>`
+	}
 	response.write(`<h2>Changes per changeset per element</h2>\n`)
 	const elements={node:{},way:{},relation:{}}
 	for (const [cid,changes] of changesets) {
@@ -324,7 +330,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		for (const eid in elements[etype]) {
 			const targetVersions=new Set(elements[etype][eid])
 			const minVersion=elements[etype][eid][0]-1
-			const maxVersion=getLatestElementVersion(project.store[etype][eid])
+			const maxVersion=osm.topVersion(project.store[etype][eid])
 			const iterate=(fn)=>{
 				let pv
 				let pdata={}
@@ -340,15 +346,19 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					pdata=edata
 				}
 			}
-			response.write(`<h3>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+			response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
 			const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 			const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 			response.write(`<div>external tools: <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a></div>\n`)
+			response.write(`<form method=post>\n`)
+			response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
+			response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
 			response.write(`<table>`)
 			response.write(`\n<tr><th>element`)
 			iterate((ev,edata)=>{
 				response.write(`<td>`+makeElementTableHtml(etype,eid,ev))
 			})
+			response.write(`<td><button formaction=fetch-history>Update history</button>`)
 			response.write(`\n<tr><th>changeset`)
 			iterate((ev,edata)=>{
 				response.write(`<td>`)
@@ -356,12 +366,12 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				response.write(e.h`<a>${edata.changeset}</a>`)
 				if (targetVersions.has(ev)) response.write(`</strong>`)
 			})
+			response.write(`<th>last updated on`)
 			response.write(`\n<tr><th>timestamp`)
 			iterate((ev,edata)=>{
-				const pad=n=>n.toString().padStart(2,'0')
-				const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-				response.write(e.h`<td>${format(new Date(edata.timestamp))}`)
+				response.write(`<td>`+makeTimestampHtml(edata.timestamp))
 			})
+			response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
 			response.write(`\n<tr><th>visible`)
 			iterate((ev,edata,pid,pv,pdata)=>{
 				let change
@@ -384,6 +394,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				})
 			}
 			response.write(`\n</table>\n`)
+			response.write(`</form>\n`)
 		}
 	}
 }
@@ -421,7 +432,7 @@ exports.viewElements=(response,project,changesets,filters)=>{
 			}
 		}
 		response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
-		const latestVersion=getLatestElementVersion(elementStore)
+		const latestVersion=osm.topVersion(elementStore)
 		response.write('<td>'+(elementStore[latestVersion].visible?'visible':'deleted'))
 		if (!elementStore[latestVersion].visible && elementType=='way') {
 			const href=`/undelete/w${elementId}.osm`
@@ -487,8 +498,4 @@ function *filterChanges(project,changesets,filters) {
 		}
 		yield changeListEntry
 	}
-}
-
-function getLatestElementVersion(elementStore) { // TODO remove copypaste
-	return Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
 }

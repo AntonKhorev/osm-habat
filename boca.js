@@ -190,6 +190,9 @@ class View {
 				'elements?'+querystring.stringify(filters),
 				`<p>cannot fetch latest versions of elements\n`
 			)
+		} else if (route=='fetch-history') {
+			const args=await passPostQuery()
+			await serveFetchHistory(response,this.project,args.type,args.id)
 		} else {
 			return false
 		}
@@ -661,7 +664,7 @@ async function serveUndeleteWay(response,project,wayId) {
 	const getLatestWayVersion=async(wayId)=>{
 		// await osm.fetchToStore(store,`/api/0.6/way/${wayId}`) // deleted elements return 410 w/o version number
 		await osm.multifetchToStore(store,[['way',wayId]])
-		return getLatestElementVersion(store.way[wayId])
+		return osm.topVersion(store.way[wayId])
 		// probably easier just to request full history
 	}
 	const getLatestVisibleWayVersion=async(wayId,wayVz)=>{
@@ -684,7 +687,7 @@ async function serveUndeleteWay(response,project,wayId) {
 			Object.keys(nodeVz).map(id=>['node',id])
 		)
 		for (const id in nodeVz) {
-			nodeVz[id]=getLatestElementVersion(store.node[id])
+			nodeVz[id]=osm.topVersion(store.node[id])
 		}
 		return nodeVz
 	}
@@ -766,6 +769,23 @@ async function serveFetchChangeset(response,project,changesetId) {
 	response.end()
 }
 
+async function serveFetchHistory(response,project,etype,eid) {
+	try {
+		const timestamp=Date.now()
+		await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`)
+		if (!project.store[etype][eid]) throw new Error(`Fetch completed but the element record is empty for ${etype} #${eid}`)
+		project.store[etype][eid].top={
+			timestamp,
+			version:osm.topVersion(project.store[etype][eid])
+		}
+	} catch (ex) {
+		return respondFetchError(response,ex,'element history fetch error',e.h`<p>cannot fetch element ${etype} #${eid} history\n`)
+	}
+	project.saveStore()
+	response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
+	response.end()
+}
+
 function respondHead(response,title,httpCode=200) {
 	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
 	response.write(
@@ -799,10 +819,6 @@ function respondFetchError(response,ex,pageTitle,pageBody) {
 	response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
 	response.write(`<p><a href=/>return to main page</a>\n`)
 	respondTail(response)
-}
-
-function getLatestElementVersion(elementStore) {
-	return Math.max(...(Object.keys(elementStore).map(v=>Number(v))))
 }
 
 function mergeChangesets(changesets1,changesets2) {

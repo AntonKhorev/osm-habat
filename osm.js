@@ -245,3 +245,12 @@ exports.fetchChangesetsToStore=(changesetStore,call)=>new Promise((resolve,rejec
 		resolve([changesets,uid,lastCreatedAt])
 	}))
 }))
+
+exports.topVersion=(elementStore)=>{
+	let maxVersion=undefined
+	for (const k in elementStore) {
+		const n=Number(k)
+		if (n && (maxVersion==undefined || n>maxVersion)) maxVersion=n
+	}
+	return maxVersion
+}
