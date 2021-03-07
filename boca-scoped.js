@@ -345,6 +345,10 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 			response.write(`<div>external tools: <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a></div>\n`)
 			response.write(`<table>`)
+			response.write(`\n<tr><th>element`)
+			iterate((ev,edata)=>{
+				response.write(`<td>`+makeElementTableHtml(etype,eid,ev))
+			})
 			response.write(`\n<tr><th>changeset`)
 			iterate((ev,edata)=>{
 				response.write(`<td>`)
@@ -352,9 +356,11 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				response.write(e.h`<a>${edata.changeset}</a>`)
 				if (targetVersions.has(ev)) response.write(`</strong>`)
 			})
-			response.write(`\n<tr><th>element`)
+			response.write(`\n<tr><th>timestamp`)
 			iterate((ev,edata)=>{
-				response.write(`<td>`+makeElementTableHtml(etype,eid,ev))
+				const pad=n=>n.toString().padStart(2,'0')
+				const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+				response.write(e.h`<td>${format(new Date(edata.timestamp))}`)
 			})
 			response.write(`\n<tr><th>visible`)
 			iterate((ev,edata,pid,pv,pdata)=>{
