@@ -341,7 +341,17 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					}
 					const edata=project.store[etype][eid][ev]
 					if (!edata) continue
-					fn(ev,edata,eid,pv,pdata)
+					const tdClasses=[]
+					if (targetVersions.has(ev)) { // TODO check if it's not a different parent element
+						tdClasses.push('target')
+					}
+					let output=fn(ev,edata,eid,pv,pdata)
+					if (Array.isArray(output)) {
+						let tdClass
+						[output,tdClass]=output
+						tdClasses.push(tdClass)
+					}
+					response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
 					pv=ev
 					pdata=edata
 				}
@@ -357,32 +367,26 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
 			response.write(`<table>`)
 			response.write(`\n<tr><th>element`)
-			iterate((ev,edata)=>{
-				response.write(`<td>`+makeElementTableHtml(etype,eid,ev))
-			})
+			iterate((ev,edata)=>makeElementTableHtml(etype,eid,ev))
 			response.write(`<td><button formaction=fetch-history>Update history</button>`)
 			response.write(`\n<tr><th>changeset`)
-			iterate((ev,edata)=>{
-				response.write(`<td>`)
-				if (targetVersions.has(ev)) response.write(`<strong>`)
-				response.write(e.h`<a>${edata.changeset}</a>`)
-				if (targetVersions.has(ev)) response.write(`</strong>`)
-			})
+			iterate((ev,edata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+edata.changeset}>${edata.changeset}</a>`)
 			response.write(`<th>last updated on`)
 			response.write(`\n<tr><th>timestamp`)
-			iterate((ev,edata)=>{
-				response.write(`<td>`+makeTimestampHtml(edata.timestamp))
-			})
+			iterate((ev,edata)=>makeTimestampHtml(edata.timestamp))
 			response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
 			response.write(`\n<tr><th>visible`)
 			iterate((ev,edata,pid,pv,pdata)=>{
 				let change
 				if (edata.visible!=!!pdata.visible) change='modify'
-				response.write(e.h`<td class=${change}>${(edata.visible?'yes':'no')}`)
+				return [(edata.visible?'yes':'no'),change]
 			})
-			const allTags={}
-			iterate((ev,edata)=>Object.assign(allTags,edata.tags))
 			response.write(`\n<tr><th>tags`)
+			const allTags={}
+			iterate((ev,edata)=>{
+				Object.assign(allTags,edata.tags)
+				return ''
+			})
 			for (const k in allTags) {
 				response.write(e.h`\n<tr><td>${k}`)
 				iterate((ev,edata,pid,pv,pdata)=>{
@@ -392,7 +396,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					if (v1==undefined && v2!=undefined) change='create'
 					if (v1!=undefined && v2==undefined) change='delete'
 					if (v1!=undefined && v2!=undefined && v1!=v2) change='modify'
-					response.write(e.h`<td class=${change}>${v2}`)
+					return [e.h`${v2}`,change]
 				})
 			}
 			response.write(`\n</table>\n`)

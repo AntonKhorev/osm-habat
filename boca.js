@@ -800,7 +800,20 @@ table td { text-align: right }
 .modify {background: #FFC}
 .delete {background: #FCC}
 section.element h3 {
-	display: inline-block
+	display: inline-block;
+}
+section.element table {
+	border-collapse: collapse;
+}
+section.element td.target {
+	border-left: solid 3px #004;
+	border-right: solid 3px #004;
+}
+section.element tr:first-child td.target {
+	border-top: solid 3px #004;
+}
+section.element tr:last-child td.target {
+	border-bottom: solid 3px #004;
 }
 </style>
 </head>
