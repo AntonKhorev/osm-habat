@@ -324,8 +324,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			const minVersion=elementVersions[etype][eid][0]-1
 			const maxVersion=osm.topVersion(project.store[etype][eid])
 			const iterate=(fn)=>{
-				let pid,pv
-				let pdata={}
+				let pid,pv,pdata
 				for (let ev=minVersion;ev<=maxVersion;ev++) {
 					let cid=eid
 					let cv=ev
@@ -338,7 +337,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 							continue
 						}
 					}
-					if (!cdata) continue
+					if (!cdata) continue // not fetched, pretend that this version doesn't exist
 					const tdClasses=[]
 					if (targetVersions.has(ev)) { // don't check cv to avoid targeting parents
 						tdClasses.push('target')
@@ -350,7 +349,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 						tdClasses.push(tdClass)
 					}
 					response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
-					[pid,pv,pdata]=[cid,cv,cdata]
+					;[pid,pv,pdata]=[cid,cv,cdata]
 				}
 			}
 			response.write(`<section class=element>\n`)
@@ -375,7 +374,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			response.write(`\n<tr><th>visible`)
 			iterate((cid,cv,cdata,pid,pv,pdata)=>{
 				let change
-				if (cdata.visible!=!!pdata.visible) change='modify'
+				if (pdata && cdata.visible!=pdata.visible) change='modify'
 				return [(cdata.visible?'yes':'no'),change]
 			})
 			response.write(`\n<tr><th>tags`)
@@ -387,8 +386,9 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			for (const k in allTags) {
 				response.write(e.h`\n<tr><td>${k}`)
 				iterate((cid,cv,cdata,pid,pv,pdata)=>{
-					let v1=pdata.tags?.[k]
 					let v2=cdata.tags[k]
+					if (!pdata) return e.h`${v2}`
+					let v1=pdata.tags[k]
 					let change
 					if (v1==undefined && v2!=undefined) change='create'
 					if (v1!=undefined && v2==undefined) change='delete'
