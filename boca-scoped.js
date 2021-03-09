@@ -305,6 +305,13 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 		return e.h`<time>${format(new Date(timestamp))}</time>`
 	}
+	const getChangeType=(v1,v2)=>{
+		let change
+		if (v1==null && v2!=null) change='create'
+		if (v1!=null && v2==null) change='delete'
+		if (v1!=null && v2!=null && v1!=v2) change='modify'
+		return change
+	}
 	response.write(`<h2>Changes per element</h2>\n`)
 	const elementVersions={node:{},way:{},relation:{}}
 	const wayParents={}
@@ -377,6 +384,20 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				if (pdata && cdata.visible!=pdata.visible) change='modify'
 				return [(cdata.visible?'yes':'no'),change]
 			})
+			if (etype=='way') {
+				const getNodeCell=(pnid,cnid)=>{
+					let out=''
+					if (cnid) {
+						const cnHref=e.u`https://www.openstreetmap.org/node/${cnid}`
+						out=e.h`<a href=${cnHref}>${cnid}</a>`
+					}
+					return [out,getChangeType(pnid,cnid)]
+				}
+				response.write(`\n<tr><th>first node`)
+				iterate((cid,cv,cdata,pid,pv,pdata)=>getNodeCell(pdata?.nds[0],cdata.nds[0]))
+				response.write(`\n<tr><th>last node`)
+				iterate((cid,cv,cdata,pid,pv,pdata)=>getNodeCell(pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
+			}
 			response.write(`\n<tr><th>tags`)
 			const allTags={}
 			iterate((cid,cv,cdata)=>{
@@ -390,10 +411,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					if (!pdata) return e.h`${v2}`
 					let v1=pdata.tags[k]
 					let change
-					if (v1==undefined && v2!=undefined) change='create'
-					if (v1!=undefined && v2==undefined) change='delete'
-					if (v1!=undefined && v2!=undefined && v1!=v2) change='modify'
-					return [e.h`${v2}`,change]
+					return [e.h`${v2}`,getChangeType(v1,v2)]
 				})
 			}
 			response.write(`\n<tr><th>redacted`)
