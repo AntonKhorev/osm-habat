@@ -864,6 +864,15 @@ section.element tr:last-child td.target {
 function respondTail(response) {
 	response.end(
 `<script>
+function checkVersions($link) {
+	if (!$link.dataset.version) return
+	const minVersion=Number($link.dataset.version)
+	const $form=$link.closest('form')
+	if (!$form) return
+	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
+		if (minVersion<=Number($checkbox.value)) $checkbox.checked=true
+	}
+}
 function openRcLink(ev) {
 	ev.preventDefault()
 	let $status=document.createElement('span')
@@ -871,6 +880,7 @@ function openRcLink(ev) {
 	ev.target.after($status)
 	fetch(ev.target.href).then(response=>{
 		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
+		if (response.ok) checkVersions(ev.target)
 	}).catch((er)=>{
 		$status.innerHTML='[NETWORK ERROR]'
 	})
