@@ -396,6 +396,15 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					return [e.h`${v2}`,change]
 				})
 			}
+			response.write(`\n<tr><th>redacted`)
+			iterate((cid,cv,cdata)=>{
+				if (project.redacted[etype][cid]?.[cv]!=null) {
+					return e.h`${project.redacted[etype][cid][cv]}`
+				} else {
+					// TODO redaction controls
+					return ''
+				}
+			})
 			response.write(`\n</table>\n`)
 			response.write(`</form>\n`)
 			response.write(`</section>\n`)

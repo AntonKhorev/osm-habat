@@ -28,6 +28,7 @@ const osmchaFilterTag=e.independentValuesEscape(value=>{
 
 class Project {
 	constructor(dirname) {
+		const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
 		this.dirname=dirname
 		this.store=osm.readStore(this.storeFilename)
 		this.user={}
@@ -36,15 +37,27 @@ class Project {
 		if (fs.existsSync(this.changesetsFilename)) this.changeset=JSON.parse(fs.readFileSync(this.changesetsFilename))
 		this.scope={}
 		if (fs.existsSync(this.scopesFilename)) {
-			const text=String(fs.readFileSync(this.scopesFilename))
 			let scope
-			for (const line of text.split(/\r\n|\r|\n/)) {
+			for (const line of getFileLines(this.scopesFilename)) {
 				let match
 				if (match=line.match(/^#+\s*(.*\S)\s*$/)) {
 					[,scope]=match
 					if (!(scope in this.scope)) this.scope[scope]=[]
 				} else {
 					this.scope[scope]?.push(line)
+				}
+			}
+		}
+		this.redacted={node:{},way:{},relation:{}}
+		if (fs.existsSync(this.redactionsDirname)) {
+			for (const filename of fs.readdirSync(this.redactionsDirname)) {
+				for (const line of getFileLines(path.join(this.redactionsDirname,filename))) {
+					let match
+					if (match=line.match(/^(node|way|relation)\/(\d+)\/(\d+)$/)) {
+						const [,etype,eid,ev]=match
+						if (!this.redacted[etype][eid]) this.redacted[etype][eid]={}
+						this.redacted[etype][eid][ev]=filename
+					}
 				}
 			}
 		}
@@ -66,6 +79,7 @@ class Project {
 	get usersFilename() { return path.join(this.dirname,'users.json') }
 	get changesetsFilename() { return path.join(this.dirname,'changesets.json') }
 	get scopesFilename() { return path.join(this.dirname,'scopes.txt') }
+	get redactionsDirname() { return path.join(this.dirname,'redactions') }
 	getUserLink(uid) {
 		if (uid in this.user) {
 			const href=e.u`https://www.openstreetmap.org/user/${this.user[uid].displayName}`
