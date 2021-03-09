@@ -26,9 +26,10 @@ const osmchaFilterTag=e.independentValuesEscape(value=>{
 	}).join(',')+']'
 })
 
+const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
+
 class Project {
 	constructor(dirname) {
-		const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
 		this.dirname=dirname
 		this.store=osm.readStore(this.storeFilename)
 		this.user={}
@@ -48,6 +49,9 @@ class Project {
 				}
 			}
 		}
+		this.loadRedactions()
+	}
+	loadRedactions() {
 		this.redacted={node:{},way:{},relation:{}}
 		if (fs.existsSync(this.redactionsDirname)) {
 			for (const filename of fs.readdirSync(this.redactionsDirname)) {
@@ -161,6 +165,7 @@ class View {
 		response.end()
 	}
 	async serveRoute(response,route,passGetQuery,passPostQuery) {
+		const arr=a=>(Array.isArray(a)?a:[a]).map(x=>Number(x))
 		if (route=='') {
 			this.serveMain(response)
 		} else if (route=='elements') {
@@ -207,6 +212,12 @@ class View {
 		} else if (route=='fetch-history') {
 			const args=await passPostQuery()
 			await serveFetchHistory(response,this.project,args.type,args.id)
+		} else if (route=='reload-redactions') {
+			const args=await passPostQuery()
+			serveReloadRedactions(response,this.project,args.type,args.id)
+		} else if (route=='make-redactions') {
+			const args=await passPostQuery()
+			serveMakeRedactions(response,this.project,args.type,args.id,arr(args.version))
 		} else {
 			return false
 		}
@@ -797,6 +808,20 @@ async function serveFetchHistory(response,project,etype,eid) {
 	}
 	project.saveStore()
 	response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
+	response.end()
+}
+
+function serveReloadRedactions(response,project,etype,eid) {
+	project.loadRedactions()
+	response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
+	response.end()
+}
+
+function serveMakeRedactions(response,project,etype,eid,evs) {
+	response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
+	for (const ev of evs) {
+		response.write(`${etype}/${eid}/${ev}\n`)
+	}
 	response.end()
 }
 

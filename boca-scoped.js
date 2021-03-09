@@ -409,14 +409,19 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k]))
 			}
 			response.write(`\n<tr><th>redacted`)
-			iterate((cid,cv,cdata)=>{
+			iterate((cid,cv,cdata,pid,pv,pdata)=>{
 				if (project.redacted[etype][cid]?.[cv]!=null) {
 					return e.h`${project.redacted[etype][cid][cv]}`
+				} else if (cid==eid) {
+					return e.h`<input type=checkbox name=version value=${cv}>`
 				} else {
-					// TODO redaction controls
 					return ''
 				}
 			})
+			response.write(`<td>`
+				+`<button formaction=reload-redactions>Reload redactions</button>`
+				+`<button formaction=make-redactions>Make redactions file</button>`
+			)
 			response.write(`\n</table>\n`)
 			response.write(`</form>\n`)
 			response.write(`</section>\n`)
