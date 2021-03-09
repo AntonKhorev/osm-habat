@@ -312,6 +312,10 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		if (v1!=null && v2!=null && v1!=v2) change='modify'
 		return change
 	}
+	const makeChangeCell=(pdata,v1,v2,writer=v=>e.h`${v}`)=>{
+		if (!pdata) return writer(v2)
+		return [writer(v2),getChangeType(v1,v2)]
+	}
 	response.write(`<h2>Changes per element</h2>\n`)
 	const elementVersions={node:{},way:{},relation:{}}
 	const wayParents={}
@@ -379,24 +383,20 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			iterate((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
 			response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
 			response.write(`\n<tr><th>visible`)
-			iterate((cid,cv,cdata,pid,pv,pdata)=>{
-				let change
-				if (pdata && cdata.visible!=pdata.visible) change='modify'
-				return [(cdata.visible?'yes':'no'),change]
-			})
+			iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
 			if (etype=='way') {
-				const getNodeCell=(pnid,cnid)=>{
-					let out=''
-					if (cnid) {
-						const cnHref=e.u`https://www.openstreetmap.org/node/${cnid}`
-						out=e.h`<a href=${cnHref}>${cnid}</a>`
+				const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
+					if (nid) {
+						const nHref=e.u`https://www.openstreetmap.org/node/${nid}`
+						return e.h`<a href=${nHref}>${nid}</a>`
+					} else {
+						return ''
 					}
-					return [out,getChangeType(pnid,cnid)]
-				}
+				})
 				response.write(`\n<tr><th>first node`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>getNodeCell(pdata?.nds[0],cdata.nds[0]))
+				iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
 				response.write(`\n<tr><th>last node`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>getNodeCell(pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
+				iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
 			}
 			response.write(`\n<tr><th>tags`)
 			const allTags={}
@@ -406,13 +406,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 			})
 			for (const k in allTags) {
 				response.write(e.h`\n<tr><td>${k}`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>{
-					let v2=cdata.tags[k]
-					if (!pdata) return e.h`${v2}`
-					let v1=pdata.tags[k]
-					let change
-					return [e.h`${v2}`,getChangeType(v1,v2)]
-				})
+				iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k]))
 			}
 			response.write(`\n<tr><th>redacted`)
 			iterate((cid,cv,cdata)=>{
