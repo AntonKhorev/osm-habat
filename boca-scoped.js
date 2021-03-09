@@ -313,9 +313,10 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		return change
 	}
 	const makeChangeCell=(pdata,v1,v2,writer=v=>e.h`${v}`)=>{
-		if (!pdata) return writer(v2)
+		if (!pdata) return [writer(v2)]
 		return [writer(v2),getChangeType(v1,v2)]
 	}
+	const makeRcLink=(request,title)=>e.h`<a class=rc href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
 	response.write(`<h2>Changes per element</h2>\n`)
 	const elementVersions={node:{},way:{},relation:{}}
 	const wayParents={}
@@ -405,8 +406,23 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				return ''
 			})
 			for (const k in allTags) {
+				let isChanged=false
+				let previousValue
 				response.write(e.h`\n<tr><td>${k}`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k]))
+				iterate((cid,cv,cdata,pid,pv,pdata)=>{
+					const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
+					if (change) {
+						isChanged=true
+						previousValue=pdata.tags[k]??''
+					}
+					return [output,change]
+				})
+				if (isChanged) {
+					response.write(`<td>`+makeRcLink(
+						e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${previousValue}`,
+						`[undo]`
+					))
+				}
 			}
 			response.write(`\n<tr><th>redacted`)
 			iterate((cid,cv,cdata,pid,pv,pdata)=>{

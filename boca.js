@@ -863,7 +863,23 @@ section.element tr:last-child td.target {
 
 function respondTail(response) {
 	response.end(
-`</body>
+`<script>
+function openRcLink(ev) {
+	ev.preventDefault()
+	let $status=document.createElement('span')
+	$status.innerHTML='[INITIATED]'
+	ev.target.after($status)
+	fetch(ev.target.href).then(response=>{
+		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
+	}).catch((er)=>{
+		$status.innerHTML='[NETWORK ERROR]'
+	})
+}
+for (const $rcLink of document.querySelectorAll('a.rc')) {
+	$rcLink.addEventListener('click',openRcLink)
+}
+</script>
+</body>
 </html>`
 	)
 }
