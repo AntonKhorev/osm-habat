@@ -3,7 +3,6 @@
 const fs=require('fs')
 const path=require('path')
 const http=require('http')
-const url=require('url')
 const querystring=require('querystring')
 const open=require('open')
 const expat=require('node-expat')
@@ -148,22 +147,22 @@ class View {
 		insides(response,this.project,this.getChangesets(),filters)
 		this.writeTail(response)
 	}
-	async serveFetchElements(response,insides,filters,redirectHref,errorMessage) {
+	async serveFetchElements(response,insides,filters,referer,errorMessage) {
 		try {
 			await insides(response,this.project,this.getChangesets(),filters)
 		} catch (ex) {
 			return respondFetchError(response,ex,'elements fetch error',errorMessage)
 		}
 		this.project.saveStore()
-		response.writeHead(303,{'Location':redirectHref})
+		response.writeHead(303,{'Location':referer??'.'})
 		response.end()
 	}
-	async serveRoute(response,route,passGetQuery,passPostQuery) {
+	async serveRoute(response,route,getQuery,passPostQuery,referer) {
 		const arr=a=>(Array.isArray(a)?a:[a]).map(x=>Number(x))
 		if (route=='') {
 			this.serveMain(response)
 		} else if (route=='elements') {
-			this.serveByElement(response,bocaScoped.viewElements,passGetQuery())
+			this.serveByElement(response,bocaScoped.viewElements,getQuery)
 		} else if (route=='counts') {
 			this.serveByChangeset(response,bocaScoped.analyzeCounts)
 		} else if (route=='formulas') {
@@ -178,36 +177,30 @@ class View {
 			this.serveByChangeset(response,bocaScoped.analyzeChangesPerElement)
 		} else if (route=='fetch-previous') {
 			const filters=await passPostQuery()
-			await this.serveFetchElements(
-				response,
+			await this.serveFetchElements(response,
 				bocaScoped.fetchPreviousVersions,
-				filters,
-				'.',
+				filters,referer,
 				`<p>cannot fetch previous versions of elements\n`
 			)
 		} else if (route=='fetch-first') {
 			const filters=await passPostQuery()
-			await this.serveFetchElements(
-				response,
+			await this.serveFetchElements(response,
 				bocaScoped.fetchFirstVersions,
-				filters,
-				'deletes',
+				filters,referer,
 				`<p>cannot fetch first versions of elements\n`
 			)
 		} else if (route=='fetch-latest') {
 			const filters=await passPostQuery()
-			await this.serveFetchElements(
-				response,
+			await this.serveFetchElements(response,
 				bocaScoped.fetchLatestVersions,
-				filters,
-				'elements?'+querystring.stringify(filters),
+				filters,referer,
 				`<p>cannot fetch latest versions of elements\n`
 			)
 		} else if (route=='fetch-history') {
 			const args=await passPostQuery()
-			await serveFetchHistory(response,this.project,args.type,args.id)
+			await serveFetchHistory(response,this.project,args.type,args.id,referer)
 		} else if (route=='reload-redactions') {
-			serveReloadRedactions(response,this.project)
+			serveReloadRedactions(response,this.project,referer)
 		} else if (route=='make-redactions') {
 			const args=await passPostQuery()
 			serveMakeRedactions(response,this.project,args.type,args.id,arr(args.version))
@@ -220,15 +213,17 @@ class View {
 		respondHead(response,this.getTitle())
 		this.writeHeading(response)
 		response.write(`<nav><ul>\n`)
-		response.write(`<li><a href=/>root</a>\n`)
-		response.write(`<li><a href=.>main view</a>\n`)
-		response.write(`<li><a href=elements>elements</a>\n`)
-		response.write(`<li><a href=counts>element counts</a>\n`)
-		response.write(`<li><a href=formulas>change formulas</a>\n`)
-		response.write(`<li><a href=keys>changed keys</a>\n`)
-		response.write(`<li><a href=deletes>deletion distributions</a>\n`)
-		response.write(`<li><a href=cpcpe>changes per changeset per element</a>\n`)
-		response.write(`<li><a href=cpe>changes per element</a>\n`)
+		for (const [href,text] of [
+			['/','root'],
+			['.','main view'],
+			['elements','elements'],
+			['counts','element counts'],
+			['formulas','change formulas'],
+			['keys','changed keys'],
+			['deletes','deletion distributions'],
+			['cpcpe','changes per changeset per element'],
+			['cpe','changes per element'],
+		]) response.write(`<li><a href=${href}>${text}</a>\n`)
 		response.write(`</ul></nav>\n`)
 	}
 	writeTail(response) {
@@ -421,41 +416,41 @@ main(process.argv[2])
 function main(projectDirname) {
 	const project=new Project(projectDirname)
 	const server=http.createServer(async(request,response)=>{
+		const [pathname,query]=request.url.split(/\?(.*)/)
+		const queryParams=querystring.parse(query??'')
 		let referer
-		if (request.headers.referer!=null && request.headers.host==url.parse(request.headers.referer).host) { // protect against forged referers
-			referer=request.headers.referer
-		}
-		const urlParse=url.parse(request.url)
-		const path=urlParse.pathname
+		try {
+			const url=new URL(request.headers.referer)
+			if (request.headers.host==url.host) { // protect against forged referers
+				referer=url.pathname+url.search
+			}
+		} catch {}
 		let match
-		if (path=='/') {
+		if (pathname=='/') {
 			serveRoot(response,project)
-		} else if (path=='/store') {
+		} else if (pathname=='/store') {
 			serveStore(response,project.store)
-		} else if (path=='/uid') {
-			serveUid(response,project,querystring.parse(urlParse.query).uid)
-		} else if (match=path.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
+		} else if (pathname=='/uid') {
+			serveUid(response,project,querystring.parse(query).uid)
+		} else if (match=pathname.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
 			const [,id]=match
 			await serveUndeleteWay(response,project,id)
-		} else if (path=='/fetch-user') {
+		} else if (pathname=='/fetch-user') {
 			const post=await readPost(request)
 			await serveFetchUser(response,project,post.user,referer)
-		} else if (path=='/fetch-changeset') {
+		} else if (pathname=='/fetch-changeset') {
 			const post=await readPost(request)
-			await serveFetchChangeset(response,project,post.changeset)
-		} else if (match=path.match(new RegExp('^/all/([^/]*)$'))) {
+			await serveFetchChangeset(response,project,post.changeset,referer)
+		} else if (match=pathname.match(new RegExp('^/all/([^/]*)$'))) {
 			const [,subpath]=match
 			const view=new AllView(project)
-			if (await view.serveRoute(response,subpath,
-				()=>querystring.parse(urlParse.query),
-				()=>readPost(request)
-			)) {
+			if (await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)) {
 				// ok
 			} else {
 				response.writeHead(404)
 				response.end(`All-downloaded-changesets route not defined`)
 			}
-		} else if (match=path.match(new RegExp('^/scope/([^/]*)/([^/]*)$'))) {
+		} else if (match=pathname.match(new RegExp('^/scope/([^/]*)/([^/]*)$'))) {
 			const [,scope,subpath]=match
 			if (!(scope in project.scope)) {
 				response.writeHead(404)
@@ -463,16 +458,13 @@ function main(projectDirname) {
 				return
 			}
 			const view=new ScopeView(project,scope)
-			if (await view.serveRoute(response,subpath,
-				()=>querystring.parse(urlParse.query),
-				()=>readPost(request)
-			)) {
+			if (await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)) {
 				// ok
 			} else {
 				response.writeHead(404)
 				response.end(`Scope route not defined`)
 			}
-		} else if (match=path.match(new RegExp('^/user/([1-9]\\d*)/([^/]*)$'))) {
+		} else if (match=pathname.match(new RegExp('^/user/([1-9]\\d*)/([^/]*)$'))) {
 			const [,uid,subpath]=match
 			if (!(uid in project.user)) {
 				response.writeHead(404)
@@ -481,17 +473,14 @@ function main(projectDirname) {
 			}
 			const user=project.user[uid]
 			const view=new UserView(project,user)
-			if (await view.serveRoute(response,subpath,
-				()=>querystring.parse(urlParse.query),
-				()=>readPost(request)
-			)) {
+			if (await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)) {
 				// ok
 			} else if (subpath=='bbox.osm') {
 				serveBbox(response,project,user)
 			} else if (subpath=='fetch-metadata') {
-				await serveFetchUserMetadata(response,project,user)
+				await serveFetchUserMetadata(response,project,user,referer)
 			} else if (subpath=='fetch-data') {
-				await serveFetchUserData(response,project,user)
+				await serveFetchUserData(response,project,user,referer)
 			} else {
 				response.writeHead(404)
 				response.end(`User route not defined`)
@@ -630,7 +619,7 @@ async function serveFetchUser(response,project,userString,referer) {
 	response.end()
 }
 
-async function serveFetchUserMetadata(response,project,user) {
+async function serveFetchUserMetadata(response,project,user,referer) {
 	try {
 		await osm.fetchUserToStore(project.user,user.id)
 		let timestamp
@@ -647,11 +636,11 @@ async function serveFetchUserMetadata(response,project,user) {
 	}
 	project.saveChangesets()
 	project.saveUsers()
-	response.writeHead(303,{'Location':'.'})
+	response.writeHead(303,{'Location':referer??'.'})
 	response.end()
 }
 
-async function serveFetchUserData(response,project,user) {
+async function serveFetchUserData(response,project,user,referer) {
 	let nDownloads=0
 	for (let i=0;i<user.changesets.length;i++) {
 		if (nDownloads>=1000) break
@@ -666,7 +655,7 @@ async function serveFetchUserData(response,project,user) {
 		nDownloads++
 	}
 	if (nDownloads>0) project.saveStore()
-	response.writeHead(303,{'Location':'.'})
+	response.writeHead(303,{'Location':referer??'.'})
 	response.end()
 }
 
@@ -782,18 +771,18 @@ async function serveUndeleteWay(response,project,wayId) {
 	// TODO save store if was modified
 }
 
-async function serveFetchChangeset(response,project,changesetId) {
+async function serveFetchChangeset(response,project,changesetId,referer) {
 	try {
 		await osm.fetchToStore(project.store,`/api/0.6/changeset/${changesetId}/download`)
 	} catch (ex) {
 		return respondFetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${changesetId}\n`)
 	}
 	project.saveStore()
-	response.writeHead(303,{'Location':'/'})
+	response.writeHead(303,{'Location':referer??'.'})
 	response.end()
 }
 
-async function serveFetchHistory(response,project,etype,eid) {
+async function serveFetchHistory(response,project,etype,eid,referer) {
 	try {
 		const timestamp=Date.now()
 		await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`)
@@ -806,13 +795,13 @@ async function serveFetchHistory(response,project,etype,eid) {
 		return respondFetchError(response,ex,'element history fetch error',e.h`<p>cannot fetch element ${etype} #${eid} history\n`)
 	}
 	project.saveStore()
-	response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
+	response.writeHead(303,{'Location':(referer??'.')+e.u`#${etype[0]+eid}`}) // TODO check if referer is a path that supports element anchor
 	response.end()
 }
 
-function serveReloadRedactions(response,project) {
+function serveReloadRedactions(response,project,referer) {
 	project.loadRedactions()
-	response.writeHead(303,{'Location':'.'})
+	response.writeHead(303,{'Location':referer??'.'})
 	response.end()
 }
 
