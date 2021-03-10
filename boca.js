@@ -12,12 +12,6 @@ const e=require('./escape')
 const osm=require('./osm')
 const bocaScoped=require('./boca-scoped')
 
-/*
-TODO maybe redirects from fetches to: request.headers.referer??'.'
-element filters are the obstacle to path-based redirects: . and ..
-sometimes need to replicate the filter in the redirect location, sometimes not
-*/
-
 const osmchaFilterTag=e.independentValuesEscape(value=>{
 	if (!Array.isArray(value)) value=[value]
 	return '['+value.map(singleValue=>{
@@ -213,8 +207,7 @@ class View {
 			const args=await passPostQuery()
 			await serveFetchHistory(response,this.project,args.type,args.id)
 		} else if (route=='reload-redactions') {
-			const args=await passPostQuery()
-			serveReloadRedactions(response,this.project,args.type,args.id)
+			serveReloadRedactions(response,this.project)
 		} else if (route=='make-redactions') {
 			const args=await passPostQuery()
 			serveMakeRedactions(response,this.project,args.type,args.id,arr(args.version))
@@ -428,6 +421,10 @@ main(process.argv[2])
 function main(projectDirname) {
 	const project=new Project(projectDirname)
 	const server=http.createServer(async(request,response)=>{
+		let referer
+		if (request.headers.referer!=null && request.headers.host==url.parse(request.headers.referer).host) { // protect against forged referers
+			referer=request.headers.referer
+		}
 		const urlParse=url.parse(request.url)
 		const path=urlParse.pathname
 		let match
@@ -442,7 +439,7 @@ function main(projectDirname) {
 			await serveUndeleteWay(response,project,id)
 		} else if (path=='/fetch-user') {
 			const post=await readPost(request)
-			await serveFetchUser(response,project,post.user)
+			await serveFetchUser(response,project,post.user,referer)
 		} else if (path=='/fetch-changeset') {
 			const post=await readPost(request)
 			await serveFetchChangeset(response,project,post.changeset)
@@ -596,7 +593,7 @@ function serveStore(response,store) {
 	response.end(JSON.stringify(store))
 }
 
-async function serveFetchUser(response,project,userString) {
+async function serveFetchUser(response,project,userString,referer) {
 	const addUserByName=async(userName)=>{
 		const [changesets,uid]=await osm.fetchChangesetsToStore(project.changeset,e.u`/api/0.6/changesets?display_name=${userName}`)
 		project.saveChangesets()
@@ -629,7 +626,7 @@ async function serveFetchUser(response,project,userString) {
 		return respondFetchError(response,ex,'user fetch error',e.h`<p>user fetch failed for input <code>${userString}</code>\n`)
 	}
 	project.saveUsers()
-	response.writeHead(303,{'Location':'/'})
+	response.writeHead(303,{'Location':referer??'.'})
 	response.end()
 }
 
@@ -813,9 +810,8 @@ async function serveFetchHistory(response,project,etype,eid) {
 	response.end()
 }
 
-function serveReloadRedactions(response,project,etype,eid) {
+function serveReloadRedactions(response,project) {
 	project.loadRedactions()
-	//response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
 	response.writeHead(303,{'Location':'.'})
 	response.end()
 }

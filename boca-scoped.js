@@ -480,7 +480,8 @@ exports.viewElements=(response,project,changesets,filters)=>{
 		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
 		response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
 		const majorTags={}
-		for (const data of Object.values(elementStore)) {
+		for (const [ver,data] of Object.entries(elementStore)) {
+			if (!Number(ver)) continue
 			for (const k of ['boundary','building','highway','landuse','natural','power']) {
 				if (k in data.tags) majorTags[k]=data.tags[k]
 			}
