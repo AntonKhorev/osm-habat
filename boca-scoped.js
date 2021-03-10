@@ -418,19 +418,21 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 				response.write(e.h`\n<tr><td>${k}`)
 				iterate((cid,cv,cdata,pid,pv,pdata)=>{
 					const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
-					if (change) {
+					if (change && !isChanged) {
 						isChanged=true
 						previousValue=pdata.tags[k]??''
 						changedVersion=cv
 					}
 					return [output,change]
 				})
-				if (isChanged) {
+				if (isChanged && project.store[etype][eid].top) {
 					response.write(`<td>`+makeRcLink(
 						e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${previousValue}`,
 						`[undo]`,
 						{version:changedVersion}
 					))
+				} else if (isChanged) {
+					response.write(`<td>update to enable undo`)
 				}
 			}
 			response.write(`\n<tr><th>redacted`)
