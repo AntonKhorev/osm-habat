@@ -239,11 +239,13 @@ class View {
 		response.write(`</ul></nav>\n`)
 	}
 	writeTail(response) {
-		response.write(`<hr/>\n`)
-		response.write(`<form method=post action=fetch-previous>`)
-		response.write(`<button type=submit>Fetch a batch of previous versions</button>`)
-		response.write(`</form>\n`)
-		respondTail(response)
+		response.write(`</main>\n`)
+		response.write(`<footer>\n`)
+		response.write(`<form method=post>`)
+		response.write(`<button formaction=fetch-previous>Fetch a batch of previous versions</button>`)
+		response.write(`<button formaction=reload-redactions>Reload redactions</button>`)
+		response.write(`</footer>\n`)
+		respondTailNoMain(response)
 	}
 }
 
@@ -324,10 +326,10 @@ class UserView extends View {
 			`* dwg ticket `+
 		`</code></pre></details>\n`)
 		response.write(`<form method=post action=fetch-metadata>`)
-		response.write(`<button type=submit>Update user and changesets metadata</button>`)
+		response.write(`<button>Update user and changesets metadata</button>`)
 		response.write(`</form>\n`)
 		response.write(`<form method=post action=fetch-data>`)
-		response.write(`<button type=submit>Fetch a batch of changesets data</button> `)
+		response.write(`<button>Fetch a batch of changesets data</button> `)
 		response.write(`</form>\n`)
 		response.write(`<h2>Changesets</h2>\n`)
 		response.write(`<details><summary>legend</summary>`+
@@ -547,11 +549,11 @@ function serveRoot(response,project) {
 	response.write(`<h2>Actions</h2>\n`)
 	response.write(`<form method=post action=/fetch-user>\n`)
 	response.write(`<label>User to fetch: <input type=text name=user></label>\n`)
-	response.write(`<button type=submit>Fetch from OSM</button>\n`)
+	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<form method=post action=/fetch-changeset>\n`)
 	response.write(`<label>Changeset to fetch: <input type=text name=changeset></label>\n`)
-	response.write(`<button type=submit>Fetch from OSM</button>\n`)
+	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
 	respondTail(response)
@@ -813,7 +815,8 @@ async function serveFetchHistory(response,project,etype,eid) {
 
 function serveReloadRedactions(response,project,etype,eid) {
 	project.loadRedactions()
-	response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
+	//response.writeHead(303,{'Location':e.u`cpe#${etype[0]+eid}`})
+	response.writeHead(303,{'Location':'.'})
 	response.end()
 }
 
@@ -826,6 +829,11 @@ function serveMakeRedactions(response,project,etype,eid,evs) {
 }
 
 function respondHead(response,title,httpCode=200) {
+	respondHeadNoMain(response,title,httpCode=200)
+	response.write(`<main>\n`)
+}
+
+function respondHeadNoMain(response,title,httpCode=200) {
 	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
 	response.write(
 e.h`<!DOCTYPE html>
@@ -834,6 +842,19 @@ e.h`<!DOCTYPE html>
 <meta charset=utf-8>
 <title>${title}</title>
 <style>
+body {
+	margin: 0;
+}
+main {
+	margin: .5em;
+}
+footer {
+	position: sticky;
+	bottom: 0;
+	padding: .5em;
+	background: Canvas;
+	box-shadow: 0 0 .5em;
+}
 table td { text-align: right }
 .create {background: #CFC}
 .modify {background: #FFC}
@@ -862,6 +883,11 @@ section.element tr:last-child td.target {
 }
 
 function respondTail(response) {
+	response.write(`</main>\n`)
+	respondTailNoMain(response)
+}
+
+function respondTailNoMain(response) {
 	response.end(
 `<script>
 function checkVersions($link) {

@@ -120,7 +120,7 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 			response.write(`<form method=post action=fetch-first>\n`)
 			response.write(e.h`<input type=hidden name=type value=${elementType}>\n`)
 			response.write(`<input type=hidden name=change value=delete>\n`)
-			response.write(`<button type=submit>Fetch a batch of first versions from OSM</button>\n`)
+			response.write(`<button>Fetch a batch of first versions from OSM</button>\n`)
 			response.write(`</form>\n`)
 		}
 	}
@@ -445,10 +445,7 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 					return ''
 				}
 			})
-			response.write(`<td>`
-				+`<button formaction=reload-redactions>Reload redactions</button>`
-				+`<button formaction=make-redactions>Make redactions file</button>`
-			)
+			response.write(`<td><button formaction=make-redactions>Make redactions file</button>`)
 			response.write(`\n</table>\n`)
 			response.write(`</form>\n`)
 			response.write(`</section>\n`)
@@ -505,7 +502,7 @@ exports.viewElements=(response,project,changesets,filters)=>{
 		for (const [k,v] of Object.entries(filters)) {
 			response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
 		}
-		response.write(`<button type=submit>Fetch a batch of latest versions from OSM</button>\n`)
+		response.write(`<button>Fetch a batch of latest versions from OSM</button>\n`)
 		response.write(`</form>`)
 	}
 }
