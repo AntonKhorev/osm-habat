@@ -296,7 +296,7 @@ exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ //
 	}
 }
 
-exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
+exports.analyzeChangesPerElement=(response,project,changesets,order)=>{ // TODO handle incomplete data - w/o prev versions
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
 	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
 	const makeTimestampHtml=(timestamp)=>{
@@ -324,131 +324,147 @@ exports.analyzeChangesPerElement=(response,project,changesets)=>{ // TODO handle
 		return `<a class=rc `+dataAttrs+e.h`href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
 	}
 	response.write(`<h2>Changes per element</h2>\n`)
-	const elementVersions={node:{},way:{},relation:{}}
+	response.write(`<ul>\n`)
+	response.write(`<li><a href=cpe>default order</a>\n`)
+	response.write(`<li><a href=cpe?order=name>order by name</a>\n`)
+	response.write(`</ul>\n`)
+	const elementVersions={node:new Map(),way:new Map(),relation:new Map()}
 	const wayParents={}
 	for (const [cid,changes] of changesets) {
 		const parentQuery=createParentQuery(project,changes)
 		for (const [,etype,eid,ev] of changes) {
-			if (!elementVersions[etype][eid]) elementVersions[etype][eid]=[]
-			elementVersions[etype][eid].push(ev)
+			if (!elementVersions[etype].has(eid)) elementVersions[etype].set(eid,[])
+			elementVersions[etype].get(eid).push(ev)
 			if (etype=='way' && ev==1) {
 				wayParents[eid]=parentQuery(eid)
 			}
 		}
 	}
-	for (const etype of ['node','way','relation']) {
-		for (const eid in elementVersions[etype]) {
-			const targetVersions=new Set(elementVersions[etype][eid])
-			const minVersion=elementVersions[etype][eid][0]-1
-			const maxVersion=osm.topVersion(project.store[etype][eid])
-			const iterate=(fn)=>{
-				let pid,pv,pdata
-				for (let ev=minVersion;ev<=maxVersion;ev++) {
-					let cid=eid
-					let cv=ev
-					let cdata=project.store[etype][eid][ev]
-					if (ev==0) {
-						if (etype=='way' && wayParents[eid]) {
-							[cid,cv]=wayParents[eid]
-							cdata=project.store[etype][cid][cv]
-						} else {
-							continue
-						}
-					}
-					if (!cdata) continue // not fetched, pretend that this version doesn't exist
-					const tdClasses=[]
-					if (targetVersions.has(ev)) { // don't check cv to avoid targeting parents
-						tdClasses.push('target')
-					}
-					let output=fn(cid,cv,cdata,pid,pv,pdata)
-					if (Array.isArray(output)) {
-						let tdClass
-						[output,tdClass]=output
-						tdClasses.push(tdClass)
-					}
-					response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
-					;[pid,pv,pdata]=[cid,cv,cdata]
-				}
-			}
-			response.write(`<section class=element>\n`)
-			response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
-			const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
-			const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
-			const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
-			response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
-			response.write(`<form method=post>\n`)
-			response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
-			response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
-			response.write(`<table>`)
-			response.write(`\n<tr><th>element`)
-			iterate((cid,cv,cdata)=>makeElementTableHtml(etype,cid,cv))
-			response.write(`<td><button formaction=fetch-history>Update history</button>`)
-			response.write(`\n<tr><th>changeset`)
-			iterate((cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
-			response.write(`<th>last updated on`)
-			response.write(`\n<tr><th>timestamp`)
-			iterate((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
-			response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
-			response.write(`\n<tr><th>visible`)
-			iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
-			if (etype=='way') {
-				const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
-					if (nid) {
-						const nHref=e.u`https://www.openstreetmap.org/node/${nid}`
-						return e.h`<a href=${nHref}>${nid}</a>`
+	const writeElement=(etype,eid)=>{
+		const targetVersions=new Set(elementVersions[etype].get(eid))
+		const minVersion=elementVersions[etype].get(eid)[0]-1
+		const maxVersion=osm.topVersion(project.store[etype][eid])
+		const iterate=(fn)=>{
+			let pid,pv,pdata
+			for (let ev=minVersion;ev<=maxVersion;ev++) {
+				let cid=eid
+				let cv=ev
+				let cdata=project.store[etype][eid][ev]
+				if (ev==0) {
+					if (etype=='way' && wayParents[eid]) {
+						[cid,cv]=wayParents[eid]
+						cdata=project.store[etype][cid][cv]
 					} else {
-						return ''
+						continue
 					}
-				})
-				response.write(`\n<tr><th>first node`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
-				response.write(`\n<tr><th>last node`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
-			}
-			response.write(`\n<tr><th>tags`)
-			const allTags={}
-			iterate((cid,cv,cdata)=>{
-				Object.assign(allTags,cdata.tags)
-				return ''
-			})
-			for (const k in allTags) {
-				let isChanged=false
-				let previousValue
-				let changedVersion
-				response.write(e.h`\n<tr><td>${k}`)
-				iterate((cid,cv,cdata,pid,pv,pdata)=>{
-					const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
-					if (change && !isChanged) {
-						isChanged=true
-						previousValue=pdata.tags[k]??''
-						changedVersion=cv
-					}
-					return [output,change]
-				})
-				if (isChanged && project.store[etype][eid].top) {
-					response.write(`<td>`+makeRcLink(
-						e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${previousValue}`,
-						`[undo]`,
-						{version:changedVersion}
-					))
-				} else if (isChanged) {
-					response.write(`<td>update to enable undo`)
 				}
+				if (!cdata) continue // not fetched, pretend that this version doesn't exist
+				const tdClasses=[]
+				if (targetVersions.has(ev)) { // don't check cv to avoid targeting parents
+					tdClasses.push('target')
+				}
+				let output=fn(cid,cv,cdata,pid,pv,pdata)
+				if (Array.isArray(output)) {
+					let tdClass
+					[output,tdClass]=output
+					tdClasses.push(tdClass)
+				}
+				response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
+				;[pid,pv,pdata]=[cid,cv,cdata]
 			}
-			response.write(`\n<tr><th>redacted`)
-			iterate((cid,cv,cdata,pid,pv,pdata)=>{
-				if (project.redacted[etype][cid]?.[cv]!=null) {
-					return e.h`${project.redacted[etype][cid][cv]}`
-				} else if (cid==eid) {
-					return e.h`<input type=checkbox name=version value=${cv}>`
+		}
+		response.write(`<section class=element>\n`)
+		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
+		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
+		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
+		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
+		response.write(`<form method=post>\n`)
+		response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
+		response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
+		response.write(`<table>`)
+		response.write(`\n<tr><th>element`)
+		iterate((cid,cv,cdata)=>makeElementTableHtml(etype,cid,cv))
+		response.write(`<td><button formaction=fetch-history>Update history</button>`)
+		response.write(`\n<tr><th>changeset`)
+		iterate((cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
+		response.write(`<th>last updated on`)
+		response.write(`\n<tr><th>timestamp`)
+		iterate((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
+		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
+		response.write(`\n<tr><th>visible`)
+		iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
+		if (etype=='way') {
+			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
+				if (nid) {
+					const nHref=e.u`https://www.openstreetmap.org/node/${nid}`
+					return e.h`<a href=${nHref}>${nid}</a>`
 				} else {
 					return ''
 				}
 			})
-			response.write(`<td><button formaction=make-redactions>Make redactions file</button>`)
-			response.write(`\n</table>\n`)
-			response.write(`</form>\n`)
-			response.write(`</section>\n`)
+			response.write(`\n<tr><th>first node`)
+			iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
+			response.write(`\n<tr><th>last node`)
+			iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
+		}
+		response.write(`\n<tr><th>tags`)
+		const allTags={}
+		iterate((cid,cv,cdata)=>{
+			Object.assign(allTags,cdata.tags)
+			return ''
+		})
+		for (const k in allTags) {
+			let isChanged=false
+			let previousValue
+			let changedVersion
+			response.write(e.h`\n<tr><td>${k}`)
+			iterate((cid,cv,cdata,pid,pv,pdata)=>{
+				const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
+				if (change && !isChanged) {
+					isChanged=true
+					previousValue=pdata.tags[k]??''
+					changedVersion=cv
+				}
+				return [output,change]
+			})
+			if (isChanged && project.store[etype][eid].top) {
+				response.write(`<td>`+makeRcLink(
+					e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${previousValue}`,
+					`[undo]`,
+					{version:changedVersion}
+				))
+			} else if (isChanged) {
+				response.write(`<td>update to enable undo`)
+			}
+		}
+		response.write(`\n<tr><th>redacted`)
+		iterate((cid,cv,cdata,pid,pv,pdata)=>{
+			if (project.redacted[etype][cid]?.[cv]!=null) {
+				return e.h`${project.redacted[etype][cid][cv]}`
+			} else if (cid==eid) {
+				return e.h`<input type=checkbox name=version value=${cv}>`
+			} else {
+				return ''
+			}
+		})
+		response.write(`<td><button formaction=make-redactions>Make redactions file</button>`)
+		response.write(`\n</table>\n`)
+		response.write(`</form>\n`)
+		response.write(`</section>\n`)
+	}
+	for (const etype of ['node','way','relation']) {
+		if (order=='name') {
+			const eids=[]
+			for (const [eid,evs] of elementVersions[etype]) {
+				const eLastVersion=evs[evs.length-1]
+				const ename=project.store[etype][eid][eLastVersion].tags.name
+				eids.push([eid,ename])
+			}
+			eids.sort(([eid1,ename1],[eid2,ename2])=>(ename1??'').localeCompare(ename2??''))
+			for (const [eid] of eids) writeElement(etype,eid)
+		} else {
+			for (const eid of elementVersions[etype].keys()) writeElement(etype,eid)
 		}
 	}
 }

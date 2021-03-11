@@ -137,9 +137,9 @@ class View {
 		this.writeMain(response)
 		this.writeTail(response)
 	}
-	serveByChangeset(response,insides) {
+	serveByChangeset(response,insides,order) {
 		this.writeHead(response)
-		insides(response,this.project,this.getChangesets())
+		insides(response,this.project,this.getChangesets(),order)
 		this.writeTail(response)
 	}
 	serveByElement(response,insides,filters) {
@@ -174,7 +174,7 @@ class View {
 		} else if (route=='cpcpe') {
 			this.serveByChangeset(response,bocaScoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='cpe') {
-			this.serveByChangeset(response,bocaScoped.analyzeChangesPerElement)
+			this.serveByChangeset(response,bocaScoped.analyzeChangesPerElement,getQuery.order)
 		} else if (route=='fetch-previous') {
 			const filters=await passPostQuery()
 			await this.serveFetchElements(response,
