@@ -196,6 +196,12 @@ class View {
 				filters,referer,
 				`<p>cannot fetch latest versions of elements\n`
 			)
+		} else if (route=='fetch-redacted') {
+			await this.serveFetchElements(response,
+				bocaScoped.fetchLatestVersions,
+				{'vt.redacted':true},referer,
+				`<p>cannot fetch latest versions of redacted elements\n`
+			)
 		} else if (route=='fetch-history') {
 			const args=await passPostQuery()
 			await serveFetchHistory(response,this.project,args.type,args.id,referer)
@@ -232,6 +238,7 @@ class View {
 		response.write(`<form method=post>`)
 		response.write(`<button formaction=fetch-previous>Fetch a batch of previous versions</button>`)
 		response.write(`<button formaction=reload-redactions>Reload redactions</button>`)
+		response.write(`<button formaction=fetch-redacted>Fetch a batch of elements with last version redacted</button>`)
 		response.write(`</footer>\n`)
 		respondTailNoMain(response)
 	}

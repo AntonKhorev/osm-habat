@@ -76,7 +76,7 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 		const totalCount=versions.length
 		let cumulativeCount=0
 		for (let v=1;v<=maxVersion;v++) {
-			const href=`elements?change=delete&type=${elementType}&version=${v+1}`
+			const href=e.u`elements?vs.visible=0&vs.type=${elementType}&vp.version=${v}`
 			const count=versions.filter(x=>x==v).length
 			cumulativeCount+=count
 			response.write(e.h`<tr><td>${v}<td>${count}<td>${(cumulativeCount/totalCount*100).toFixed(2)}%<td><a href=${href}>show</a>\n`)
@@ -109,7 +109,7 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 		response.write(`<tr><th>user<th>#<th>%\n`)
 		const pc=count=>e.h`<td>${count}<td>${(count/totalCount*100).toFixed(2)}%`
 		for (const [uid,count] of Object.entries(uidCounts)) {
-			const href=`elements?change=delete&type=${elementType}&uid1=${uid}`
+			const href=e.u`elements?vs.visible=0&vs.type=${elementType}&v1.uid=${uid}`
 			response.write(e.h`<tr><td>`+project.getUserLink(uid)+pc(count)+`<td><a href=${href}>show</a>\n`)
 		}
 		if (unknownUidCount>0) {
@@ -118,8 +118,8 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 		response.write(`</table>\n`)
 		if (unknownUidCount>0) {
 			response.write(`<form method=post action=fetch-first>\n`)
-			response.write(e.h`<input type=hidden name=type value=${elementType}>\n`)
-			response.write(`<input type=hidden name=change value=delete>\n`)
+			response.write(e.h`<input type=hidden name=vs.type value=${elementType}>\n`)
+			response.write(`<input type=hidden name=vs.visible value=0>\n`)
 			response.write(`<button>Fetch a batch of first versions from OSM</button>\n`)
 			response.write(`</form>\n`)
 		}
@@ -462,7 +462,7 @@ exports.viewElements=(response,project,changesets,filters)=>{
 	}
 	response.write(`</table>\n`)
 	let first=true
-	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
+	for (const [elementType,elementId,elementVersions] of filterElements(project,changesets,filters)) {
 		if (first) {
 			first=false
 			response.write(`<table>\n`)
@@ -475,6 +475,7 @@ exports.viewElements=(response,project,changesets,filters)=>{
 		response.write(e.h`<td>${elementType[0]}${elementId}`)
 		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
 		const elementStore=project.store[elementType][elementId]
+		const elementVersion=elementVersions[elementVersions.length-1]
 		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
 		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
 		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
@@ -510,9 +511,9 @@ exports.viewElements=(response,project,changesets,filters)=>{
 
 exports.fetchFirstVersions=async(response,project,changesets,filters)=>{
 	const multifetchList=[]
-	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
-		if (project.store[elementType][elementId]?.[1]) continue
-		multifetchList.push([elementType,elementId,1])
+	for (const [etype,eid] of filterElements(project,changesets,filters)) {
+		if (project.store[etype][eid]?.[1]) continue
+		multifetchList.push([etype,eid,1])
 		if (multifetchList.length>=10000) break
 	}
 	await osm.multifetchToStore(project.store,multifetchList)
@@ -520,10 +521,11 @@ exports.fetchFirstVersions=async(response,project,changesets,filters)=>{
 
 exports.fetchPreviousVersions=async(response,project,changesets,filters)=>{
 	const multifetchList=[]
-	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
-		if (elementVersion<=1) continue
-		if (project.store[elementType][elementId]?.[elementVersion-1]) continue
-		multifetchList.push([elementType,elementId,elementVersion-1])
+	for (const [etype,eid,,ePreviousVersions] of filterElements(project,changesets,filters)) {
+		for (const ev of ePreviousVersions) {
+			if (project.store[etype][eid]?.[ev]) continue
+			multifetchList.push([etype,eid,ev])
+		}
 		if (multifetchList.length>=10000) break
 	}
 	await osm.multifetchToStore(project.store,multifetchList)
@@ -531,27 +533,83 @@ exports.fetchPreviousVersions=async(response,project,changesets,filters)=>{
 
 exports.fetchLatestVersions=async(response,project,changesets,filters)=>{
 	const multifetchList=[]
-	for (const [changeType,elementType,elementId,elementVersion] of filterChanges(project,changesets,filters)) {
+	for (const [etype,eid] of filterElements(project,changesets,filters)) {
 		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
-		multifetchList.push([elementType,elementId])
+		multifetchList.push([etype,eid])
 		if (multifetchList.length>=10000) break
 	}
 	await osm.multifetchToStore(project.store,multifetchList)
 }
 
-function *filterChanges(project,changesets,filters) {
-	const filteredChangeList=[]
-	for (const changeListEntry of project.getChangesFromChangesets(changesets)) {
-		const [changeType,elementType,elementId,elementVersion]=changeListEntry
-		if (filters.change && filters.change!=changeType) continue
-		if (filters.type && filters.type!=elementType) continue
-		if (filters.version && filters.version!=elementVersion) continue
-		const elementStore=project.store[elementType][elementId]
-		if (filters.uid1) {
-			if (elementStore[1]===undefined) continue
-			if (elementStore[1].uid!=filters.uid1) continue
+/*
+	v1.*=*    v1 must satifsy
+	vt.*=*    currently known top version must satisfy
+	vs.*=*    any of selected versions must satisfy
+	vp.*=*    any of previous versions must satisfy
+	          previous versions = all not selected versions that precede selected versions
+*/
+function *filterElements(project,changesets,filters) {
+	const verFilters={}
+	for (const [filterVerKey,filterValue] of Object.entries(filters)) {
+		let match
+		if (match=filterVerKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
+			const [,filterVer,filterKey]=match
+			if (!verFilters[filterVer]) verFilters[filterVer]={}
+			if (filterKey=='visible' || filterKey=='redacted') {
+				const yn=!(filterValue==0 || filterValue=='no' || filterValue=='false')
+				verFilters[filterVer][filterKey]=yn
+			} else {
+				verFilters[filterVer][filterKey]=filterValue
+			}
 		}
-		yield changeListEntry
+	}
+	const vpEntries={node:{},way:{},relation:{}} // previous versions even if they are not in the store
+	const vsEntries={node:{},way:{},relation:{}} // current versions - expected to be in the store
+	const addEntry=(vEntries,etype,eid,ev)=>{ // insertions are done in ascending order
+		if (!vEntries[etype][eid]) vEntries[etype][eid]=new Set()
+		vEntries[etype][eid].add(ev)
+	}
+	for (const [,etype,eid,ev] of project.getChangesFromChangesets(changesets)) {
+		if (ev>1 && !vsEntries[etype][eid]?.has(ev-1)) addEntry(vpEntries,etype,eid,ev-1)
+		addEntry(vsEntries,etype,eid,ev)
+	}
+	const passFilters=(filters,etype,eid,ev)=>{
+		const element=project.store[etype][eid][ev]
+		if (filters.type!=null &&
+		    filters.type!=etype) return false
+		if (filters.version!=null &&
+		    filters.version!=ev) return false
+		if (filters.visible!=null) {
+			if (!element || filters.visible!=
+			                element.visible) return false
+		}
+		if (filters.uid!=null) {
+			if (!element || filters.uid!=
+			                element.uid) return false
+		}
+		if (filters.redacted!=null) {
+			if (filters.redacted!=(project.redacted[etype][eid]?.[ev]!=null)) return false
+		}
+		return true
+	}
+	const passAnyVersion=(filters,etype,eid,evSet)=>{
+		if (!evSet) return false
+		for (const ev of evSet) {
+			if (passFilters(filters,etype,eid,ev)) return true
+		}
+		return false
+	}
+	for (const [etype,eids] of Object.entries(vsEntries)) {
+		for (const eid of Object.keys(eids)) {
+			if (verFilters.v1 && !passFilters(verFilters.v1,etype,eid,1)) continue
+			if (verFilters.vt && !passFilters(verFilters.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
+			if (verFilters.vp && !passAnyVersion(verFilters.vp,etype,eid,vpEntries[etype][eid])) continue
+			if (verFilters.vs && !passAnyVersion(verFilters.vs,etype,eid,vsEntries[etype][eid])) continue
+			yield [etype,eid,
+				[...vsEntries[etype][eid]??[]],
+				[...vpEntries[etype][eid]??[]]
+			]
+		}
 	}
 }
 
