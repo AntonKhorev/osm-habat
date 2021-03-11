@@ -492,6 +492,19 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`User route not defined`)
 			}
+		} else if (pathname=='/favicon.ico') {
+			fs.readFile(path.join(__dirname,'favicon.ico'),(err,data)=>{
+				if (err) {
+					res.writeHead(404)
+					res.end()
+					return
+				}
+				response.writeHead(200,{
+					'Content-Type':'image/x-icon',
+					'Cache-Control':'public, max-age=604800, immutable',
+				})
+				response.end(data)
+			})
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
