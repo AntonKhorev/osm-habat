@@ -236,7 +236,8 @@ class View {
 		response.write(`</main>\n`)
 		response.write(`<footer>\n`)
 		response.write(`<form method=post>`)
-		response.write(`<button formaction=fetch-previous>Fetch a batch of previous versions</button>`)
+		response.write(`<button formaction=fetch-previous>Fetch previous versions</button>`)
+		response.write(`<button formaction=fetch-latest>Fetch latest versions</button>`)
 		response.write(`<button formaction=reload-redactions>Reload redactions</button>`)
 		response.write(`<button formaction=fetch-redacted>Fetch a batch of elements with last version redacted</button>`)
 		response.write(`</footer>\n`)
@@ -805,12 +806,8 @@ async function serveFetchChangeset(response,project,changesetId,referer) {
 async function serveFetchHistory(response,project,etype,eid,referer) {
 	try {
 		const timestamp=Date.now()
-		await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`)
+		await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`,true)
 		if (!project.store[etype][eid]) throw new Error(`Fetch completed but the element record is empty for ${etype} #${eid}`)
-		project.store[etype][eid].top={
-			timestamp,
-			version:osm.topVersion(project.store[etype][eid])
-		}
 	} catch (ex) {
 		return respondFetchError(response,ex,'element history fetch error',e.h`<p>cannot fetch element ${etype} #${eid} history\n`)
 	}

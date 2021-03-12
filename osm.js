@@ -40,10 +40,14 @@ exports.writeStore=(storeFilename,store)=>{
 	fs.writeFileSync(storeFilename,JSON.stringify(store))
 }
 
-exports.makeParser=(store)=>{
+exports.makeParser=(store,topTimestamp)=>{
 	const put=(table,id,version,data)=>{
 		if (!(id in table)) table[id]={}
 		table[id][version]=data
+		if (topTimestamp) table[id].top={
+			timestamp:topTimestamp,
+			version // expects history query result to be in ascending order - which is not specified in osm api docs
+		}
 	}
 	let inOsmXml=0
 	let inOsmChangeXml=0
@@ -149,10 +153,14 @@ exports.makeParser=(store)=>{
 	})
 }
 
-exports.fetchToStore=(store,call)=>new Promise((resolve,reject)=>osm.apiGet(call,res=>{
-	if (res.statusCode!=200) return reject(new Error('failed single fetch: '+call))
-	res.pipe(osm.makeParser(store).on('end',resolve))
-}))
+exports.fetchToStore=(store,call,isTop)=>new Promise((resolve,reject)=>{
+	let timestamp
+	if (isTop) timestamp=Date.now()
+	osm.apiGet(call,res=>{
+		if (res.statusCode!=200) return reject(new Error('failed single fetch: '+call))
+		res.pipe(osm.makeParser(store,timestamp).on('end',resolve))
+	})
+})
 
 exports.multifetchToStore=async(store,multifetchList)=>{
 	// get previous versions with known numbers for a list of elements
@@ -161,23 +169,30 @@ exports.multifetchToStore=async(store,multifetchList)=>{
 	// will fail if requested version of any element is redacted
 	const queries={}
 	const queryCounts={}
+	const queryVersioned={}
 	const fullQuery=(elementType)=>`/api/0.6/${elementType}s?${elementType}s=${queries[elementType]}`
+	const doQuery=(elementType)=>osm.fetchToStore(store,fullQuery(elementType),!queryVersioned[elementType])
 	for (const [elementType,elementId,elementVersion] of multifetchList) {
 		if (!queries[elementType]) {
 			queries[elementType]=''
 			queryCounts[elementType]=0
+			queryVersioned[elementType]=false
 		}
 		if (queryCounts[elementType]++) queries[elementType]+=','
 		queries[elementType]+=elementId
-		if (elementVersion!==undefined) queries[elementType]+='v'+elementVersion
+		if (elementVersion!==undefined) {
+			queries[elementType]+='v'+elementVersion
+			queryVersioned[elementType]=true
+		}
 		if (queryCounts[elementType]>700 || queries[elementType].length>7500) {
-			await osm.fetchToStore(store,fullQuery(elementType))
+			await doQuery(elementType)
 			delete queries[elementType]
 			delete queryCounts[elementType]
+			delete queryVersioned[elementType]
 		}
 	}
 	for (const elementType of Object.keys(queries)) {
-		await osm.fetchToStore(store,fullQuery(elementType))
+		await doQuery(elementType)
 	}
 }
 

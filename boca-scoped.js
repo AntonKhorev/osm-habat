@@ -548,9 +548,16 @@ exports.fetchPreviousVersions=async(response,project,changesets,filters)=>{
 }
 
 exports.fetchLatestVersions=async(response,project,changesets,filters)=>{
-	const multifetchList=[]
+	const preMultifetchList=[]
 	for (const [etype,eid] of filterElements(project,changesets,filters)) {
-		// TODO keep list of recently updated elements somewhere and check it - otherwise can't fetch more than a batch
+		preMultifetchList.push([
+			etype,eid,
+			project.store[etype][eid].top?.timestamp??0
+		])
+	}
+	preMultifetchList.sort(([,,t1],[,,t2])=>t1-t2)
+	const multifetchList=[]
+	for (const [etype,eid] of preMultifetchList) {
 		multifetchList.push([etype,eid])
 		if (multifetchList.length>=10000) break
 	}
