@@ -255,11 +255,15 @@ class UserView extends View {
 				if (!(item in editors[group])) editors[group][item]=0
 				editors[group][item]++
 			}
-			if (/^iD\s/.test(changeset.tags.created_by)) {
-				inc('iD',changeset.tags.created_by)
-			} else {
-				inc('(other)',changeset.tags.created_by??'(unknown)')
+			let foundEditor=false
+			for (const editor of ['iD','JOSM','Level0','MAPS.ME','OsmAnd','osmtools','Potlatch','Vespucci']) { // possible created_by values: https://wiki.openstreetmap.org/wiki/Key:created_by
+				if (new RegExp(`^(reverter.*?;)?${editor}\\W`).test(changeset.tags.created_by)) {
+					inc(editor,changeset.tags.created_by)
+					foundEditor=true
+					break
+				}
 			}
+			if (!foundEditor) inc('(other)',changeset.tags.created_by??'(unknown)')
 			const source=changeset.tags.source??'(unknown)'
 			sources[source]=(sources[source]??0)+1
 			if (changeset.comments_count>0) changesetsWithComments.push(changeset.id)
