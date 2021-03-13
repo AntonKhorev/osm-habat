@@ -408,14 +408,28 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 			}
 			const topData=project.store[etype][eid][maxVersion]
 			const typeAndName=[]
-			if (topData.tags.amenity!=null) {
-				const wikiHref=`https://wiki.openstreetmap.org/wiki/Tag:amenity=${topData.tags.amenity}`
-				typeAndName.push(e.h`<a href=${wikiHref}>${topData.tags.amenity}</a>`)
+			const makeKvLink=(k,v)=>{
+				const keyHref=`https://wiki.openstreetmap.org/wiki/Key:highway`
+				const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:highway=${v}`
+				return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
 			}
+			const pushKvLink=(k)=>{
+				if (topData.tags[k]==null) return
+				typeAndName.push(makeKvLink(k,topData.tags[k]))
+			}
+			if (topData.tags.amenity!=null) {
+				const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:amenity=${topData.tags.amenity}`
+				typeAndName.push(e.h`<a href=${tagHref}>${topData.tags.amenity}</a>`)
+			}
+			pushKvLink('highway')
+			pushKvLink('railway')
 			if (topData.tags.name!=null) {
 				typeAndName.push(e.h`"${topData.tags.name}"`)
 			}
-			if (typeAndName.length>0) props.push(typeAndName.join(' '))
+			if (typeAndName.length>0) {
+				typeAndName.unshift(isOwnV1?'created':'modified')
+				props.push(typeAndName.join(' '))
+			}
 			if (props.length>0) response.write(': '+props.join('; ')+'\n')
 		}
 		response.write(`</summary>\n`)
