@@ -31,20 +31,28 @@ table td { text-align: right }
 .create {background: #CFC}
 .modify {background: #FFC}
 .delete {background: #FCC}
-section.element h3 {
+details.element {
+	margin: .5em 0;
+}
+details.element[open] {
+	margin-bottom: 1.5em;
+}
+details.element h3 {
 	display: inline-block;
+	margin: 0;
 }
-section.element table {
+details.element table {
 	border-collapse: collapse;
+	margin-top: .5em;
 }
-section.element td.target {
+details.element td.target {
 	border-left: solid 3px #004;
 	border-right: solid 3px #004;
 }
-section.element tr:first-child td.target {
+details.element tr:first-child td.target {
 	border-top: solid 3px #004;
 }
-section.element tr:last-child td.target {
+details.element tr:last-child td.target {
 	border-bottom: solid 3px #004;
 }
 </style>

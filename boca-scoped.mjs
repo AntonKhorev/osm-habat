@@ -359,41 +359,53 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 					}
 				}
 				if (!cdata) continue // not fetched, pretend that this version doesn't exist
-				const tdClasses=[]
-				if (targetVersions.has(ev)) { // don't check cv to avoid targeting parents
-					tdClasses.push('target')
-				}
-				let output=fn(cid,cv,cdata,pid,pv,pdata)
-				if (Array.isArray(output)) {
-					let tdClass
-					[output,tdClass]=output
-					tdClasses.push(tdClass)
-				}
-				response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
+				fn(cid,cv,cdata,pid,pv,pdata)
 				;[pid,pv,pdata]=[cid,cv,cdata]
 			}
 		}
-		response.write(`<section class=element>\n`)
+		const iterateWritingTds=(fn)=>iterate((cid,cv,cdata,pid,pv,pdata)=>{
+			const tdClasses=[]
+			if (cid==eid && targetVersions.has(cv)) {
+				tdClasses.push('target')
+			}
+			let output=fn(cid,cv,cdata,pid,pv,pdata)
+			if (Array.isArray(output)) {
+				let tdClass
+				[output,tdClass]=output
+				tdClasses.push(tdClass)
+			}
+			response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
+		})
+		let untaggedV1onlyNode=false
+		if (etype=='node') {
+			untaggedV1onlyNode=true
+			iterate((cid,cv,cdata)=>{
+				if (cid!=eid || cv!=1 || Object.keys(cdata.tags).length!=0) untaggedV1onlyNode=false
+			})
+		}
+		response.write(e.h`<details class=element open=${!untaggedV1onlyNode}><summary>\n`)
 		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
 		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
 		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
+		if (untaggedV1onlyNode) response.write(`: untagged v1 only\n`)
+		response.write(`</summary>\n`)
 		response.write(`<form method=post>\n`)
 		response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
 		response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
 		response.write(`<table>`)
 		response.write(`\n<tr><th>element`)
-		iterate((cid,cv,cdata)=>makeElementTableHtml(etype,cid,cv))
+		iterateWritingTds((cid,cv,cdata)=>makeElementTableHtml(etype,cid,cv))
 		response.write(`<td><button formaction=fetch-history>Update history</button>`)
 		response.write(`\n<tr><th>changeset`)
-		iterate((cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
+		iterateWritingTds((cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
 		response.write(`<th>last updated on`)
 		response.write(`\n<tr><th>timestamp`)
-		iterate((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
+		iterateWritingTds((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
 		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
 		response.write(`\n<tr><th>visible`)
-		iterate((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
+		iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
 				if (nid) {
@@ -404,13 +416,13 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 				}
 			})
 			response.write(`\n<tr><th>first node`)
-			iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
+			iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
 			response.write(`\n<tr><th>last node`)
-			iterate((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
+			iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
 		}
 		response.write(`\n<tr><th>tags`)
 		const allTags={}
-		iterate((cid,cv,cdata)=>{
+		iterateWritingTds((cid,cv,cdata)=>{
 			Object.assign(allTags,cdata.tags)
 			return ''
 		})
@@ -419,7 +431,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 			let previousValue
 			let changedVersion
 			response.write(e.h`\n<tr><td>${k}`)
-			iterate((cid,cv,cdata,pid,pv,pdata)=>{
+			iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>{
 				const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 				if (change && !isChanged) {
 					isChanged=true
@@ -439,7 +451,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
-		iterate((cid,cv,cdata,pid,pv,pdata)=>{
+		iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>{
 			if (project.redacted[etype][cid]?.[cv]!=null) {
 				return e.h`${project.redacted[etype][cid][cv]}`
 			} else if (cid==eid) {
@@ -451,7 +463,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		response.write(`<td><button formaction=make-redactions>Make redactions file</button>`)
 		response.write(`\n</table>\n`)
 		response.write(`</form>\n`)
-		response.write(`</section>\n`)
+		response.write(`</details>\n`)
 	}
 	for (const etype of ['node','way','relation']) {
 		if (order=='name') {
