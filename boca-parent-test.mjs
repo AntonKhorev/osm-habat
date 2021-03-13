@@ -1,6 +1,6 @@
-const assert=require('assert')
+import * as assert from 'assert'
 
-const ParentChecker=require('./boca-parent')
+import ParentChecker from './boca-parent.mjs'
 
 {
 	const pc=new ParentChecker()

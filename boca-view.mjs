@@ -1,6 +1,6 @@
 import * as e from './escape.js'
 import * as respond from './boca-respond.mjs'
-import * as scoped from './boca-scoped.js'
+import * as scoped from './boca-scoped.mjs'
 
 const osmchaFilterTag=e.independentValuesEscape(value=>{
 	if (!Array.isArray(value)) value=[value]

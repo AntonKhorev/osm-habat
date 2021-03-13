@@ -1,6 +1,6 @@
 // works only with ids
 
-class ParentChecker {
+export default class ParentChecker {
 	constructor() {
 		this.previousWays={}
 		this.currentWays={}
@@ -68,5 +68,3 @@ class ParentChecker {
 		}
 	}
 }
-
-module.exports=ParentChecker

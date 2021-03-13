@@ -1,10 +1,10 @@
 // scoped operations - receive changesets iterator
 
-const e=require('./escape')
-const osm=require('./osm')
-const ParentChecker=require('./boca-parent')
+import * as e from './escape.js'
+import * as osm from './osm.js'
+import ParentChecker from './boca-parent.mjs'
 
-exports.analyzeCounts=(response,project,changesets)=>{
+export function analyzeCounts(response,project,changesets) {
 	response.write(`<h2>Changeset element counts</h2>\n`)
 	response.write(`<table>\n`)
 	response.write(`<tr><th rowspan=2>changeset<th colspan=3>nodes<th colspan=3>ways<th colspan=3>rels\n`)
@@ -52,7 +52,7 @@ exports.analyzeCounts=(response,project,changesets)=>{
 	)
 }
 
-exports.analyzeDeletes=(response,project,changesets)=>{
+export function analyzeDeletes(response,project,changesets) {
 	response.write(`<h2>Deletion version distribution</h2>\n`)
 	const deletedVersions={node:{},way:{},relation:{}}
 	for (const [changeType,elementType,elementId,elementVersion] of project.getChangesFromChangesets(changesets)) {
@@ -126,7 +126,7 @@ exports.analyzeDeletes=(response,project,changesets)=>{
 	}
 }
 
-exports.analyzeFormulas=(response,project,changesets)=>{
+export function analyzeFormulas(response,project,changesets) {
 	response.write(`<h2>Change formulas</h2>\n`)
 	const elementChanges={node:{},way:{},relation:{}}
 	const elementVersions={node:{},way:{},relation:{}}
@@ -156,7 +156,7 @@ exports.analyzeFormulas=(response,project,changesets)=>{
 	response.write(`</table>\n`)
 }
 
-exports.analyzeKeys=(response,project,changesets)=>{
+export function analyzeKeys(response,project,changesets) {
 	const knownKeyCount={}
 	const knownKeyChangesets={}
 	const knownTagCount={}
@@ -234,7 +234,7 @@ exports.analyzeKeys=(response,project,changesets)=>{
 	}
 }
 
-exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ // TODO handle incomplete data - w/o prev versions
+export function analyzeChangesPerChangesetPerElement(response,project,changesets) { // TODO handle incomplete data - w/o prev versions
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
 	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
 	response.write(`<h2>Changes per changeset per element</h2>\n`)
@@ -296,7 +296,7 @@ exports.analyzeChangesPerChangesetPerElement=(response,project,changesets)=>{ //
 	}
 }
 
-exports.analyzeChangesPerElement=(response,project,changesets,order)=>{ // TODO handle incomplete data - w/o prev versions
+export function analyzeChangesPerElement(response,project,changesets,order) { // TODO handle incomplete data - w/o prev versions
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
 	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
 	const makeTimestampHtml=(timestamp)=>{
@@ -469,7 +469,7 @@ exports.analyzeChangesPerElement=(response,project,changesets,order)=>{ // TODO 
 	}
 }
 
-exports.viewElements=(response,project,changesets,filters)=>{
+export function viewElements(response,project,changesets,filters) {
 	response.write(`<h2>Filtered elements list</h2>\n`)
 	response.write(`<table>\n`)
 	response.write(`<tr><th>enabled filter<th>value\n`)
@@ -525,7 +525,7 @@ exports.viewElements=(response,project,changesets,filters)=>{
 	}
 }
 
-exports.fetchFirstVersions=async(response,project,changesets,filters)=>{
+export async function fetchFirstVersions (response,project,changesets,filters) {
 	const multifetchList=[]
 	for (const [etype,eid] of filterElements(project,changesets,filters)) {
 		if (project.store[etype][eid]?.[1]) continue
@@ -535,7 +535,7 @@ exports.fetchFirstVersions=async(response,project,changesets,filters)=>{
 	await osm.multifetchToStore(project.store,multifetchList)
 }
 
-exports.fetchPreviousVersions=async(response,project,changesets,filters)=>{
+export async function fetchPreviousVersions(response,project,changesets,filters) {
 	const multifetchList=[]
 	for (const [etype,eid,,ePreviousVersions] of filterElements(project,changesets,filters)) {
 		for (const ev of ePreviousVersions) {
@@ -547,7 +547,7 @@ exports.fetchPreviousVersions=async(response,project,changesets,filters)=>{
 	await osm.multifetchToStore(project.store,multifetchList)
 }
 
-exports.fetchLatestVersions=async(response,project,changesets,filters)=>{
+export async function fetchLatestVersions(response,project,changesets,filters) {
 	const preMultifetchList=[]
 	for (const [etype,eid] of filterElements(project,changesets,filters)) {
 		preMultifetchList.push([
