@@ -1,6 +1,6 @@
-const e=require('./escape')
-const respond=require('./boca-respond')
-const bocaScoped=require('./boca-scoped')
+import * as e from './escape.js'
+import * as respond from './boca-respond.mjs'
+import * as scoped from './boca-scoped.js'
 
 const osmchaFilterTag=e.independentValuesEscape(value=>{
 	if (!Array.isArray(value)) value=[value]
@@ -43,43 +43,43 @@ class View {
 		if (route=='') {
 			this.serveMain(response)
 		} else if (route=='elements') {
-			this.serveByElement(response,bocaScoped.viewElements,getQuery)
+			this.serveByElement(response,scoped.viewElements,getQuery)
 		} else if (route=='counts') {
-			this.serveByChangeset(response,bocaScoped.analyzeCounts)
+			this.serveByChangeset(response,scoped.analyzeCounts)
 		} else if (route=='formulas') {
-			this.serveByChangeset(response,bocaScoped.analyzeFormulas)
+			this.serveByChangeset(response,scoped.analyzeFormulas)
 		} else if (route=='keys') {
-			this.serveByChangeset(response,bocaScoped.analyzeKeys)
+			this.serveByChangeset(response,scoped.analyzeKeys)
 		} else if (route=='deletes') {
-			this.serveByChangeset(response,bocaScoped.analyzeDeletes)
+			this.serveByChangeset(response,scoped.analyzeDeletes)
 		} else if (route=='cpcpe') {
-			this.serveByChangeset(response,bocaScoped.analyzeChangesPerChangesetPerElement)
+			this.serveByChangeset(response,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='cpe') {
-			this.serveByChangeset(response,bocaScoped.analyzeChangesPerElement,getQuery.order)
+			this.serveByChangeset(response,scoped.analyzeChangesPerElement,getQuery.order)
 		} else if (route=='fetch-previous') {
 			const filters=await passPostQuery()
 			await this.serveFetchElements(response,
-				bocaScoped.fetchPreviousVersions,
+				scoped.fetchPreviousVersions,
 				filters,referer,
 				`<p>cannot fetch previous versions of elements\n`
 			)
 		} else if (route=='fetch-first') {
 			const filters=await passPostQuery()
 			await this.serveFetchElements(response,
-				bocaScoped.fetchFirstVersions,
+				scoped.fetchFirstVersions,
 				filters,referer,
 				`<p>cannot fetch first versions of elements\n`
 			)
 		} else if (route=='fetch-latest') {
 			const filters=await passPostQuery()
 			await this.serveFetchElements(response,
-				bocaScoped.fetchLatestVersions,
+				scoped.fetchLatestVersions,
 				filters,referer,
 				`<p>cannot fetch latest versions of elements\n`
 			)
 		} else if (route=='fetch-redacted') {
 			await this.serveFetchElements(response,
-				bocaScoped.fetchLatestVersions,
+				scoped.fetchLatestVersions,
 				{'vt.redacted':true},referer,
 				`<p>cannot fetch latest versions of redacted elements\n`
 			)
@@ -118,7 +118,7 @@ class View {
 	}
 }
 
-class AllView extends View {
+export class AllView extends View {
 	getChangesets() {
 		return this.project.getAllChangesets()
 	}
@@ -132,9 +132,8 @@ class AllView extends View {
 		// TODO write some summary of all changesets
 	}
 }
-exports.AllView=AllView
 
-class ScopeView extends View {
+export class ScopeView extends View {
 	constructor(project,scope) {
 		super(project)
 		this.scope=scope
@@ -163,9 +162,8 @@ class ScopeView extends View {
 		response.write(`</textarea>`)
 	}
 }
-exports.ScopeView=ScopeView
 
-class UserView extends View {
+export class UserView extends View {
 	constructor(project,user) {
 		super(project)
 		this.user=user
@@ -293,4 +291,3 @@ class UserView extends View {
 		response.write(`</ul>\n`)
 	}
 }
-exports.UserView=UserView

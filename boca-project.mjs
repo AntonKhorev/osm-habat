@@ -1,12 +1,12 @@
-const fs=require('fs')
-const path=require('path')
+import * as fs from 'fs'
+import * as path from 'path'
 
-const e=require('./escape') // TODO move somewhere else along with getUserLink()
-const osm=require('./osm')
+import * as e from './escape.js' // TODO move somewhere else along with getUserLink()
+import * as osm from './osm.js'
 
 const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
 
-class Project {
+export default class Project {
 	constructor(dirname) {
 		this.dirname=dirname
 		this.store=osm.readStore(this.storeFilename)
@@ -112,5 +112,3 @@ class Project {
 		}
 	}
 }
-
-module.exports=Project

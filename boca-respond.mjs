@@ -1,12 +1,11 @@
-const e=require('./escape')
+import * as e from './escape.js'
 
-function head(response,title,httpCode=200) {
+export function head(response,title,httpCode=200) {
 	headNoMain(response,title,httpCode=200)
 	response.write(`<main>\n`)
 }
-exports.head=head
 
-function headNoMain(response,title,httpCode=200) {
+export function headNoMain(response,title,httpCode=200) {
 	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
 	response.write(
 e.h`<!DOCTYPE html>
@@ -54,15 +53,13 @@ section.element tr:last-child td.target {
 `
 	)
 }
-exports.headNoMain=headNoMain
 
-function tail(response) {
+export function tail(response) {
 	response.write(`</main>\n`)
 	tailNoMain(response)
 }
-exports.tail=tail
 
-function tailNoMain(response) {
+export function tailNoMain(response) {
 	response.end(
 `<script>
 function checkVersions($link) {
@@ -95,11 +92,10 @@ for (const $rcLink of document.querySelectorAll('a.rc')) {
 	)
 }
 
-function fetchError(response,ex,pageTitle,pageBody) {
+export function fetchError(response,ex,pageTitle,pageBody) {
 	head(response,pageTitle,500)
 	response.write(pageBody)
 	response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
 	response.write(`<p><a href=/>return to main page</a>\n`)
 	tail(response)
 }
-exports.tailNoMain=tailNoMain

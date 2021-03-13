@@ -7,9 +7,9 @@ import open from 'open'
 
 import * as e from './escape.js'
 import * as osm from './osm.js'
-import Project from './boca-project.js'
-import * as respond from './boca-respond.js'
-import {AllView,ScopeView,UserView} from './boca-view.js'
+import Project from './boca-project.mjs'
+import * as respond from './boca-respond.mjs'
+import {AllView,ScopeView,UserView} from './boca-view.mjs'
 
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
