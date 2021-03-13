@@ -398,13 +398,25 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
-		if (isNotInteresting) {
+		{
 			const props=[]
-			if (isUntagged) props.push('untagged')
-			if (isV1only || isOwnV1) props.push(`${isOwnV1?'own ':''}v1${isV1only?' only':''}`)
-			if (!isV1only && isV1V2only) props.push('v1 & v2 only')
-			if (!isV1only && (isVtopDeleted || isOwnVtop)) props.push(`${isOwnVtop?'own ':''}vtop${isVtopDeleted?' deleted':''}`)
-			response.write(': '+props.join('; ')+'\n')
+			if (isNotInteresting) {
+				if (isUntagged) props.push('untagged')
+				if (isV1only || isOwnV1) props.push(`${isOwnV1?'own ':''}v1${isV1only?' only':''}`)
+				if (!isV1only && isV1V2only) props.push('v1 & v2 only')
+				if (!isV1only && (isVtopDeleted || isOwnVtop)) props.push(`${isOwnVtop?'own ':''}vtop${isVtopDeleted?' deleted':''}`)
+			}
+			const topData=project.store[etype][eid][maxVersion]
+			const typeAndName=[]
+			if (topData.tags.amenity!=null) {
+				const wikiHref=`https://wiki.openstreetmap.org/wiki/Tag:amenity=${topData.tags.amenity}`
+				typeAndName.push(e.h`<a href=${wikiHref}>${topData.tags.amenity}</a>`)
+			}
+			if (topData.tags.name!=null) {
+				typeAndName.push(e.h`"${topData.tags.name}"`)
+			}
+			if (typeAndName.length>0) props.push(typeAndName.join(' '))
+			if (props.length>0) response.write(': '+props.join('; ')+'\n')
 		}
 		response.write(`</summary>\n`)
 		response.write(`<form method=post>\n`)
