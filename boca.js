@@ -31,6 +31,10 @@ function main(projectDirname) {
 				referer=url.pathname+url.search
 			}
 		} catch {}
+		const serveViewRoutes=async(view,subpath)=>(
+			await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer) ||
+			await serveCommonViewRoute(response,project,subpath,()=>readPost(request),referer)
+		)
 		let match
 		if (pathname=='/') {
 			serveRoot(response,project)
@@ -50,7 +54,7 @@ function main(projectDirname) {
 		} else if (match=pathname.match(new RegExp('^/all/([^/]*)$'))) {
 			const [,subpath]=match
 			const view=new AllView(project)
-			if (await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)) {
+			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else {
 				response.writeHead(404)
@@ -64,7 +68,7 @@ function main(projectDirname) {
 				return
 			}
 			const view=new ScopeView(project,scope)
-			if (await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)) {
+			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else {
 				response.writeHead(404)
@@ -79,7 +83,7 @@ function main(projectDirname) {
 			}
 			const user=project.user[uid]
 			const view=new UserView(project,user)
-			if (await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)) {
+			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else if (subpath=='bbox.osm') {
 				serveBbox(response,project,user)
@@ -111,6 +115,22 @@ function main(projectDirname) {
 	}).listen(process.env.PORT||0).on('listening',()=>{
 		if (!process.env.PORT) open('http://localhost:'+server.address().port)
 	})
+}
+
+async function serveCommonViewRoute(response,project,route,passPostQuery,referer) {
+	if (route=='fetch-history') {
+		const args=await passPostQuery()
+		await serveFetchHistory(response,project,args.type,args.id,referer)
+	} else if (route=='reload-redactions') {
+		serveReloadRedactions(response,project,referer)
+	} else if (route=='make-redactions') {
+		const args=await passPostQuery()
+		const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
+		serveMakeRedactions(response,project,args.type,args.id,getVersions(args.version))
+	} else {
+		return false
+	}
+	return true
 }
 
 async function readPost(request) {

@@ -40,7 +40,6 @@ class View {
 		response.end()
 	}
 	async serveRoute(response,route,getQuery,passPostQuery,referer) {
-		const arr=a=>(Array.isArray(a)?a:[a]).map(x=>Number(x))
 		if (route=='') {
 			this.serveMain(response)
 		} else if (route=='elements') {
@@ -84,14 +83,6 @@ class View {
 				{'vt.redacted':true},referer,
 				`<p>cannot fetch latest versions of redacted elements\n`
 			)
-		} else if (route=='fetch-history') {
-			const args=await passPostQuery()
-			await serveFetchHistory(response,this.project,args.type,args.id,referer)
-		} else if (route=='reload-redactions') {
-			serveReloadRedactions(response,this.project,referer)
-		} else if (route=='make-redactions') {
-			const args=await passPostQuery()
-			serveMakeRedactions(response,this.project,args.type,args.id,arr(args.version))
 		} else {
 			return false
 		}
