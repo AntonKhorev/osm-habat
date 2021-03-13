@@ -376,20 +376,27 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 			}
 			response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
 		})
-		let untaggedV1onlyNode=false
-		if (etype=='node') {
-			untaggedV1onlyNode=true
-			iterate((cid,cv,cdata)=>{
-				if (cid!=eid || cv!=1 || Object.keys(cdata.tags).length!=0) untaggedV1onlyNode=false
-			})
-		}
-		response.write(e.h`<details class=element open=${!untaggedV1onlyNode}><summary>\n`)
+		let isUntagged=true
+		let isV1only=true
+		let isV1V2deleted=true
+		iterate((cid,cv,cdata)=>{
+			if (Object.keys(cdata.tags).length!=0) isUntagged=false
+			if (!(cid==eid && cv==1)) isV1only=false
+			if (!(cid==eid && (cv==1 || cv==2 && !cdata.visible))) isV1V2deleted=false
+		})
+		response.write(e.h`<details class=element open=${!(etype=='node' && isUntagged && (isV1only || isV1V2deleted))}><summary>\n`)
 		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
 		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
 		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
-		if (untaggedV1onlyNode) response.write(`: untagged v1 only\n`)
+		if (etype=='node' && isUntagged) {
+			if (isV1only) {
+				response.write(`: untagged v1 only\n`)
+			} else if (isV1V2deleted) {
+				response.write(`: untagged v1, deleted v2\n`)
+			}
+		}
 		response.write(`</summary>\n`)
 		response.write(`<form method=post>\n`)
 		response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
