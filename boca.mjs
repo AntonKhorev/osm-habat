@@ -1,23 +1,22 @@
 // bunch-of-changesets analyser
 
-const fs=require('fs')
-const path=require('path')
-const http=require('http')
-const querystring=require('querystring')
-const open=require('open')
-const expat=require('node-expat')
+import * as fs from 'fs'
+import * as http from 'http'
+import * as querystring from 'querystring'
+import open from 'open'
 
-const e=require('./escape')
-const osm=require('./osm')
-const Project=require('./boca-project')
-const respond=require('./boca-respond')
-const {AllView,ScopeView,UserView}=require('./boca-view')
+import * as e from './escape.js'
+import * as osm from './osm.js'
+import Project from './boca-project.js'
+import * as respond from './boca-respond.js'
+import {AllView,ScopeView,UserView} from './boca-view.js'
 
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
-	return process.exit(1)
+	process.exit(1)
+} else {
+	main(process.argv[2])
 }
-main(process.argv[2])
 
 function main(projectDirname) {
 	const project=new Project(projectDirname)
@@ -96,7 +95,7 @@ function main(projectDirname) {
 				response.end(`User route not defined`)
 			}
 		} else if (pathname=='/favicon.ico') {
-			fs.readFile(path.join(__dirname,'favicon.ico'),(err,data)=>{
+			fs.readFile(new URL('./favicon.ico',import.meta.url),(err,data)=>{
 				if (err) {
 					res.writeHead(404)
 					res.end()
