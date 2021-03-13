@@ -378,24 +378,33 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		})
 		let isUntagged=true
 		let isV1only=true
-		let isV1V2deleted=true
+		let isV1V2only=true
+		let isOwnV1=targetVersions.has(1)
+		let isVtopDeleted=true
+		let isOwnVtop=true
 		iterate((cid,cv,cdata)=>{
-			if (Object.keys(cdata.tags).length!=0) isUntagged=false
-			if (!(cid==eid && cv==1)) isV1only=false
-			if (!(cid==eid && (cv==1 || cv==2 && !cdata.visible))) isV1V2deleted=false
+			isUntagged = isUntagged && (Object.keys(cdata.tags).length==0)
+			isV1only = isV1only && (cid==eid && cv==1)
+			isV1V2only = isV1V2only && (cid==eid && (cv==1 || cv==2))
+			isVtopDeleted = !cdata.visible
+			isOwnVtop = (cid==eid && targetVersions.has(cv))
 		})
-		response.write(e.h`<details class=element open=${!(etype=='node' && isUntagged && (isV1only || isV1V2deleted))}><summary>\n`)
+		const isNotInteresting=(etype=='node' && isUntagged && isOwnV1 && (
+			isV1only || isVtopDeleted || isOwnVtop
+		))
+		response.write(e.h`<details class=element open=${!isNotInteresting}><summary>\n`)
 		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
 		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
 		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
-		if (etype=='node' && isUntagged) {
-			if (isV1only) {
-				response.write(`: untagged v1 only\n`)
-			} else if (isV1V2deleted) {
-				response.write(`: untagged v1, deleted v2\n`)
-			}
+		if (isNotInteresting) {
+			const props=[]
+			if (isUntagged) props.push('untagged')
+			if (isV1only || isOwnV1) props.push(`${isOwnV1?'own ':''}v1${isV1only?' only':''}`)
+			if (!isV1only && isV1V2only) props.push('v1 & v2 only')
+			if (!isV1only && (isVtopDeleted || isOwnVtop)) props.push(`${isOwnVtop?'own ':''}vtop${isVtopDeleted?' deleted':''}`)
+			response.write(': '+props.join('; ')+'\n')
 		}
 		response.write(`</summary>\n`)
 		response.write(`<form method=post>\n`)
