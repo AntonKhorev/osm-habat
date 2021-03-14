@@ -434,6 +434,9 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 					// 'sport'
 					// 'water' - only with natural=water
 				])
+				const readableTypeKeys=new Set([
+					'amenity','barrier','emergency','leisure','man_made','place','tourism'
+				])
 				const getTypes=(tags)=>{
 					const makeKvLink=(k,v)=>{
 						const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
@@ -441,13 +444,14 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 						return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
 					}
 					const makeVLink=(k,v)=>{
+						if (v=='yes') return makeKvLink(k,v)
 						const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-						return e.h`<a href=${tagHref}>${v}</a>`
+						return e.h`<a href=${tagHref}>${v.replace(/_/g,' ')}</a>`
 					}
 					const types=[]
 					for (const [k,v] of Object.entries(tags)) {
 						if (!typeKeys.has(k)) continue
-						if (k=='amenity') {
+						if (readableTypeKeys.has(k)) {
 							types.push(makeVLink(k,v))
 						} else {
 							types.push(makeKvLink(k,v))
@@ -694,7 +698,7 @@ export function viewElements(response,project,changesets,filters) {
 	}
 }
 
-export async function fetchFirstVersions (response,project,changesets,filters) {
+export async function fetchFirstVersions(response,project,changesets,filters) {
 	const multifetchList=[]
 	for (const [etype,eid] of filterElements(project,changesets,filters)) {
 		if (project.store[etype][eid]?.[1]) continue
