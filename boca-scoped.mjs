@@ -345,21 +345,23 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		const minVersion=elementVersions[etype].get(eid)[0]-1
 		const maxVersion=osm.topVersion(project.store[etype][eid])
 		const iterate=(fn)=>{
-			let pid,pv,pdata,cid,cv,cdata
-			for (let ev=minVersion;ev<=maxVersion;ev++,[pid,pv,pdata]=[cid,cv,cdata]) {
-				cid=eid
-				cv=ev
-				cdata=project.store[etype][eid][ev]
+			let pid,pv,pdata
+			for (let ev=minVersion;ev<=maxVersion;ev++) {
+				let cid=eid
+				let cv=ev
+				let cdata=project.store[etype][eid][ev]
 				if (ev==0) {
 					if (etype=='way' && wayParents[eid]) {
 						[cid,cv]=wayParents[eid]
 						cdata=project.store[etype][cid][cv]
 					} else {
+						;[pid,pv,pdata]=[cid,cv,cdata]
 						continue
 					}
 				}
 				if (!cdata) continue // not fetched, pretend that this version doesn't exist
 				fn(cid,cv,cdata,pid,pv,pdata)
+				;[pid,pv,pdata]=[cid,cv,cdata]
 			}
 		}
 		const iterateWritingTds=(fn)=>iterate((cid,cv,cdata,pid,pv,pdata)=>{
