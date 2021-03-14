@@ -326,7 +326,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 	response.write(`<h2>Changes per element</h2>\n`)
 	response.write(`<ul>\n`)
 	response.write(`<li><a href=cpe>default order</a>\n`)
-	response.write(`<li><a href=cpe?order=name>order by name</a>\n`)
+	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
 	response.write(`</ul>\n`)
 	const elementVersions={node:new Map(),way:new Map(),relation:new Map()}
 	const wayParents={}
