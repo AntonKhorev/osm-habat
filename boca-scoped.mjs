@@ -345,11 +345,11 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		const minVersion=elementVersions[etype].get(eid)[0]-1
 		const maxVersion=osm.topVersion(project.store[etype][eid])
 		const iterate=(fn)=>{
-			let pid,pv,pdata
-			for (let ev=minVersion;ev<=maxVersion;ev++) {
-				let cid=eid
-				let cv=ev
-				let cdata=project.store[etype][eid][ev]
+			let pid,pv,pdata,cid,cv,cdata
+			for (let ev=minVersion;ev<=maxVersion;ev++,[pid,pv,pdata]=[cid,cv,cdata]) {
+				cid=eid
+				cv=ev
+				cdata=project.store[etype][eid][ev]
 				if (ev==0) {
 					if (etype=='way' && wayParents[eid]) {
 						[cid,cv]=wayParents[eid]
@@ -360,7 +360,6 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 				}
 				if (!cdata) continue // not fetched, pretend that this version doesn't exist
 				fn(cid,cv,cdata,pid,pv,pdata)
-				;[pid,pv,pdata]=[cid,cv,cdata]
 			}
 		}
 		const iterateWritingTds=(fn)=>iterate((cid,cv,cdata,pid,pv,pdata)=>{
@@ -399,7 +398,131 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
 		{
+			const collapsedVersions=[]
+			iterate((cid,cv,cdata,pid,pv,pdata)=>{
+				const cTargeted=(cid==eid && targetVersions.has(cv))
+				if (collapsedVersions.length==0) { // first iteration
+					if (cTargeted) {
+						collapsedVersions.push([false,pid,pv,pdata])
+					} else {
+						collapsedVersions.push([false,cid,cv,cdata])
+						return
+					}
+				}
+				const [pTargeted]=collapsedVersions[collapsedVersions.length-1]
+				if (pTargeted==cTargeted) collapsedVersions.pop()
+				collapsedVersions.push([cTargeted,cid,cv,cdata])
+			})
+			const iterateOverCollapsed=(fn)=>{
+				for (let i=1;i<collapsedVersions.length;i++) {
+					fn(...collapsedVersions[i],...collapsedVersions[i-1])
+				}
+			}
 			const props=[]
+			iterateOverCollapsed((
+				cTargeted,cid,cv,cdata,
+				pTargeted,pid,pv,pdata
+			)=>{
+				const typeKeys=new Set([ // https://wiki.openstreetmap.org/wiki/Map_features#Primary_features
+					'aerialway','aeroway','amenity','barrier','boundary','building',
+					'craft','emergency','entrance','geological','healthcare',
+					'highway','historic','landuse','leisure','man_made','military',
+					'natural','office','place','power','public_transport',
+					'railway','route','shop','telecom','tourism','waterway'
+					// 'sport'
+					// 'water' - only with natural=water
+				])
+				const pVisible=pdata?pdata.visible:pv>0
+				let type
+				if (Object.keys(cdata.tags).length==0) {
+					type=`untagged ${etype}`
+				} else {
+					type=`tagged ${etype}`
+				}
+				if (cdata.visible && !pVisible) {
+					props.push(cTargeted?`created ${type}`:`(later recreated as ${type})`)
+				} else if (cdata.visible && pVisible) {
+					let changed='modified'
+					if (etype=='node') {
+						const isMoved=(cdata.lat!=pdata.lat || cdata.lon!=pdata.lon)
+						let nameChange,typeChange,tagChange
+						const mergeChange=(c1,c2)=>{
+							if (!c1) return c2
+							if (!c2) return c1
+							if (c1==c2) return c1
+							return 'modify'
+						}
+						for (const k of Object.keys({...cdata.tags,...pdata.tags})) {
+							const change=getChangeType(pdata.tags[k],cdata.tags[k])
+							if (k=='name') {
+								nameChange=mergeChange(nameChange,change)
+							} else if (typeKeys.has(k)) {
+								typeChange=mergeChange(typeChange,change)
+							} else {
+								tagChange=mergeChange(tagChange,change)
+							}
+						}
+						const mods=[]
+						if (isMoved) mods.push('moved')
+						if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
+						if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
+						if (nameChange=='delete') mods.push(`unnamed`)
+						if (typeChange=='create') mods.push(`type added`)
+						if (typeChange=='modify') mods.push(`type changed`)
+						if (typeChange=='delete') mods.push(`type removed`)
+						let t='tags'
+						if (nameChange || typeChange) t='other tags'
+						if (typeChange=='create') mods.push(`${t} added`)
+						if (typeChange=='modify') mods.push(`${t} changed`)
+						if (typeChange=='delete') mods.push(`${t} removed`)
+						changed=''
+						for (let i=0;i<mods.length;i++) {
+							if (i==0) {
+								changed=mods[i]
+							} else if (i==mods.length-1) {
+								changed+=' and '+mods[i]
+							} else {
+								changed+=', '+mods[i]
+							}
+						}
+						if (changed=='') changed='modified'
+					}
+					props.push(cTargeted?changed:`(later ${changed})`)
+				} else if (!cdata.visible && pVisible) {
+					props.push(cTargeted?'deleted':'(later deleted)')
+				}
+			})
+
+			/*
+			let pTargeted=false
+			let collapsedData
+			iterate((cid,cv,cdata,pid,pv,pdata)=>{
+				const cTargeted=(cid==eid && targetVersions.has(cv))
+				if (!pdata) { // first iteration
+					if (cTargeted) {
+						if (cv==1) {
+							collapsedData={
+								visible:false,
+								tags:{},
+							}
+						} else {
+							collapsedData={
+								visible:true, // assume that it's not an undelete
+							}
+						}
+					} else {
+						collapsedData=cdata
+						return
+					}
+				}
+				if (pTagreted!=cTargeted) {
+					trigger(collapsedData,pData)
+					collapsedData=pData
+				}
+				pTargeted=cTargeted
+			})
+			*/
+/*
 			if (isNotInteresting) {
 				if (isUntagged) props.push('untagged')
 				if (isV1only || isOwnV1) props.push(`${isOwnV1?'own ':''}v1${isV1only?' only':''}`)
@@ -423,6 +546,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 			}
 			pushKvLink('highway')
 			pushKvLink('railway')
+			pushKvLink('landuse')
 			if (topData.tags.name!=null) {
 				typeAndName.push(e.h`"${topData.tags.name}"`)
 			}
@@ -430,6 +554,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 				typeAndName.unshift(isOwnV1?'created':'modified')
 				props.push(typeAndName.join(' '))
 			}
+*/
 			if (props.length>0) response.write(': '+props.join('; ')+'\n')
 		}
 		response.write(`</summary>\n`)
