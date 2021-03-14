@@ -373,9 +373,11 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 			if (Array.isArray(output)) {
 				let tdClass
 				[output,tdClass]=output
-				tdClasses.push(tdClass)
+				if (tdClass!=null) tdClasses.push(tdClass)
 			}
-			response.write(e.h`<td class=${tdClasses.join(' ')}>`+output)
+			let tdClassAttr=tdClasses.join(' ')
+			if (tdClassAttr=='') tdClassAttr=null
+			response.write(e.h`<td class=${tdClassAttr}>`+output)
 		})
 		let isUntagged=true
 		let isV1only=true
