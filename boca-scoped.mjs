@@ -442,51 +442,79 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 				if (cdata.visible && !pVisible) {
 					props.push(cTargeted?`created ${type}`:`(later recreated as ${type})`)
 				} else if (cdata.visible && pVisible) {
-					let changed='modified'
+					// let changed='modified'
+					let changed=''
+					const mods=[]
 					if (etype=='node') {
 						const isMoved=(cdata.lat!=pdata.lat || cdata.lon!=pdata.lon)
-						let nameChange,typeChange,tagChange
-						const mergeChange=(c1,c2)=>{
-							if (!c1) return c2
-							if (!c2) return c1
-							if (c1==c2) return c1
-							return 'modify'
-						}
-						for (const k of Object.keys({...cdata.tags,...pdata.tags})) {
-							const change=getChangeType(pdata.tags[k],cdata.tags[k])
-							if (k=='name') {
-								nameChange=mergeChange(nameChange,change)
-							} else if (typeKeys.has(k)) {
-								typeChange=mergeChange(typeChange,change)
-							} else {
-								tagChange=mergeChange(tagChange,change)
-							}
-						}
-						const mods=[]
 						if (isMoved) mods.push('moved')
-						if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
-						if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
-						if (nameChange=='delete') mods.push(`unnamed`)
-						if (typeChange=='create') mods.push(`type added`)
-						if (typeChange=='modify') mods.push(`type changed`)
-						if (typeChange=='delete') mods.push(`type removed`)
-						let t='tags'
-						if (nameChange || typeChange) t='other tags'
-						if (typeChange=='create') mods.push(`${t} added`)
-						if (typeChange=='modify') mods.push(`${t} changed`)
-						if (typeChange=='delete') mods.push(`${t} removed`)
-						changed=''
-						for (let i=0;i<mods.length;i++) {
-							if (i==0) {
-								changed=mods[i]
-							} else if (i==mods.length-1) {
-								changed+=' and '+mods[i]
-							} else {
-								changed+=', '+mods[i]
+					} else if (etype=='way') {
+						let isNodesChanged=false
+						if (cdata.nds.length!=pdata.nds?.length) {
+							isNodesChanged=true
+						} else {
+							for (let i=0;i<cdata.nds.length;i++) {
+								if (cdata.nds[i]!=pdata.nds[i]) {
+									isNodesChanged=true
+									break
+								}
 							}
 						}
-						if (changed=='') changed='modified'
+						if (isNodesChanged) mods.push('nodes changed')
+					} else if (etype=='relation') {
+						let isMembersChanged=false
+						if (cdata.members.length!=pdata.members?.length) {
+							isMembersChanged=true
+						} else {
+							for (let i=0;i<cdata.members.length;i++) {
+								const [c1,c2,c3]=cdata.members[i]
+								const [p1,p2,p3]=pdata.members[i]
+								if (c1!=p1 || c2!=p2 || c3!=p3) {
+									isMembersChanged=true
+									break
+								}
+							}
+						}
+						if (isMembersChanged) mods.push('members changed')
 					}
+					let nameChange,typeChange,tagChange
+					const mergeChange=(c1,c2)=>{
+						if (!c1) return c2
+						if (!c2) return c1
+						if (c1==c2) return c1
+						return 'modify'
+					}
+					for (const k of Object.keys({...cdata.tags,...pdata.tags})) {
+						const change=getChangeType(pdata.tags[k],cdata.tags[k])
+						if (k=='name') {
+							nameChange=mergeChange(nameChange,change)
+						} else if (typeKeys.has(k)) {
+							typeChange=mergeChange(typeChange,change)
+						} else {
+							tagChange=mergeChange(tagChange,change)
+						}
+					}
+					if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
+					if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
+					if (nameChange=='delete') mods.push(`unnamed`)
+					if (typeChange=='create') mods.push(`type added`)
+					if (typeChange=='modify') mods.push(`type changed`)
+					if (typeChange=='delete') mods.push(`type removed`)
+					let t='tags'
+					if (nameChange || typeChange) t='other tags'
+					if (typeChange=='create') mods.push(`${t} added`)
+					if (typeChange=='modify') mods.push(`${t} changed`)
+					if (typeChange=='delete') mods.push(`${t} removed`)
+					for (let i=0;i<mods.length;i++) {
+						if (i==0) {
+							changed=mods[i]
+						} else if (i==mods.length-1) {
+							changed+=' and '+mods[i]
+						} else {
+							changed+=', '+mods[i]
+						}
+					}
+					if (changed=='') changed='modified'
 					props.push(cTargeted?changed:`(later ${changed})`)
 				} else if (!cdata.visible && pVisible) {
 					props.push(cTargeted?'deleted':'(later deleted)')
