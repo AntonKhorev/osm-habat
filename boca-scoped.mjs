@@ -502,9 +502,9 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 					if (typeChange=='delete') mods.push(`type removed`)
 					let t='tags'
 					if (nameChange || typeChange) t='other tags'
-					if (typeChange=='create') mods.push(`${t} added`)
-					if (typeChange=='modify') mods.push(`${t} changed`)
-					if (typeChange=='delete') mods.push(`${t} removed`)
+					if (tagChange=='create') mods.push(`${t} added`)
+					if (tagChange=='modify') mods.push(`${t} changed`)
+					if (tagChange=='delete') mods.push(`${t} removed`)
 					for (let i=0;i<mods.length;i++) {
 						if (i==0) {
 							changed=mods[i]
