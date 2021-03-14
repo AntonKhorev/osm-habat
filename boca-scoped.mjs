@@ -432,14 +432,37 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 					// 'sport'
 					// 'water' - only with natural=water
 				])
-				const pVisible=pdata?pdata.visible:pv>0
-				let type
-				if (Object.keys(cdata.tags).length==0) {
-					type=`untagged ${etype}`
-				} else {
-					type=`tagged ${etype}`
+				const getTypes=(tags)=>{
+					const makeKvLink=(k,v)=>{
+						const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
+						const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
+						return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
+					}
+					const makeVLink=(k,v)=>{
+						const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
+						return e.h`<a href=${tagHref}>${v}</a>`
+					}
+					const types=[]
+					for (const [k,v] of Object.entries(tags)) {
+						if (!typeKeys.has(k)) continue
+						if (k=='amenity') {
+							types.push(makeVLink(k,v))
+						} else {
+							types.push(makeKvLink(k,v))
+						}
+					}
+					return types
 				}
+				const pVisible=pdata?pdata.visible:pv>0
 				if (cdata.visible && !pVisible) {
+					const types=getTypes(cdata.tags)
+					if (types.length==0) {
+						types.push((Object.keys(cdata.tags).length==0?'untagged ':'tagged ')+etype)
+					}
+					if (cdata.tags.name!=null) {
+						types.push(`"${cdata.tags.name}"`)
+					}
+					const type=types.join(' ')
 					props.push(cTargeted?`created ${type}`:`(later recreated as ${type})`)
 				} else if (cdata.visible && pVisible) {
 					// let changed='modified'
@@ -497,8 +520,8 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 					if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
 					if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
 					if (nameChange=='delete') mods.push(`unnamed`)
-					if (typeChange=='create') mods.push(`type added`)
-					if (typeChange=='modify') mods.push(`type changed`)
+					if (typeChange=='create') mods.push(`type added as ${getTypes(cdata.tags)}`)
+					if (typeChange=='modify') mods.push(`type changed to ${getTypes(cdata.tags)}`)
 					if (typeChange=='delete') mods.push(`type removed`)
 					let t='tags'
 					if (nameChange || typeChange) t='other tags'
