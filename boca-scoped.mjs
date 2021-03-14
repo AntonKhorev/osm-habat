@@ -296,7 +296,7 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 	}
 }
 
-export function analyzeChangesPerElement(response,project,changesets,order) { // TODO handle incomplete data - w/o prev versions
+export function analyzeChangesPerElement(response,project,changesets,order) {
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
 	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
 	const makeTimestampHtml=(timestamp)=>{
@@ -323,26 +323,9 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		}
 		return `<a class=rc `+dataAttrs+e.h`href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
 	}
-	response.write(`<h2>Changes per element</h2>\n`)
-	response.write(`<ul>\n`)
-	response.write(`<li><a href=cpe>default order</a>\n`)
-	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
-	response.write(`</ul>\n`)
-	const elementVersions={node:new Map(),way:new Map(),relation:new Map()}
-	const wayParents={}
-	for (const [cid,changes] of changesets) {
-		const parentQuery=createParentQuery(project,changes)
-		for (const [,etype,eid,ev] of changes) {
-			if (!elementVersions[etype].has(eid)) elementVersions[etype].set(eid,[])
-			elementVersions[etype].get(eid).push(ev)
-			if (etype=='way' && ev==1) {
-				wayParents[eid]=parentQuery(eid)
-			}
-		}
-	}
-	const writeElement=(etype,eid)=>{
-		const targetVersions=new Set(elementVersions[etype].get(eid))
-		const minVersion=elementVersions[etype].get(eid)[0]-1
+	const writeElement=(etype,eid,evs,parent)=>{
+		const targetVersions=new Set(evs)
+		const minVersion=evs-1
 		const maxVersion=osm.topVersion(project.store[etype][eid])
 		const iterate=(fn)=>{
 			let pid,pv,pdata
@@ -351,8 +334,8 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 				let cv=ev
 				let cdata=project.store[etype][eid][ev]
 				if (ev==0) {
-					if (etype=='way' && wayParents[eid]) {
-						[cid,cv]=wayParents[eid]
+					if (parent) {
+						[cid,cv]=parent
 						cdata=project.store[etype][cid][cv]
 					} else {
 						;[pid,pv,pdata]=[cid,cv,cdata]
@@ -626,19 +609,13 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		response.write(`</form>\n`)
 		response.write(`</details>\n`)
 	}
-	for (const etype of ['node','way','relation']) {
-		if (order=='name') {
-			const eids=[]
-			for (const [eid,evs] of elementVersions[etype]) {
-				const eLastVersion=evs[evs.length-1]
-				const ename=project.store[etype][eid][eLastVersion].tags.name
-				eids.push([eid,ename])
-			}
-			eids.sort(([eid1,ename1],[eid2,ename2])=>(ename1??'').localeCompare(ename2??''))
-			for (const [eid] of eids) writeElement(etype,eid)
-		} else {
-			for (const eid of elementVersions[etype].keys()) writeElement(etype,eid)
-		}
+	response.write(`<h2>Changes per element</h2>\n`)
+	response.write(`<ul>\n`)
+	response.write(`<li><a href=cpe>default order</a>\n`)
+	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
+	response.write(`</ul>\n`)
+	for (const [etype,eid,evs,parent] of orderChangedElements(project,changesets,order)) {
+		writeElement(etype,eid,evs,parent) // TODO hide parent, pass iterator
 	}
 }
 
@@ -805,6 +782,43 @@ function *filterElements(project,changesets,filters) {
 				[...vsEntries[etype][eid]??[]],
 				[...vpEntries[etype][eid]??[]]
 			]
+		}
+	}
+}
+
+function *orderChangedElements(project,changesets,order) {
+	const elementVersions={node:new Map(),way:new Map(),relation:new Map()}
+	const wayParents={}
+	for (const [cid,changes] of changesets) {
+		const parentQuery=createParentQuery(project,changes)
+		for (const [,etype,eid,ev] of changes) {
+			if (!elementVersions[etype].has(eid)) elementVersions[etype].set(eid,[])
+			elementVersions[etype].get(eid).push(ev)
+			if (etype=='way' && ev==1) {
+				wayParents[eid]=parentQuery(eid)
+			}
+		}
+	}
+	for (const etype of ['node','way','relation']) {
+		const getEntry=(eid)=>[
+			etype,eid,elementVersions[etype].get(eid),
+			etype=='way'?wayParents[eid]:undefined
+		]
+		if (order=='name') {
+			const eids=[]
+			for (const [eid,evs] of elementVersions[etype]) {
+				const eLastVersion=evs[evs.length-1]
+				const ename=project.store[etype][eid][eLastVersion].tags.name
+				eids.push([eid,ename])
+			}
+			eids.sort(([eid1,ename1],[eid2,ename2])=>(ename1??'').localeCompare(ename2??''))
+			for (const [eid] of eids) {
+				yield getEntry(eid)
+			}
+		} else {
+			for (const eid of elementVersions[etype].keys()) {
+				yield getEntry(eid)
+			}
 		}
 	}
 }
