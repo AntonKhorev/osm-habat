@@ -379,14 +379,12 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 		})
 		let isUntagged=true
 		let isV1only=true
-		let isV1V2only=true
 		let isOwnV1=targetVersions.has(1)
 		let isVtopDeleted=true
 		let isOwnVtop=true
 		iterate((cid,cv,cdata)=>{
 			isUntagged = isUntagged && (Object.keys(cdata.tags).length==0)
 			isV1only = isV1only && (cid==eid && cv==1)
-			isV1V2only = isV1V2only && (cid==eid && (cv==1 || cv==2))
 			isVtopDeleted = !cdata.visible
 			isOwnVtop = (cid==eid && targetVersions.has(cv))
 		})
@@ -545,69 +543,6 @@ export function analyzeChangesPerElement(response,project,changesets,order) { //
 					props.push(cTargeted?'deleted':'(later deleted)')
 				}
 			})
-
-			/*
-			let pTargeted=false
-			let collapsedData
-			iterate((cid,cv,cdata,pid,pv,pdata)=>{
-				const cTargeted=(cid==eid && targetVersions.has(cv))
-				if (!pdata) { // first iteration
-					if (cTargeted) {
-						if (cv==1) {
-							collapsedData={
-								visible:false,
-								tags:{},
-							}
-						} else {
-							collapsedData={
-								visible:true, // assume that it's not an undelete
-							}
-						}
-					} else {
-						collapsedData=cdata
-						return
-					}
-				}
-				if (pTagreted!=cTargeted) {
-					trigger(collapsedData,pData)
-					collapsedData=pData
-				}
-				pTargeted=cTargeted
-			})
-			*/
-/*
-			if (isNotInteresting) {
-				if (isUntagged) props.push('untagged')
-				if (isV1only || isOwnV1) props.push(`${isOwnV1?'own ':''}v1${isV1only?' only':''}`)
-				if (!isV1only && isV1V2only) props.push('v1 & v2 only')
-				if (!isV1only && (isVtopDeleted || isOwnVtop)) props.push(`${isOwnVtop?'own ':''}vtop${isVtopDeleted?' deleted':''}`)
-			}
-			const topData=project.store[etype][eid][maxVersion]
-			const typeAndName=[]
-			const makeKvLink=(k,v)=>{
-				const keyHref=`https://wiki.openstreetmap.org/wiki/Key:highway`
-				const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:highway=${v}`
-				return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
-			}
-			const pushKvLink=(k)=>{
-				if (topData.tags[k]==null) return
-				typeAndName.push(makeKvLink(k,topData.tags[k]))
-			}
-			if (topData.tags.amenity!=null) {
-				const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:amenity=${topData.tags.amenity}`
-				typeAndName.push(e.h`<a href=${tagHref}>${topData.tags.amenity}</a>`)
-			}
-			pushKvLink('highway')
-			pushKvLink('railway')
-			pushKvLink('landuse')
-			if (topData.tags.name!=null) {
-				typeAndName.push(e.h`"${topData.tags.name}"`)
-			}
-			if (typeAndName.length>0) {
-				typeAndName.unshift(isOwnV1?'created':'modified')
-				props.push(typeAndName.join(' '))
-			}
-*/
 			if (props.length>0) response.write(': '+props.join('; ')+'\n')
 		}
 		response.write(`</summary>\n`)
