@@ -298,13 +298,81 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 }
 
 export function analyzeChangesPerElement(response,project,changesets,order) {
-	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
-	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
-	const makeTimestampHtml=(timestamp)=>{
-		if (timestamp==null) return 'unknown'
-		const pad=n=>n.toString().padStart(2,'0')
-		const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-		return e.h`<time>${format(new Date(timestamp))}</time>`
+	// version states:
+	const IN=Symbol('IN')
+	const OUT=Symbol('OUT')
+	const PARENT=Symbol('PARENT')
+	const UNKNOWN=Symbol('UNKNOWN') // not fetched
+	const NULL=Symbol('NULL') // doesn't exist, pre-version-1 state
+	const getVersionTable=(etype,eid,evs,parent)=>{
+		// [[state,eid,ev],...]
+		// first state is always either UNKNOWN or NULL
+		const versionTable=[]
+		const targetVersions=new Set(evs)
+		const minVersion=evs[0]
+		const maxVersion=osm.topVersion(project.store[etype][eid])
+		if (parent) {
+			versionTable.push([UNKNOWN])
+			versionTable.push([PARENT,...parent])
+		} else if (minVersion==1) {
+			versionTable.push([NULL])
+		} else if (project.store[etype][eid][minVersion-1]) {
+			versionTable.push([UNKNOWN])
+			versionTable.push([OUT,eid,minVersion-1])
+		} else {
+			versionTable.push([UNKNOWN])
+		}
+		for (let ev=minVersion;ev<=maxVersion;ev++) {
+			if (!project.store[etype][eid][ev]) {
+				// do nothing for now, could put UNKNOWN state
+			} else {
+				versionTable.push([targetVersions.has(ev)?IN:OUT,eid,ev])
+			}
+		}
+		return versionTable
+	}
+	const collapseVersionTable=(versionTable)=>{
+		const collapsedVersionTable=[]
+		for (const entry of versionTable) {
+			if (collapsedVersionTable.length>0) {
+				const [state1]=collapsedVersionTable[collapsedVersionTable.length-1]
+				const [state2]=entry
+				if ((state1==IN)==(state2==IN)) collapsedVersionTable.pop()
+			}
+			collapsedVersionTable.push(entry)
+		}
+		return collapsedVersionTable
+	}
+	const iterateVersionTable=(etype,versionTable,fn)=>{
+		for (let i=1;i<versionTable.length;i++) {
+			const [cstate,cid,cv]=versionTable[i]
+			const [pstate,pid,pv]=versionTable[i-1]
+			const getData=(state,eid,ev)=>{
+				if (state==UNKNOWN || state==NULL) return undefined
+				return project.store[etype][eid][ev]
+			}
+			fn(
+				cstate,cid,cv,getData(cstate,cid,cv),
+				pstate,pid,pv,getData(pstate,pid,pv)
+			)
+		}
+	}
+	const isInteresting=(etype,versionTable)=>{
+		let isUntagged=true
+		let isV1only=true
+		let isOwnV1=false
+		let isVtopDeleted=false
+		let isOwnVtop=false
+		iterateVersionTable(etype,versionTable,(cstate,cid,cv,cdata)=>{
+			isUntagged = isUntagged && (Object.keys(cdata.tags).length==0)
+			isV1only = isV1only && (cstate!=PARENT && cv==1)
+			isOwnV1 = isOwnV1 || (cstate==IN && cv==1)
+			isVtopDeleted = !cdata.visible
+			isOwnVtop = cstate==IN
+		})
+		return !(etype=='node' && isUntagged && isOwnV1 && (
+			isV1only || isVtopDeleted || isOwnVtop
+		))
 	}
 	const getChangeType=(v1,v2)=>{
 		let change
@@ -312,6 +380,146 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		if (v1!=null && v2==null) change='delete'
 		if (v1!=null && v2!=null && v1!=v2) change='modify'
 		return change
+	}
+	const getChangeSummary=(etype,collapsedVersionTable)=>{
+		const changeSummary=[]
+		iterateVersionTable(etype,collapsedVersionTable,(
+			cstate,cid,cv,cdata,
+			pstate,pid,pv,pdata
+		)=>{
+			const typeKeys=new Set([ // https://wiki.openstreetmap.org/wiki/Map_features#Primary_features
+				'aerialway','aeroway','amenity','barrier','boundary','building',
+				'craft','emergency','entrance','geological','healthcare',
+				'highway','historic','landuse','leisure','man_made','military',
+				'natural','office','place','power','public_transport',
+				'railway','route','shop','telecom','tourism','waterway'
+				// 'sport'
+				// 'water' - only with natural=water
+			])
+			const readableTypeKeys=new Set([
+				'amenity','barrier','emergency','leisure','man_made','place','tourism'
+			])
+			const getTypes=(tags)=>{
+				const makeKvLink=(k,v)=>{
+					const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
+					const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
+					return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
+				}
+				const makeVLink=(k,v)=>{
+					if (v=='yes') return makeKvLink(k,v)
+					const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
+					return e.h`<a href=${tagHref}>${v.replace(/_/g,' ')}</a>`
+				}
+				const types=[]
+				for (const [k,v] of Object.entries(tags)) {
+					if (!typeKeys.has(k)) continue
+					if (readableTypeKeys.has(k)) {
+						types.push(makeVLink(k,v))
+					} else {
+						types.push(makeKvLink(k,v))
+					}
+				}
+				return types
+			}
+			const pVisible=pdata?pdata.visible:pv>0
+			if (cdata.visible && !pVisible) {
+				const types=getTypes(cdata.tags)
+				if (types.length==0) {
+					types.push((Object.keys(cdata.tags).length==0?'untagged ':'tagged ')+etype)
+				}
+				if (cdata.tags.name!=null) {
+					types.push(`"${cdata.tags.name}"`)
+				}
+				const type=types.join(' ')
+				changeSummary.push(cstate==IN?`created ${type}`:`(later recreated as ${type})`)
+			} else if (cdata.visible && pVisible) {
+				// let changed='modified'
+				let changed=''
+				const mods=[]
+				if (etype=='node') {
+					const isMoved=(cdata.lat!=pdata.lat || cdata.lon!=pdata.lon)
+					if (isMoved) mods.push('moved')
+				} else if (etype=='way') {
+					let isNodesChanged=false
+					if (cdata.nds.length!=pdata.nds?.length) {
+						isNodesChanged=true
+					} else {
+						for (let i=0;i<cdata.nds.length;i++) {
+							if (cdata.nds[i]!=pdata.nds[i]) {
+								isNodesChanged=true
+								break
+							}
+						}
+					}
+					if (isNodesChanged) mods.push('nodes changed')
+				} else if (etype=='relation') {
+					let isMembersChanged=false
+					if (cdata.members.length!=pdata.members?.length) {
+						isMembersChanged=true
+					} else {
+						for (let i=0;i<cdata.members.length;i++) {
+							const [c1,c2,c3]=cdata.members[i]
+							const [p1,p2,p3]=pdata.members[i]
+							if (c1!=p1 || c2!=p2 || c3!=p3) {
+								isMembersChanged=true
+								break
+							}
+						}
+					}
+					if (isMembersChanged) mods.push('members changed')
+				}
+				let nameChange,typeChange,tagChange
+				const mergeChange=(c1,c2)=>{
+					if (!c1) return c2
+					if (!c2) return c1
+					if (c1==c2) return c1
+					return 'modify'
+				}
+				for (const k of Object.keys({...cdata.tags,...pdata.tags})) {
+					const change=getChangeType(pdata.tags[k],cdata.tags[k])
+					if (k=='name') {
+						nameChange=mergeChange(nameChange,change)
+					} else if (typeKeys.has(k)) {
+						typeChange=mergeChange(typeChange,change)
+					} else {
+						tagChange=mergeChange(tagChange,change)
+					}
+				}
+				if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
+				if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
+				if (nameChange=='delete') mods.push(`unnamed`)
+				if (typeChange=='create') mods.push(`type added as ${getTypes(cdata.tags)}`)
+				if (typeChange=='modify') mods.push(`type changed to ${getTypes(cdata.tags)}`)
+				if (typeChange=='delete') mods.push(`type removed`)
+				let t='tags'
+				if (nameChange || typeChange) t='other tags'
+				if (tagChange=='create') mods.push(`${t} added`)
+				if (tagChange=='modify') mods.push(`${t} changed`)
+				if (tagChange=='delete') mods.push(`${t} removed`)
+				for (let i=0;i<mods.length;i++) {
+					if (i==0) {
+						changed=mods[i]
+					} else if (i==mods.length-1) {
+						changed+=' and '+mods[i]
+					} else {
+						changed+=', '+mods[i]
+					}
+				}
+				if (changed=='') changed='modified'
+				changeSummary.push(cstate==IN?changed:`(later ${changed})`)
+			} else if (!cdata.visible && pVisible) {
+				changeSummary.push(cstate==IN?'deleted':'(later deleted)')
+			}
+		})
+		return changeSummary
+	}
+	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
+	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
+	const makeTimestampHtml=(timestamp)=>{
+		if (timestamp==null) return 'unknown'
+		const pad=n=>n.toString().padStart(2,'0')
+		const format=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+		return e.h`<time>${format(new Date(timestamp))}</time>`
 	}
 	const makeChangeCell=(pdata,v1,v2,writer=v=>e.h`${v}`)=>{
 		if (!pdata) return [writer(v2)]
@@ -324,233 +532,35 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		}
 		return `<a class=rc `+dataAttrs+e.h`href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
 	}
-	const writeElement=(etype,eid,evs,parent)=>{
-		const targetVersions=new Set(evs)
-		const minVersion=evs[0]-1
-		const maxVersion=osm.topVersion(project.store[etype][eid])
-		const iterate=(fn)=>{
-			let pid,pv,pdata
-			for (let ev=minVersion;ev<=maxVersion;ev++) {
-				let cid=eid
-				let cv=ev
-				let cdata=project.store[etype][eid][ev]
-				if (ev==0) {
-					if (parent) {
-						[cid,cv]=parent
-						cdata=project.store[etype][cid][cv]
-					} else {
-						;[pid,pv,pdata]=[cid,cv,cdata]
-						continue
-					}
-				}
-				if (!cdata) continue // not fetched, pretend that this version doesn't exist
-				fn(cid,cv,cdata,pid,pv,pdata)
-				;[pid,pv,pdata]=[cid,cv,cdata]
-			}
+	const iterateVersionTableWritingTds=(etype,versionTable,fn)=>iterateVersionTable(etype,versionTable,(
+		cstate,cid,cv,cdata,pstate,pid,pv,pdata
+	)=>{
+		const tdClasses=[]
+		if (cstate==IN) tdClasses.push('target')
+		let output=fn(cstate,cid,cv,cdata,pstate,pid,pv,pdata)
+		if (Array.isArray(output)) {
+			let tdClass
+			[output,tdClass]=output
+			if (tdClass!=null) tdClasses.push(tdClass)
 		}
-		const iterateWritingTds=(fn)=>iterate((cid,cv,cdata,pid,pv,pdata)=>{
-			const tdClasses=[]
-			if (cid==eid && targetVersions.has(cv)) {
-				tdClasses.push('target')
-			}
-			let output=fn(cid,cv,cdata,pid,pv,pdata)
-			if (Array.isArray(output)) {
-				let tdClass
-				[output,tdClass]=output
-				if (tdClass!=null) tdClasses.push(tdClass)
-			}
-			let tdClassAttr=tdClasses.join(' ')
-			if (tdClassAttr=='') tdClassAttr=null
-			response.write(e.h`<td class=${tdClassAttr}>`+output)
-		})
-		let isUntagged=true
-		let isV1only=true
-		let isOwnV1=targetVersions.has(1)
-		let isVtopDeleted=true
-		let isOwnVtop=true
-		iterate((cid,cv,cdata)=>{
-			isUntagged = isUntagged && (Object.keys(cdata.tags).length==0)
-			isV1only = isV1only && (cid==eid && cv==1)
-			isVtopDeleted = !cdata.visible
-			isOwnVtop = (cid==eid && targetVersions.has(cv))
-		})
-		const isNotInteresting=(etype=='node' && isUntagged && isOwnV1 && (
-			isV1only || isVtopDeleted || isOwnVtop
-		))
-		response.write(e.h`<details class=element open=${!isNotInteresting}><summary>\n`)
-		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
-		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
-		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
-		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
-		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
-		{
-			const collapsedVersions=[]
-			iterate((cid,cv,cdata,pid,pv,pdata)=>{
-				const cTargeted=(cid==eid && targetVersions.has(cv))
-				if (collapsedVersions.length==0) { // first iteration
-					if (cTargeted) {
-						collapsedVersions.push([false,pid,pv,pdata])
-					} else {
-						collapsedVersions.push([false,cid,cv,cdata])
-						return
-					}
-				}
-				const [pTargeted]=collapsedVersions[collapsedVersions.length-1]
-				if (pTargeted==cTargeted) collapsedVersions.pop()
-				collapsedVersions.push([cTargeted,cid,cv,cdata])
-			})
-			const iterateOverCollapsed=(fn)=>{
-				for (let i=1;i<collapsedVersions.length;i++) {
-					fn(...collapsedVersions[i],...collapsedVersions[i-1])
-				}
-			}
-			const props=[]
-			iterateOverCollapsed((
-				cTargeted,cid,cv,cdata,
-				pTargeted,pid,pv,pdata
-			)=>{
-				const typeKeys=new Set([ // https://wiki.openstreetmap.org/wiki/Map_features#Primary_features
-					'aerialway','aeroway','amenity','barrier','boundary','building',
-					'craft','emergency','entrance','geological','healthcare',
-					'highway','historic','landuse','leisure','man_made','military',
-					'natural','office','place','power','public_transport',
-					'railway','route','shop','telecom','tourism','waterway'
-					// 'sport'
-					// 'water' - only with natural=water
-				])
-				const readableTypeKeys=new Set([
-					'amenity','barrier','emergency','leisure','man_made','place','tourism'
-				])
-				const getTypes=(tags)=>{
-					const makeKvLink=(k,v)=>{
-						const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
-						const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-						return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
-					}
-					const makeVLink=(k,v)=>{
-						if (v=='yes') return makeKvLink(k,v)
-						const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-						return e.h`<a href=${tagHref}>${v.replace(/_/g,' ')}</a>`
-					}
-					const types=[]
-					for (const [k,v] of Object.entries(tags)) {
-						if (!typeKeys.has(k)) continue
-						if (readableTypeKeys.has(k)) {
-							types.push(makeVLink(k,v))
-						} else {
-							types.push(makeKvLink(k,v))
-						}
-					}
-					return types
-				}
-				const pVisible=pdata?pdata.visible:pv>0
-				if (cdata.visible && !pVisible) {
-					const types=getTypes(cdata.tags)
-					if (types.length==0) {
-						types.push((Object.keys(cdata.tags).length==0?'untagged ':'tagged ')+etype)
-					}
-					if (cdata.tags.name!=null) {
-						types.push(`"${cdata.tags.name}"`)
-					}
-					const type=types.join(' ')
-					props.push(cTargeted?`created ${type}`:`(later recreated as ${type})`)
-				} else if (cdata.visible && pVisible) {
-					// let changed='modified'
-					let changed=''
-					const mods=[]
-					if (etype=='node') {
-						const isMoved=(cdata.lat!=pdata.lat || cdata.lon!=pdata.lon)
-						if (isMoved) mods.push('moved')
-					} else if (etype=='way') {
-						let isNodesChanged=false
-						if (cdata.nds.length!=pdata.nds?.length) {
-							isNodesChanged=true
-						} else {
-							for (let i=0;i<cdata.nds.length;i++) {
-								if (cdata.nds[i]!=pdata.nds[i]) {
-									isNodesChanged=true
-									break
-								}
-							}
-						}
-						if (isNodesChanged) mods.push('nodes changed')
-					} else if (etype=='relation') {
-						let isMembersChanged=false
-						if (cdata.members.length!=pdata.members?.length) {
-							isMembersChanged=true
-						} else {
-							for (let i=0;i<cdata.members.length;i++) {
-								const [c1,c2,c3]=cdata.members[i]
-								const [p1,p2,p3]=pdata.members[i]
-								if (c1!=p1 || c2!=p2 || c3!=p3) {
-									isMembersChanged=true
-									break
-								}
-							}
-						}
-						if (isMembersChanged) mods.push('members changed')
-					}
-					let nameChange,typeChange,tagChange
-					const mergeChange=(c1,c2)=>{
-						if (!c1) return c2
-						if (!c2) return c1
-						if (c1==c2) return c1
-						return 'modify'
-					}
-					for (const k of Object.keys({...cdata.tags,...pdata.tags})) {
-						const change=getChangeType(pdata.tags[k],cdata.tags[k])
-						if (k=='name') {
-							nameChange=mergeChange(nameChange,change)
-						} else if (typeKeys.has(k)) {
-							typeChange=mergeChange(typeChange,change)
-						} else {
-							tagChange=mergeChange(tagChange,change)
-						}
-					}
-					if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
-					if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
-					if (nameChange=='delete') mods.push(`unnamed`)
-					if (typeChange=='create') mods.push(`type added as ${getTypes(cdata.tags)}`)
-					if (typeChange=='modify') mods.push(`type changed to ${getTypes(cdata.tags)}`)
-					if (typeChange=='delete') mods.push(`type removed`)
-					let t='tags'
-					if (nameChange || typeChange) t='other tags'
-					if (tagChange=='create') mods.push(`${t} added`)
-					if (tagChange=='modify') mods.push(`${t} changed`)
-					if (tagChange=='delete') mods.push(`${t} removed`)
-					for (let i=0;i<mods.length;i++) {
-						if (i==0) {
-							changed=mods[i]
-						} else if (i==mods.length-1) {
-							changed+=' and '+mods[i]
-						} else {
-							changed+=', '+mods[i]
-						}
-					}
-					if (changed=='') changed='modified'
-					props.push(cTargeted?changed:`(later ${changed})`)
-				} else if (!cdata.visible && pVisible) {
-					props.push(cTargeted?'deleted':'(later deleted)')
-				}
-			})
-			if (props.length>0) response.write(': '+props.join('; ')+'\n')
-		}
-		response.write(`</summary>\n`)
-		response.write(`<form method=post>\n`)
-		response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
-		response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
+		let tdClassAttr=tdClasses.join(' ')
+		if (tdClassAttr=='') tdClassAttr=null
+		response.write(e.h`<td class=${tdClassAttr}>`+output)
+	})
+	const writeTable=(etype,eid,versionTable)=>{
+		const iterate=(fn)=>iterateVersionTableWritingTds(etype,versionTable,fn)
 		response.write(`<table>`)
 		response.write(`\n<tr><th>element`)
-		iterateWritingTds((cid,cv,cdata)=>makeElementTableHtml(etype,cid,cv))
+		iterate((cstate,cid,cv)=>makeElementTableHtml(etype,cid,cv))
 		response.write(`<td><button formaction=fetch-history>Update history</button>`)
 		response.write(`\n<tr><th>changeset`)
-		iterateWritingTds((cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
+		iterate((cstate,cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
 		response.write(`<th>last updated on`)
 		response.write(`\n<tr><th>timestamp`)
-		iterateWritingTds((cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
+		iterate((cstate,cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
 		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
 		response.write(`\n<tr><th>visible`)
-		iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
+		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
 				if (nid) {
@@ -561,13 +571,13 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 				}
 			})
 			response.write(`\n<tr><th>first node`)
-			iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
+			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
 			response.write(`\n<tr><th>last node`)
-			iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
+			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
 		}
 		response.write(`\n<tr><th>tags`)
 		const allTags={}
-		iterateWritingTds((cid,cv,cdata)=>{
+		iterate((cstate,cid,cv,cdata)=>{
 			Object.assign(allTags,cdata.tags)
 			return ''
 		})
@@ -576,7 +586,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 			let previousValue
 			let changedVersion
 			response.write(e.h`\n<tr><td>${k}`)
-			iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>{
+			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 				const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 				if (change && !isChanged) {
 					isChanged=true
@@ -596,10 +606,10 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
-		iterateWritingTds((cid,cv,cdata,pid,pv,pdata)=>{
+		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 			if (project.redacted[etype][cid]?.[cv]!=null) {
 				return e.h`${project.redacted[etype][cid][cv]}`
-			} else if (cid==eid) {
+			} else if (cstate==IN) {
 				return e.h`<input type=checkbox name=version value=${cv}>`
 			} else {
 				return ''
@@ -607,8 +617,6 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		})
 		response.write(`<td><button formaction=make-redactions>Make redactions file</button>`)
 		response.write(`\n</table>\n`)
-		response.write(`</form>\n`)
-		response.write(`</details>\n`)
 	}
 	response.write(`<h2>Changes per element</h2>\n`)
 	response.write(`<ul>\n`)
@@ -616,7 +624,23 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
 	response.write(`</ul>\n`)
 	for (const [etype,eid,evs,,parent] of filterElements(project,changesets,{},order,5)) {
-		writeElement(etype,eid,evs,parent)
+		const versionTable=getVersionTable(etype,eid,evs,parent)
+		const collapsedVersionTable=collapseVersionTable(versionTable)
+		response.write(e.h`<details class=element open=${isInteresting(etype,versionTable)}><summary>\n`)
+		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
+		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
+		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
+		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
+		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
+		const changeSummary=getChangeSummary(etype,collapsedVersionTable)
+		if (changeSummary.length>0) response.write(': '+changeSummary.join('; ')+'\n')
+		response.write(`</summary>\n`)
+		response.write(`<form method=post>\n`)
+		response.write(e.h`<input type=hidden name=type value=${etype}>\n`)
+		response.write(e.h`<input type=hidden name=id value=${eid}>\n`)
+		writeTable(etype,eid,versionTable)
+		response.write(`</form>\n`)
+		response.write(`</details>\n`)
 	}
 }
 
