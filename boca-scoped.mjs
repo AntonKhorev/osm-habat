@@ -2,7 +2,8 @@
 
 import * as e from './escape.js'
 import * as osm from './osm.js'
-import ParentChecker from './boca-parent.mjs'
+import {createParentQuery} from './boca-parent.mjs'
+import filterElements from './boca-filter.mjs'
 
 export function analyzeCounts(response,project,changesets) {
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -325,7 +326,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 	}
 	const writeElement=(etype,eid,evs,parent)=>{
 		const targetVersions=new Set(evs)
-		const minVersion=evs-1
+		const minVersion=evs[0]-1
 		const maxVersion=osm.topVersion(project.store[etype][eid])
 		const iterate=(fn)=>{
 			let pid,pv,pdata
@@ -614,8 +615,8 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 	response.write(`<li><a href=cpe>default order</a>\n`)
 	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
 	response.write(`</ul>\n`)
-	for (const [etype,eid,evs,parent] of orderChangedElements(project,changesets,order)) {
-		writeElement(etype,eid,evs,parent) // TODO hide parent, pass iterator
+	for (const [etype,eid,evs,,parent] of filterElements(project,changesets,{},order,5)) {
+		writeElement(etype,eid,evs,parent)
 	}
 }
 
@@ -628,7 +629,7 @@ export function viewElements(response,project,changesets,filters) {
 	}
 	response.write(`</table>\n`)
 	let first=true
-	for (const [elementType,elementId,elementVersions] of filterElements(project,changesets,filters)) {
+	for (const [elementType,elementId,elementVersions] of filterElements(project,changesets,filters,null,3)) {
 		if (first) {
 			first=false
 			response.write(`<table>\n`)
@@ -677,7 +678,7 @@ export function viewElements(response,project,changesets,filters) {
 
 export async function fetchFirstVersions(response,project,changesets,filters) {
 	const multifetchList=[]
-	for (const [etype,eid] of filterElements(project,changesets,filters)) {
+	for (const [etype,eid] of filterElements(project,changesets,filters,null,2)) {
 		if (project.store[etype][eid]?.[1]) continue
 		multifetchList.push([etype,eid,1])
 		if (multifetchList.length>=10000) break
@@ -687,7 +688,7 @@ export async function fetchFirstVersions(response,project,changesets,filters) {
 
 export async function fetchPreviousVersions(response,project,changesets,filters) {
 	const multifetchList=[]
-	for (const [etype,eid,,ePreviousVersions] of filterElements(project,changesets,filters)) {
+	for (const [etype,eid,,ePreviousVersions] of filterElements(project,changesets,filters,null,4)) {
 		for (const ev of ePreviousVersions) {
 			if (project.store[etype][eid]?.[ev]) continue
 			multifetchList.push([etype,eid,ev])
@@ -699,7 +700,7 @@ export async function fetchPreviousVersions(response,project,changesets,filters)
 
 export async function fetchLatestVersions(response,project,changesets,filters) {
 	const preMultifetchList=[]
-	for (const [etype,eid] of filterElements(project,changesets,filters)) {
+	for (const [etype,eid] of filterElements(project,changesets,filters,null,2)) {
 		preMultifetchList.push([
 			etype,eid,
 			project.store[etype][eid].top?.timestamp??0
@@ -712,132 +713,4 @@ export async function fetchLatestVersions(response,project,changesets,filters) {
 		if (multifetchList.length>=10000) break
 	}
 	await osm.multifetchToStore(project.store,multifetchList)
-}
-
-/*
-	v1.*=*    v1 must satifsy
-	vt.*=*    currently known top version must satisfy
-	vs.*=*    any of selected versions must satisfy
-	vp.*=*    any of previous versions must satisfy
-	          previous versions = all not selected versions that precede selected versions
-*/
-function *filterElements(project,changesets,filters) {
-	const verFilters={}
-	for (const [filterVerKey,filterValue] of Object.entries(filters)) {
-		let match
-		if (match=filterVerKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
-			const [,filterVer,filterKey]=match
-			if (!verFilters[filterVer]) verFilters[filterVer]={}
-			if (filterKey=='visible' || filterKey=='redacted') {
-				const yn=!(filterValue==0 || filterValue=='no' || filterValue=='false')
-				verFilters[filterVer][filterKey]=yn
-			} else {
-				verFilters[filterVer][filterKey]=filterValue
-			}
-		}
-	}
-	const vpEntries={node:{},way:{},relation:{}} // previous versions even if they are not in the store
-	const vsEntries={node:{},way:{},relation:{}} // current versions - expected to be in the store
-	const addEntry=(vEntries,etype,eid,ev)=>{ // insertions are done in ascending order
-		if (!vEntries[etype][eid]) vEntries[etype][eid]=new Set()
-		vEntries[etype][eid].add(ev)
-	}
-	for (const [,etype,eid,ev] of project.getChangesFromChangesets(changesets)) {
-		if (ev>1 && !vsEntries[etype][eid]?.has(ev-1)) addEntry(vpEntries,etype,eid,ev-1)
-		addEntry(vsEntries,etype,eid,ev)
-	}
-	const passFilters=(filters,etype,eid,ev)=>{
-		const element=project.store[etype][eid][ev]
-		if (filters.type!=null &&
-		    filters.type!=etype) return false
-		if (filters.version!=null &&
-		    filters.version!=ev) return false
-		if (filters.visible!=null) {
-			if (!element || filters.visible!=
-			                element.visible) return false
-		}
-		if (filters.uid!=null) {
-			if (!element || filters.uid!=
-			                element.uid) return false
-		}
-		if (filters.redacted!=null) {
-			if (filters.redacted!=(project.redacted[etype][eid]?.[ev]!=null)) return false
-		}
-		return true
-	}
-	const passAnyVersion=(filters,etype,eid,evSet)=>{
-		if (!evSet) return false
-		for (const ev of evSet) {
-			if (passFilters(filters,etype,eid,ev)) return true
-		}
-		return false
-	}
-	for (const [etype,eids] of Object.entries(vsEntries)) {
-		for (const eid of Object.keys(eids)) {
-			if (verFilters.v1 && !passFilters(verFilters.v1,etype,eid,1)) continue
-			if (verFilters.vt && !passFilters(verFilters.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
-			if (verFilters.vp && !passAnyVersion(verFilters.vp,etype,eid,vpEntries[etype][eid])) continue
-			if (verFilters.vs && !passAnyVersion(verFilters.vs,etype,eid,vsEntries[etype][eid])) continue
-			yield [etype,eid,
-				[...vsEntries[etype][eid]??[]],
-				[...vpEntries[etype][eid]??[]]
-			]
-		}
-	}
-}
-
-function *orderChangedElements(project,changesets,order) {
-	const elementVersions={node:new Map(),way:new Map(),relation:new Map()}
-	const wayParents={}
-	for (const [cid,changes] of changesets) {
-		const parentQuery=createParentQuery(project,changes)
-		for (const [,etype,eid,ev] of changes) {
-			if (!elementVersions[etype].has(eid)) elementVersions[etype].set(eid,[])
-			elementVersions[etype].get(eid).push(ev)
-			if (etype=='way' && ev==1) {
-				wayParents[eid]=parentQuery(eid)
-			}
-		}
-	}
-	for (const etype of ['node','way','relation']) {
-		const getEntry=(eid)=>[
-			etype,eid,elementVersions[etype].get(eid),
-			etype=='way'?wayParents[eid]:undefined
-		]
-		if (order=='name') {
-			const eids=[]
-			for (const [eid,evs] of elementVersions[etype]) {
-				const eLastVersion=evs[evs.length-1]
-				const ename=project.store[etype][eid][eLastVersion].tags.name
-				eids.push([eid,ename])
-			}
-			eids.sort(([eid1,ename1],[eid2,ename2])=>(ename1??'').localeCompare(ename2??''))
-			for (const [eid] of eids) {
-				yield getEntry(eid)
-			}
-		} else {
-			for (const eid of elementVersions[etype].keys()) {
-				yield getEntry(eid)
-			}
-		}
-	}
-}
-
-function createParentQuery(project,changes) {
-	const previousWayVersion={}
-	const parentChecker=new ParentChecker()
-	for (const [,etype,eid,ev] of changes) {
-		if (etype!='way') continue
-		const currentWay=project.store[etype][eid][ev]
-		const previousWay=project.store[etype][eid][ev-1]
-		if (currentWay.visible) parentChecker.addCurrentWay(eid,currentWay.nds)
-		if (previousWay?.visible) {
-			previousWayVersion[eid]=ev-1
-			parentChecker.addPreviousWay(eid,previousWay.nds)
-		}
-	}
-	return (eid)=>{
-		const pid=parentChecker.getParentWay(eid)
-		if (pid) return [pid,previousWayVersion[pid]]
-	}
 }
