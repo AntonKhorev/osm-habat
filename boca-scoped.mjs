@@ -26,7 +26,7 @@ export function analyzeCounts(response,project,changesets) {
 		}
 		response.write(e.h`<tr><td><a href=${'https://www.openstreetmap.org/changeset/'+changesetId}>${changesetId}</a>`)
 		for (const elementType of ['node','way','relation']) {
-			c=count[elementType]
+			const c=count[elementType]
 			response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
 		}
 		response.write(`\n`)
