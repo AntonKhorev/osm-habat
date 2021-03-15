@@ -107,10 +107,12 @@ export default function *filterElements(project,changesets,filters,order,detailL
 		for (const result of iterateFiltered()) {
 			const [etype,eid]=result
 			const ekey=etype[0]+eid
-			let eLastVersion
-			for (eLastVersion of vsEntries.get(ekey)); // TODO store last version separately if this is slow
-			const ename=project.store[etype][eid][eLastVersion].tags.name
-			resultsWithNames.push([result,ename])
+			let eLastDefinedName
+			for (const ev of vsEntries.get(ekey)) {
+				const ename=project.store[etype][eid][ev].tags.name
+				if (ename!=null) eLastDefinedName=ename
+			}
+			resultsWithNames.push([result,eLastDefinedName])
 		}
 		resultsWithNames.sort(([result1,ename1],[result2,ename2])=>(ename1??'').localeCompare(ename2??''))
 		for (const [result] of resultsWithNames) {
