@@ -304,6 +304,22 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 	const PARENT=Symbol('PARENT')
 	const UNKNOWN=Symbol('UNKNOWN') // not fetched
 	const NULL=Symbol('NULL') // doesn't exist, pre-version-1 state
+	// modification types:
+	const CREATE=Symbol('CREATE')
+	const MODIFY=Symbol('MODIFY')
+	const DELETE=Symbol('DELETE')
+	const featureKeys=new Set([ // https://wiki.openstreetmap.org/wiki/Map_features#Primary_features
+		'aerialway','aeroway','amenity','barrier','boundary','building',
+		'craft','emergency','entrance','geological','healthcare',
+		'highway','historic','landuse','leisure','man_made','military',
+		'natural','office','place','power','public_transport',
+		'railway','route','shop','telecom','tourism','waterway'
+		// 'sport'
+		// 'water' - only with natural=water
+	])
+	const readableFeatureKeys=new Set([
+		'amenity','barrier','emergency','leisure','man_made','place','tourism'
+	])
 	const getVersionTable=(etype,eid,evs,parent)=>{
 		// [[state,eid,ev],...]
 		// first state is always either UNKNOWN or NULL
@@ -375,127 +391,158 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		))
 	}
 	const getChangeType=(v1,v2)=>{
-		let change
-		if (v1==null && v2!=null) change='create'
-		if (v1!=null && v2==null) change='delete'
-		if (v1!=null && v2!=null && v1!=v2) change='modify'
-		return change
+		if (v1==null && v2!=null) return CREATE
+		if (v1!=null && v2==null) return DELETE
+		if (v1!=null && v2!=null && v1!=v2) return MODIFY
 	}
-	const getChangeSummary=(etype,collapsedVersionTable)=>{
+	const mergeChangeType=(c1,c2)=>{
+		if (!c1) return c2
+		if (!c2) return c1
+		if (c1==c2) return c1
+		return MODIFY
+	}
+	const getChangeTypeString=(v1,v2)=>({
+		[CREATE]:'create',
+		[MODIFY]:'modify',
+		[DELETE]:'delete',
+	}[getChangeType(v1,v2)])
+	const compareVersions=(
+		etype,
+		cstate,cid,cv,cdata,
+		pstate,pid,pv,pdata
+	)=>{
+		const pVisible=pdata?pdata.visible:pstate!=NULL
+		const diff={}
+		if (!pVisible && cdata.visible) {
+			diff.visible=CREATE
+		} else if (pVisible && !cdata.visible) {
+			diff.visible=DELETE
+		}
+		if (etype=='node') {
+			const isMoved=(cdata.lat!=pdata?.lat || cdata.lon!=pdata?.lon)
+			if (isMoved) diff.geometry=MODIFY
+		} else if (etype=='way') {
+			let isNodesChanged=false
+			if (cdata.nds.length!=(pdata?pdata.nds.length:0)) {
+				isNodesChanged=true
+			} else {
+				for (let i=0;i<cdata.nds.length;i++) {
+					if (cdata.nds[i]!=pdata.nds[i]) {
+						isNodesChanged=true
+						break
+					}
+				}
+			}
+			if (isNodesChanged) diff.geometry=MODIFY // TODO not actually a geometry
+		} else if (etype=='relation') {
+			let isMembersChanged=false
+			if (cdata.members.length!=(pdata?pdata.members.length:0)) {
+				isMembersChanged=true
+			} else {
+				for (let i=0;i<cdata.members.length;i++) {
+					const [c1,c2,c3]=cdata.members[i]
+					const [p1,p2,p3]=pdata.members[i]
+					if (c1!=p1 || c2!=p2 || c3!=p3) {
+						isMembersChanged=true
+						break
+					}
+				}
+			}
+			if (isMembersChanged) diff.geometry=MODIFY // TODO not actually a geometry
+		}
+		for (const k of Object.keys({...cdata.tags,...pdata?.tags})) {
+			const change=getChangeType(pdata?.tags[k],cdata.tags[k])
+			if (!change) continue
+			diff.tags=mergeChangeType(diff.tags,change)
+			if (k=='name') {
+				diff.nameTags=mergeChangeType(diff.nameTags,change)
+			} else if (featureKeys.has(k)) {
+				diff.featureTags=mergeChangeType(diff.featureTags,change) // TODO not entirely correct, if feature tag exists and another another one gets added - should get MODIFY
+			} else {
+				diff.otherTags=mergeChangeType(diff.otherTags,change)
+			}
+		}
+		return diff
+	}
+	const compareFirstAndLastVersions=(etype,collapsedVersionTable)=>{
+		const [cstate,cid,cv]=collapsedVersionTable[collapsedVersionTable.length-1]
+		const [pstate,pid,pv]=collapsedVersionTable[0]
+		const getData=(state,eid,ev)=>{
+			if (state==UNKNOWN || state==NULL) return undefined
+			return project.store[etype][eid][ev]
+		}
+		return compareVersions(etype,
+			cstate,cid,cv,getData(cstate,cid,cv),
+			pstate,pid,pv,getData(pstate,pid,pv)
+		)
+	}
+	const makeElementFeature=(edata)=>{
+		const makeKvLink=(k,v)=>{
+			const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
+			const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
+			return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
+		}
+		const makeVLink=(k,v)=>{
+			if (v=='yes') return makeKvLink(k,v)
+			const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
+			return e.h`<a href=${tagHref}>${v.replace(/_/g,' ')}</a>`
+		}
+		const features=[]
+		for (const [k,v] of Object.entries(edata.tags)) {
+			if (!featureKeys.has(k)) continue
+			if (readableFeatureKeys.has(k)) {
+				features.push(makeVLink(k,v))
+			} else {
+				features.push(makeKvLink(k,v))
+			}
+		}
+		return features.join(' ')
+	}
+	const makeElementDescription=(etype,edata)=>{
+		if (Object.keys(edata.tags).length==0) return 'untagged '+etype
+		const feature=makeElementFeature(edata)
+		if (feature=='') {
+			if (edata.tags.name!=null) return `"${edata.tags.name}"`
+			return 'tagged '+etype
+		} else {
+			if (edata.tags.name!=null) return `${feature} "${edata.tags.name}"`
+			return feature
+		}
+	}
+	const makeChangeSummary=(etype,collapsedVersionTable)=>{
 		const changeSummary=[]
 		iterateVersionTable(etype,collapsedVersionTable,(
 			cstate,cid,cv,cdata,
 			pstate,pid,pv,pdata
 		)=>{
-			const typeKeys=new Set([ // https://wiki.openstreetmap.org/wiki/Map_features#Primary_features
-				'aerialway','aeroway','amenity','barrier','boundary','building',
-				'craft','emergency','entrance','geological','healthcare',
-				'highway','historic','landuse','leisure','man_made','military',
-				'natural','office','place','power','public_transport',
-				'railway','route','shop','telecom','tourism','waterway'
-				// 'sport'
-				// 'water' - only with natural=water
-			])
-			const readableTypeKeys=new Set([
-				'amenity','barrier','emergency','leisure','man_made','place','tourism'
-			])
-			const getTypes=(tags)=>{
-				const makeKvLink=(k,v)=>{
-					const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
-					const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-					return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
-				}
-				const makeVLink=(k,v)=>{
-					if (v=='yes') return makeKvLink(k,v)
-					const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-					return e.h`<a href=${tagHref}>${v.replace(/_/g,' ')}</a>`
-				}
-				const types=[]
-				for (const [k,v] of Object.entries(tags)) {
-					if (!typeKeys.has(k)) continue
-					if (readableTypeKeys.has(k)) {
-						types.push(makeVLink(k,v))
-					} else {
-						types.push(makeKvLink(k,v))
-					}
-				}
-				return types
-			}
-			const pVisible=pdata?pdata.visible:pv>0
-			if (cdata.visible && !pVisible) {
-				const types=getTypes(cdata.tags)
-				if (types.length==0) {
-					types.push((Object.keys(cdata.tags).length==0?'untagged ':'tagged ')+etype)
-				}
-				if (cdata.tags.name!=null) {
-					types.push(`"${cdata.tags.name}"`)
-				}
-				const type=types.join(' ')
-				changeSummary.push(cstate==IN?`created ${type}`:`(later recreated as ${type})`)
-			} else if (cdata.visible && pVisible) {
-				// let changed='modified'
-				let changed=''
+			const diff=compareVersions(etype,
+				cstate,cid,cv,cdata,
+				pstate,pid,pv,pdata
+			)
+			if (diff.visible==CREATE) {
+				const desc=makeElementDescription(etype,cdata)
+				changeSummary.push(cstate==IN?`created ${desc}`:`(later recreated as ${desc})`)
+			} else if (diff.visible==DELETE) {
+				changeSummary.push(cstate==IN?'deleted':'(later deleted)')
+			} else {
 				const mods=[]
-				if (etype=='node') {
-					const isMoved=(cdata.lat!=pdata.lat || cdata.lon!=pdata.lon)
-					if (isMoved) mods.push('moved')
-				} else if (etype=='way') {
-					let isNodesChanged=false
-					if (cdata.nds.length!=pdata.nds?.length) {
-						isNodesChanged=true
-					} else {
-						for (let i=0;i<cdata.nds.length;i++) {
-							if (cdata.nds[i]!=pdata.nds[i]) {
-								isNodesChanged=true
-								break
-							}
-						}
-					}
-					if (isNodesChanged) mods.push('nodes changed')
-				} else if (etype=='relation') {
-					let isMembersChanged=false
-					if (cdata.members.length!=pdata.members?.length) {
-						isMembersChanged=true
-					} else {
-						for (let i=0;i<cdata.members.length;i++) {
-							const [c1,c2,c3]=cdata.members[i]
-							const [p1,p2,p3]=pdata.members[i]
-							if (c1!=p1 || c2!=p2 || c3!=p3) {
-								isMembersChanged=true
-								break
-							}
-						}
-					}
-					if (isMembersChanged) mods.push('members changed')
+				if (diff.geometry==MODIFY) {
+					if (etype=='node') mods.push('moved')
+					if (etype=='way') mods.push('nodes changed')
+					if (etype=='relation') mods.push('members changed')
 				}
-				let nameChange,typeChange,tagChange
-				const mergeChange=(c1,c2)=>{
-					if (!c1) return c2
-					if (!c2) return c1
-					if (c1==c2) return c1
-					return 'modify'
-				}
-				for (const k of Object.keys({...cdata.tags,...pdata.tags})) {
-					const change=getChangeType(pdata.tags[k],cdata.tags[k])
-					if (k=='name') {
-						nameChange=mergeChange(nameChange,change)
-					} else if (typeKeys.has(k)) {
-						typeChange=mergeChange(typeChange,change)
-					} else {
-						tagChange=mergeChange(tagChange,change)
-					}
-				}
-				if (nameChange=='create') mods.push(`named "${cdata.tags.name}"`)
-				if (nameChange=='modify') mods.push(`renamed to "${cdata.tags.name}"`)
-				if (nameChange=='delete') mods.push(`unnamed`)
-				if (typeChange=='create') mods.push(`type added as ${getTypes(cdata.tags)}`)
-				if (typeChange=='modify') mods.push(`type changed to ${getTypes(cdata.tags)}`)
-				if (typeChange=='delete') mods.push(`type removed`)
+				if (diff.nameTags==CREATE) mods.push(`named "${cdata.tags.name}"`)
+				if (diff.nameTags==MODIFY) mods.push(`renamed to "${cdata.tags.name}"`)
+				if (diff.nameTags==DELETE) mods.push(`unnamed`)
+				if (diff.featureTags==CREATE) mods.push(`type added as ${makeElementFeature(cdata)}`)
+				if (diff.featureTags==MODIFY) mods.push(`type changed to ${makeElementFeature(cdata)}`)
+				if (diff.featureTags==DELETE) mods.push(`type removed`)
 				let t='tags'
-				if (nameChange || typeChange) t='other tags'
-				if (tagChange=='create') mods.push(`${t} added`)
-				if (tagChange=='modify') mods.push(`${t} changed`)
-				if (tagChange=='delete') mods.push(`${t} removed`)
+				if (diff.nameTags || diff.featureTags) t='other tags'
+				if (diff.otherTags==CREATE) mods.push(`${t} added`)
+				if (diff.otherTags==MODIFY) mods.push(`${t} changed`)
+				if (diff.otherTags==DELETE) mods.push(`${t} removed`)
+				let changed=''
 				for (let i=0;i<mods.length;i++) {
 					if (i==0) {
 						changed=mods[i]
@@ -507,10 +554,10 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 				}
 				if (changed=='') changed='modified'
 				changeSummary.push(cstate==IN?changed:`(later ${changed})`)
-			} else if (!cdata.visible && pVisible) {
-				changeSummary.push(cstate==IN?'deleted':'(later deleted)')
 			}
 		})
+		const fullDiff=compareFirstAndLastVersions(etype,collapsedVersionTable)
+		if (Object.keys(fullDiff).length==0) changeSummary.push('(returned to the original state)')
 		return changeSummary
 	}
 	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
@@ -523,7 +570,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 	}
 	const makeChangeCell=(pdata,v1,v2,writer=v=>e.h`${v}`)=>{
 		if (!pdata) return [writer(v2)]
-		return [writer(v2),getChangeType(v1,v2)]
+		return [writer(v2),getChangeTypeString(v1,v2)]
 	}
 	const makeRcLink=(request,title,data={})=>{
 		let dataAttrs=``
@@ -632,7 +679,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
 		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
 		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
-		const changeSummary=getChangeSummary(etype,collapsedVersionTable)
+		const changeSummary=makeChangeSummary(etype,collapsedVersionTable)
 		if (changeSummary.length>0) response.write(': '+changeSummary.join('; ')+'\n')
 		response.write(`</summary>\n`)
 		response.write(`<form method=post>\n`)
