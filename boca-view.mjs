@@ -287,7 +287,9 @@ export class UserView extends View {
 		response.write(`</dl>\n`)
 		response.write(`<h2>Areas</h2>\n`)
 		response.write(`<ul>\n`)
-		response.write(`<li><a class=rc href=bbox.osm data-upload-policy=false>bbox josm file</a>\n`)
+		const bboxTitle='changeset bboxes of user '+this.user.displayName
+		response.write(e.h`<li><a class=rc href=bbox.osm data-upload-policy=false title=${bboxTitle}>bbox josm file</a>\n`)
+		response.write(e.h`<li><a class=rc href=bbox-noscope.osm data-upload-policy=false title=${'non-scoped '+bboxTitle}>bbox josm file with scopes excluded</a>\n`)
 		response.write(`</ul>\n`)
 	}
 }

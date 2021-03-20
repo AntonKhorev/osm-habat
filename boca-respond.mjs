@@ -88,6 +88,7 @@ function openRcLink(ev) {
 	const url=new URL(targetHref)
 	if (url.host!='127.0.0.1:8111') {
 		targetHref='http://127.0.0.1:8111/import?new_layer=true'
+		if (ev.target.title) targetHref+='&layer_name='+encodeURIComponent(ev.target.title)
 		if (ev.target.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent(ev.target.dataset.uploadPolicy)
 		targetHref+='&url='+encodeURIComponent(ev.target.href)
 	}

@@ -97,7 +97,7 @@ export default class Project {
 				cids.add(line)
 			} else if (match=line.match(/changeset\/([1-9]\d*)$/)) {
 				const [,cid]=match
-				cids.add(cid)
+				cids.add(Number(cid))
 			}
 		}
 		const sortedCids=[...cids]

@@ -86,6 +86,8 @@ function main(projectDirname) {
 				// ok
 			} else if (subpath=='bbox.osm') {
 				serveBbox(response,project,user)
+			} else if (subpath=='bbox-noscope.osm') {
+				serveBbox(response,project,user,true)
 			} else if (subpath=='fetch-metadata') {
 				await serveFetchUserMetadata(response,project,user,referer)
 			} else if (subpath=='fetch-data') {
@@ -183,31 +185,39 @@ function serveRoot(response,project) {
 	respond.tail(response)
 }
 
-function serveBbox(response,project,user) {
+function serveBbox(response,project,user,noscope=false) {
 	response.writeHead(200,{
 		'Content-Type':'application/xml; charset=utf-8',
 		'Content-Disposition':'attachment; filename="bbox.osm"',
 	})
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-habat" download="never" upload="never">\n`)
-	const csets=[]
-	for (let i=0;i<user.changesets.length;i++) {
-		const changeset=project.changeset[user.changesets[i]]
-		if (changeset.min_lat && changeset.min_lon && changeset.max_lat && changeset.max_lon) {
-			const k=csets.length*4
-			response.write(e.x`  <node id="-${k+1}" lat="${changeset.min_lat}" lon="${changeset.min_lon}" />\n`)
-			response.write(e.x`  <node id="-${k+2}" lat="${changeset.max_lat}" lon="${changeset.min_lon}" />\n`)
-			response.write(e.x`  <node id="-${k+3}" lat="${changeset.max_lat}" lon="${changeset.max_lon}" />\n`)
-			response.write(e.x`  <node id="-${k+4}" lat="${changeset.min_lat}" lon="${changeset.max_lon}" />\n`)
-			csets.push(changeset.id)
+	const skipCids=new Set()
+	if (noscope) {
+		for (const scope in project.scope) {
+			for (const [cid] of project.getScopeChangesets(scope)) {
+				skipCids.add(cid)
+			}
 		}
 	}
-	for (let i=0;i<csets.length;i++) {
+	const cids=[]
+	for (const cid of user.changesets) { // read directly from user to include changesets that are not downloaded
+		if (skipCids.has(cid)) continue
+		const changeset=project.changeset[cid]
+		if (!(changeset.min_lat && changeset.min_lon && changeset.max_lat && changeset.max_lon)) continue
+		const k=cids.length*4
+		response.write(e.x`  <node id="-${k+1}" lat="${changeset.min_lat}" lon="${changeset.min_lon}" />\n`)
+		response.write(e.x`  <node id="-${k+2}" lat="${changeset.max_lat}" lon="${changeset.min_lon}" />\n`)
+		response.write(e.x`  <node id="-${k+3}" lat="${changeset.max_lat}" lon="${changeset.max_lon}" />\n`)
+		response.write(e.x`  <node id="-${k+4}" lat="${changeset.min_lat}" lon="${changeset.max_lon}" />\n`)
+		cids.push(cid)
+	}
+	for (let i=0;i<cids.length;i++) {
 		response.write(e.x`  <way id="-${i+1}">\n`)
 		for (let j=0;j<=4;j++) {
 			response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
-			response.write(e.x`    <tag k="url" v="https://www.openstreetmap.org/changeset/${csets[i]}" />\n`)
-			const comment=project.changeset[csets[i]].tags.comment
+			response.write(e.x`    <tag k="url" v="https://www.openstreetmap.org/changeset/${cids[i]}" />\n`)
+			const comment=project.changeset[cids[i]].tags.comment
 			if (comment!==undefined) response.write(e.x`    <tag k="name" v="${comment}" />\n`)
 		}
 		response.write(e.x`  </way>\n`)
