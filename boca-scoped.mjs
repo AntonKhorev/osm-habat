@@ -656,7 +656,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 			if (project.redacted[etype][cid]?.[cv]!=null) {
 				return e.h`${project.redacted[etype][cid][cv]}`
-			} else if (cstate==IN) {
+			} else if (cstate==IN || cstate==OUT) {
 				return e.h`<input type=checkbox name=version value=${cv}>`
 			} else {
 				return ''
