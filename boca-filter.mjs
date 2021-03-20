@@ -1,3 +1,4 @@
+import * as osm from './osm.js'
 import {createParentQuery} from './boca-parent.mjs'
 
 /*
