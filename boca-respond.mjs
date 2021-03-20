@@ -84,7 +84,14 @@ function openRcLink(ev) {
 	let $status=document.createElement('span')
 	$status.innerHTML='[INITIATED]'
 	ev.target.after($status)
-	fetch(ev.target.href).then(response=>{
+	let targetHref=ev.target.href
+	const url=new URL(targetHref)
+	if (url.host!='127.0.0.1:8111') {
+		targetHref='http://127.0.0.1:8111/import?new_layer=true'
+		if (ev.target.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent(ev.target.dataset.uploadPolicy)
+		targetHref+='&url='+encodeURIComponent(ev.target.href)
+	}
+	fetch(targetHref).then(response=>{
 		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
 		if (response.ok) checkVersions(ev.target)
 	}).catch((er)=>{

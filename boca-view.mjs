@@ -287,7 +287,7 @@ export class UserView extends View {
 		response.write(`</dl>\n`)
 		response.write(`<h2>Areas</h2>\n`)
 		response.write(`<ul>\n`)
-		response.write(`<li><a href=bbox.osm>bbox josm file</a>\n`)
+		response.write(`<li><a class=rc href=bbox.osm data-upload-policy=false>bbox josm file</a>\n`)
 		response.write(`</ul>\n`)
 	}
 }
