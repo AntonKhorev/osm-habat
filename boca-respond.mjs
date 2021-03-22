@@ -237,6 +237,12 @@ function showItem(layerGroup,$item) {
 		])
 	} else if ($item.classList.contains('node') && $item.dataset.lat!=null) {
 		feature=L.circleMarker([$item.dataset.lat,$item.dataset.lon])
+	} else if ($item.classList.contains('way')) {
+		const latlons=[]
+		for ($nodeItem of $item.querySelectorAll('.nd')) {
+			latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
+		}
+		if (latlons.length>1) feature=L.polyline(latlons)
 	}
 	if (feature) {
 		feature.addTo(layerGroup)

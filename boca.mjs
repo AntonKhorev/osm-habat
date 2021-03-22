@@ -544,20 +544,17 @@ async function serveChangeset(response,project,cid) {
 }
 
 async function getWayNodes(project,cid) {
-	const csetNodes={}
+	const csetNodeVersions={}
 	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
 		if (etype!='node') continue
-		csetNodes[eid]=project.store[etype][eid][ev]
+		csetNodeVersions[eid]=ev
 	}
 	const needNodeTimestamp={} // id:timestamp
 	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
 		if (etype!='way') continue
 		const way=project.store[etype][eid][ev]
 		for (const nodeId of way.nds) {
-			if (csetNodes[nodeId]) {
-				if (!csetNodes[nodeId].visible) throw new Error(`way #${eid} includes invisible node #${nodeId}`)
-				continue
-			}
+			if (csetNodeVersions[nodeId]) continue
 			if (needNodeTimestamp[nodeId]==null) needNodeTimestamp[nodeId]=0
 			if (needNodeTimestamp[nodeId]<way.timestamp) needNodeTimestamp[nodeId]=way.timestamp
 		}
@@ -576,7 +573,7 @@ async function getWayNodes(project,cid) {
 	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
 		if (etype!='way') continue
 		const way=project.store[etype][eid][ev]
-		wayNodes[eid]=way.nds.map(id=>[id,nodeVersions[id]])
+		wayNodes[eid]=way.nds.map(id=>[id,csetNodeVersions[id]??nodeVersions[id]])
 	}
 	return wayNodes
 }
