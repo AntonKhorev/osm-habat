@@ -96,6 +96,14 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`User route not defined`)
 			}
+		} else if (match=pathname.match(new RegExp('^/changeset/([1-9]\\d*)/$'))) {
+			const [,cid]=match
+			if (!project.store.changeset[cid]) {
+				response.writeHead(404)
+				response.end(`Changeset #${cid} not found`)
+				return
+			}
+			serveChangeset(response,project,cid)
 		} else if (pathname=='/favicon.ico') {
 			fs.readFile(new URL('./favicon.ico',import.meta.url),(err,data)=>{
 				if (err) {
@@ -169,7 +177,8 @@ function serveRoot(response,project) {
 	response.write(`<h3>Fetched data of changesets</h3>\n`)
 	response.write(`<div>`)
 	for (const cid in project.store.changeset) {
-		response.write(e.h`${cid} `)
+		const href=e.u`/changeset/${cid}/`
+		response.write(e.h`<a href=${href}>${cid}</a> `)
 	}
 	response.write(`</div>\n`)
 	response.write(`<h2>Actions</h2>\n`)
@@ -464,4 +473,17 @@ function mergeChangesets(changesets1,changesets2) {
 	const changesets=[...changesetsSet]
 	changesets.sort((x,y)=>(x-y))
 	return changesets
+}
+
+function serveChangeset(response,project,cid) {
+	respond.mapHead(response,'changeset '+cid)
+	{
+		const osmHref=e.u`https://www.openstreetmap.org/changeset/${cid}`
+		response.write(e.h`<div>changeset ${cid} <a href=${osmHref}>[osm]</a></div>\n`)
+	}
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		const osmHref=e.u`https://www.openstreetmap.org/${etype}/${eid}`
+		response.write(e.h`<div>${ctype} ${etype} ${eid} <a href=${osmHref}>[osm]</a></div>\n`)
+	}
+	respond.mapTail(response)
 }

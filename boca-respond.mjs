@@ -115,3 +115,52 @@ export function fetchError(response,ex,pageTitle,pageBody) {
 	response.write(`<p><a href=/>return to main page</a>\n`)
 	tail(response)
 }
+
+export function mapHead(response,title,httpCode=200) {
+	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
+	response.write(
+e.h`<!DOCTYPE html>
+<html lang=en>
+<head>
+<meta charset=utf-8>
+<title>${title}</title>
+<link rel=stylesheet href=https://unpkg.com/leaflet@1.7.1/dist/leaflet.css>
+<script src=https://unpkg.com/leaflet@1.7.1/dist/leaflet.js></script>
+<style>
+body {
+	margin: 0;
+}
+.items {
+	position: fixed;
+	width: 20%;
+	height: 100%;
+	left: 0;
+	overflow-y: scroll;
+}
+.map {
+	position: fixed;
+	width: 80%;
+	height: 100%;
+	right: 0;
+}
+</style>
+</head>
+<body>
+<div class=items>
+`
+	)
+}
+
+export function mapTail(response) {
+	response.end(
+`</div>
+<div class=map>
+Please enable javascript to see the map.
+</div>
+<script>
+// TODO add map
+</script>
+</body>
+</html>`
+	)
+}
