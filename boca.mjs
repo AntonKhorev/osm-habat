@@ -477,17 +477,14 @@ function mergeChangesets(changesets1,changesets2) {
 
 function serveChangeset(response,project,cid) {
 	respond.mapHead(response,'changeset '+cid)
-	function writeItem(type,data,label,osmHref) {
-		let dataAttrs=''
-		for (const [k,v] of Object.entries(data)) {
-			dataAttrs+=e.h` data-${k}=${v}`
-		}
-		const itemClass=`item ${type}`
-		response.write(e.h`<div class=${itemClass}`+dataAttrs+e.h`><label><input type=checkbox>${label}</label> `)
-		response.write(e.h`<a href=${osmHref}>[osm]</a>`)
-		response.write(`</div>\n`)
+	writeChangesetStart(cid)
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		writeElementStart(ctype,etype,eid,ev)
+		writeItemEnd()
 	}
-	{
+	writeItemEnd()
+	respond.mapTail(response)
+	function writeChangesetStart(cid) {
 		const data={id:cid}
 		const changeset=project.changeset[cid]
 		if (changeset?.min_lat && changeset?.min_lon && changeset?.max_lat && changeset?.max_lon) {
@@ -496,26 +493,39 @@ function serveChangeset(response,project,cid) {
 			data['max-lat']=changeset.max_lat
 			data['max-lon']=changeset.max_lon
 		}
-		writeItem(
+		writeItemStart(
 			'changeset',
 			data,
 			`changeset ${cid}`,
 			e.u`https://www.openstreetmap.org/changeset/${cid}`
 		)
 	}
-	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+	function writeElementStart(ctype,etype,eid,ev) {
 		const data={id:eid}
 		const element=project.store[etype][eid][ev]
 		if (element.lat!=null && element.lon!=null) {
 			data.lat=element.lat
 			data.lon=element.lon
 		}
-		writeItem(
+		writeItemStart(
 			etype,
 			data,
 			`${ctype} ${etype} ${eid}`,
 			e.u`https://www.openstreetmap.org/${etype}/${eid}`
 		)
 	}
-	respond.mapTail(response)
+	function writeItemStart(type,data,label,osmHref) {
+		const itemClass=`item ${type}`
+		let dataAttrs=''
+		for (const [k,v] of Object.entries(data)) {
+			dataAttrs+=e.h` data-${k}=${v}`
+		}
+		response.write(e.h`<details class=${itemClass}`+dataAttrs+e.h`><summary><label><input type=checkbox>${label}</label></summary>\n`)
+		response.write(e.h`<div class=item-details>\n`)
+		response.write(e.h`<a href=${osmHref}>[osm]</a>\n`)
+		response.write(`</div>\n`)
+	}
+	function writeItemEnd() {
+		response.write(`</details>\n`)
+	}
 }

@@ -130,18 +130,29 @@ e.h`<!DOCTYPE html>
 body {
 	margin: 0;
 }
+.map {
+	position: fixed;
+	width: 80%;
+	height: 100%;
+	right: 0;
+}
 .items {
 	position: fixed;
 	width: 20%;
 	height: 100%;
 	left: 0;
 	overflow-y: scroll;
+	box-sizing: border-box;
+	padding-left: 1em;
 }
-.map {
-	position: fixed;
-	width: 80%;
-	height: 100%;
-	right: 0;
+.item summary {
+	list-style-position: outside;
+}
+.item > summary::marker {
+	content: "+";
+}
+.item[open] > summary::marker {
+	content: "−";
 }
 </style>
 </head>
@@ -179,7 +190,7 @@ function addMapAndControls($mapContainer) {
 			hideItem(layerGroup,$item)
 		}
 	}
-	for (const $item of document.querySelectorAll('div.item')) {
+	for (const $item of document.querySelectorAll('.item')) {
 		const $itemCheckbox=$item.querySelector('input[type=checkbox]')
 		if ($itemCheckbox.checked) showItem(layerGroup,$item)
 		$itemCheckbox.addEventListener('change',itemCheckboxListener)
