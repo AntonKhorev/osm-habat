@@ -156,10 +156,10 @@ body {
 	padding-left: 1em;
 }
 .item {
-	clear:both;
+	clear: both;
 }
 .item button {
-	float:right;
+	float: right;
 }
 .item summary {
 	list-style-position: outside;
@@ -169,6 +169,9 @@ body {
 }
 .item[open] > summary::marker {
 	content: url("data:image/svg+xml;charset=UTF-8,${makeSvgMarker(svgInsidesMinus)}")
+}
+.item ul {
+	margin: 0;
 }
 </style>
 </head>

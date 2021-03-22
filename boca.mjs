@@ -475,7 +475,13 @@ function mergeChangesets(changesets1,changesets2) {
 	return changesets
 }
 
-function serveChangeset(response,project,cid) {
+async function serveChangeset(response,project,cid) {
+	let wayNodes
+	try {
+		wayNodes=await getWayNodes(project,cid)
+	} catch (ex) {
+		return respond.fetchError(response,ex,'way node fetch error',`<p>fetching way nodes failed\n`)
+	}
 	respond.mapHead(response,'changeset '+cid)
 	writeChangesetStart(cid)
 	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
@@ -513,6 +519,15 @@ function serveChangeset(response,project,cid) {
 			`${ctype} ${etype} ${eid}`,
 			e.u`https://www.openstreetmap.org/${etype}/${eid}`
 		)
+		if (etype=='way') {
+			response.write(`<div>way nodes:<ul>\n`)
+			for (const [nodeId,nodeVersion] of wayNodes[eid]) {
+				const node=project.store.node[nodeId][nodeVersion]
+				const nodeHref=e.u`https://www.openstreetmap.org/node/${nodeId}`
+				response.write(e.h`<li class=nd data-lat=${node.lat} data-lon=${node.lon}><a href=${nodeHref}>node ${nodeId}</a> v${nodeVersion}\n`)
+			}
+			response.write(`</ul></div>\n`)
+		}
 	}
 	function writeItemStart(type,data,label,osmHref) {
 		const itemClass=`item ${type}`
@@ -521,11 +536,108 @@ function serveChangeset(response,project,cid) {
 			dataAttrs+=e.h` data-${k}=${v}`
 		}
 		response.write(e.h`<details class=${itemClass}`+dataAttrs+e.h`><summary><label><input type=checkbox>${label}</label></summary>\n`)
-		response.write(e.h`<div class=item-details>\n`)
-		response.write(e.h`<a href=${osmHref}>[osm]</a>\n`)
-		response.write(`</div>\n`)
+		response.write(e.h`<div><a href=${osmHref}>[osm]</a></div>\n`)
 	}
 	function writeItemEnd() {
 		response.write(`</details>\n`)
 	}
+}
+
+async function getWayNodes(project,cid) {
+	const csetNodes={}
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		if (etype!='node') continue
+		csetNodes[eid]=project.store[etype][eid][ev]
+	}
+	const needNodeTimestamp={} // id:timestamp
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		if (etype!='way') continue
+		const way=project.store[etype][eid][ev]
+		for (const nodeId of way.nds) {
+			if (csetNodes[nodeId]) {
+				if (!csetNodes[nodeId].visible) throw new Error(`way #${eid} includes invisible node #${nodeId}`)
+				continue
+			}
+			if (needNodeTimestamp[nodeId]==null) needNodeTimestamp[nodeId]=0
+			if (needNodeTimestamp[nodeId]<way.timestamp) needNodeTimestamp[nodeId]=way.timestamp
+		}
+	}
+	const nodeVersions={}
+	let [madeChanges,madeFetches]=await getWayNodesInitialVersions(project.store,needNodeTimestamp,nodeVersions)
+	while (madeChanges) {
+		let [madeMoreChanges,madeMoreFetches]=await getWayNodesImproveVersions(project.store,needNodeTimestamp,nodeVersions)
+		madeChanges=madeMoreChanges
+		madeFetches=madeFetches||madeMoreFetches
+	}
+	if (madeFetches) {
+		project.saveStore()
+	}
+	const wayNodes={}
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		if (etype!='way') continue
+		const way=project.store[etype][eid][ev]
+		wayNodes[eid]=way.nds.map(id=>[id,nodeVersions[id]])
+	}
+	return wayNodes
+}
+
+async function getWayNodesInitialVersions(store,needTimestamps,versions) {
+	const madeChanges=true // will populate initial vesions
+	const multifetchList=[] // request only top vesions
+	for (const [id,needTimestamp] of Object.entries(needTimestamps)) {
+		const nodeStore=store.node[id]
+		if (!nodeStore) {
+			// node not fetched - need to download top version
+			multifetchList.push(['node',id])
+			continue
+		}
+		if (nodeStore.top && nodeStore.top.timestamp>=needTimestamp) {
+			// top version checked after required time - no need to download another one
+			continue
+		}
+		const vt=osm.topVersion(nodeStore)
+		if (nodeStore[vt].timestamp<needTimestamp) {
+			// top fetched vertion is older than required
+			multifetchList.push(['node',id])
+		}
+	}
+	if (multifetchList.length>0) {
+		await osm.multifetchToStore(store,multifetchList)
+	}
+	for (const [id,needTimestamp] of Object.entries(needTimestamps)) {
+		const nodeStore=store.node[id]
+		let v=0
+		for (;v<osm.topVersion(nodeStore);v++) { // TODO binary search
+			if (!nodeStore[v]) continue
+			if (nodeStore[v].timestamp>=needTimestamp) break
+		}
+		versions[id]=v
+	}
+	return [madeChanges,multifetchList.length>0]
+}
+
+async function getWayNodesImproveVersions(store,needTimestamps,versions) {
+	let madeChanges=false
+	const multifetchList=[]
+	for (const [id,needTimestamp] of Object.entries(needTimestamps)) {
+		const nodeStore=store.node[id]
+		let v=versions[id]
+		if (nodeStore[v].timestamp<=needTimestamp) continue
+		madeChanges=true
+		for (;v>0;v--) {
+			if (!nodeStore[v]) {
+				multifetchList.push(['node',id,v])
+				break
+			}
+			if (nodeStore[v].timestamp<=needTimestamp) {
+				break
+			}
+		}
+		if (v<=0) throw new Error(`node #${id} has version 1 newer than requred`)
+		versions[id]=v
+	}
+	if (multifetchList.length>0) {
+		await osm.multifetchToStore(store,multifetchList)
+	}
+	return [madeChanges,multifetchList.length>0]
 }
