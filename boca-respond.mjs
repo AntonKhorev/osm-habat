@@ -118,12 +118,22 @@ export function fetchError(response,ex,pageTitle,pageBody) {
 
 export function mapHead(response,title,httpCode=200) {
 	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
+	const titleHtml=e.h`${title}`
+	const makeSvgMarker=(insides)=>
+		`<svg xmlns='http://www.w3.org/2000/svg' version='1.1' height='1em' width='1em' viewBox='-1 -1 2 2'>`+
+		`<rect x='-1' y='-1' width='2' height='2' fill='white' stroke='black' stroke-width='0.5' />`+
+		insides+
+		`</svg>`
+	const svgInsidesMinus=
+		`<line x1='-0.5' x2='0.5' y1='0' y2='0' stroke='black' stroke-width='0.25' />`
+	const svgInsidesPlus=svgInsidesMinus+
+		`<line y1='-0.5' y2='0.5' x1='0' x2='0' stroke='black' stroke-width='0.25' />`
 	response.write(
-e.h`<!DOCTYPE html>
+`<!DOCTYPE html>
 <html lang=en>
 <head>
 <meta charset=utf-8>
-<title>${title}</title>
+<title>${titleHtml}</title>
 <link rel=stylesheet href=https://unpkg.com/leaflet@1.7.1/dist/leaflet.css>
 <script src=https://unpkg.com/leaflet@1.7.1/dist/leaflet.js></script>
 <style>
@@ -149,10 +159,10 @@ body {
 	list-style-position: outside;
 }
 .item > summary::marker {
-	content: "+";
+	content: url("data:image/svg+xml;charset=UTF-8,${makeSvgMarker(svgInsidesPlus)}")
 }
 .item[open] > summary::marker {
-	content: "−";
+	content: url("data:image/svg+xml;charset=UTF-8,${makeSvgMarker(svgInsidesMinus)}")
 }
 </style>
 </head>
