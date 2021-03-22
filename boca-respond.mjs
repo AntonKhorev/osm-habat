@@ -155,6 +155,12 @@ body {
 	box-sizing: border-box;
 	padding-left: 1em;
 }
+.item {
+	clear:both;
+}
+.item button {
+	float:right;
+}
 .item summary {
 	list-style-position: outside;
 }
@@ -200,13 +206,26 @@ function addMapAndControls($mapContainer) {
 			hideItem(layerGroup,$item)
 		}
 	}
+	const panButtonListener=(event)=>{
+		const $panButton=event.target
+		const $item=$panButton.closest('.item')
+		const $itemCheckbox=$item.querySelector('input[type=checkbox]')
+		$itemCheckbox.checked=true
+		showItem(layerGroup,$item)
+		panToItem(map,layerGroup,$item)
+	}
 	for (const $item of document.querySelectorAll('.item')) {
 		const $itemCheckbox=$item.querySelector('input[type=checkbox]')
 		if ($itemCheckbox.checked) showItem(layerGroup,$item)
 		$itemCheckbox.addEventListener('change',itemCheckboxListener)
+		const $panButton=document.createElement('button')
+		$panButton.innerHTML='→'
+		$panButton.addEventListener('click',panButtonListener)
+		$item.querySelector('summary').appendChild($panButton)
 	}
 }
 function showItem(layerGroup,$item) {
+	if ($item.dataset.layerId!=null) return
 	let feature
 	if ($item.classList.contains('changeset') && $item.dataset.minLat!=null) {
 		feature=L.rectangle([
@@ -225,6 +244,15 @@ function hideItem(layerGroup,$item) {
 	if ($item.dataset.layerId==null) return
 	layerGroup.removeLayer(Number($item.dataset.layerId))
 	delete $item.dataset.layerId
+}
+function panToItem(map,layerGroup,$item) {
+	if ($item.dataset.layerId==null) return
+	const feature=layerGroup.getLayer(Number($item.dataset.layerId))
+	if ($item.classList.contains('node')) {
+		map.setView(feature.getLatLng(),18)
+	} else {
+		map.fitBounds(feature.getBounds())
+	}
 }
 </script>
 </body>
