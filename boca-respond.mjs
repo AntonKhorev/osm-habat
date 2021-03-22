@@ -158,7 +158,53 @@ export function mapTail(response) {
 Please enable javascript to see the map.
 </div>
 <script>
-// TODO add map
+addMapAndControls(document.querySelector('div.map'))
+function addMapAndControls($mapContainer) {
+	if (!$mapContainer) {
+		console.log('map container not defined')
+		return
+	}
+	$mapContainer.replaceChildren()
+	const map=L.map($mapContainer).addLayer(L.tileLayer(
+		'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
+	)).fitWorld()
+	const layerGroup=L.featureGroup().addTo(map)
+	const itemCheckboxListener=(event)=>{
+		const $itemCheckbox=event.target
+		const $item=$itemCheckbox.closest('.item')
+		if ($itemCheckbox.checked) {
+			showItem(layerGroup,$item)
+		} else {
+			hideItem(layerGroup,$item)
+		}
+	}
+	for (const $item of document.querySelectorAll('div.item')) {
+		const $itemCheckbox=$item.querySelector('input[type=checkbox]')
+		if ($itemCheckbox.checked) showItem(layerGroup,$item)
+		$itemCheckbox.addEventListener('change',itemCheckboxListener)
+	}
+}
+function showItem(layerGroup,$item) {
+	let feature
+	if ($item.classList.contains('changeset') && $item.dataset.minLat!=null) {
+		feature=L.rectangle([
+			[$item.dataset.minLat,$item.dataset.minLon],
+			[$item.dataset.maxLat,$item.dataset.maxLon],
+		])
+	} else if ($item.classList.contains('node') && $item.dataset.lat!=null) {
+		feature=L.circleMarker([$item.dataset.lat,$item.dataset.lon])
+	}
+	if (feature) {
+		feature.addTo(layerGroup)
+		$item.dataset.layerId=layerGroup.getLayerId(feature)
+	}
+}
+function hideItem(layerGroup,$item) {
+	if ($item.dataset.layerId==null) return
+	layerGroup.removeLayer(Number($item.dataset.layerId))
+	delete $item.dataset.layerId
+}
 </script>
 </body>
 </html>`
