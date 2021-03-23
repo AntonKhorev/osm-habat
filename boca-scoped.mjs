@@ -25,7 +25,7 @@ export function analyzeCounts(response,project,changesets) {
 				globalChanges[elementType][elementId]=changeType
 			}
 		}
-		response.write(e.h`<tr><td><a href=${'https://www.openstreetmap.org/changeset/'+changesetId}>${changesetId}</a>`)
+		response.write(`<tr><td>`+osmLinks.changeset(changesetId).at(changesetId))
 		for (const elementType of ['node','way','relation']) {
 			const c=count[elementType]
 			response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
@@ -207,8 +207,7 @@ export function analyzeKeys(response,project,changesets) {
 		response.write(`<table>\n`)
 		response.write(`<tr><th>count<th>key<th>values<th>changesets\n`)
 		for (const [key,count] of Object.entries(keyCount).sort((a,b)=>(b[1]-a[1]))) {
-			const encodedKey=encodeURIComponent(key)
-			response.write(e.h`<tr><td>${count}<td><a href=${'https://wiki.openstreetmap.org/wiki/Key:'+encodedKey}>${key}</a><td>`)
+			response.write(e.h`<tr><td>${count}<td>`+osmLinks.key(key).at(key)+`<td>`)
 			const values=Object.entries(tagCount[key]).sort((a,b)=>(b[1]-a[1]))
 			for (const [i,[v,c]] of values.entries()) {
 				if (i>0) response.write(`, `)
@@ -216,15 +215,14 @@ export function analyzeKeys(response,project,changesets) {
 					response.write(e.h`<em>${values.length-maxValues} more values<em>`)
 					break
 				}
-				const encodedTag=encodeURIComponent(key+'='+v)
-				response.write(e.h`<a href=${'https://wiki.openstreetmap.org/wiki/Tag:'+encodedTag}>${v}</a>×${c}`)
+				response.write(osmLinks.tag(key,v).at(v)+e.h`×${c}`)
 			}
 			response.write(`<td>`)
 			let i=0
 			let cs=keyChangesets[key]
 			for (const cid of cs) {
 				if (i==0 || i==cs.size-1 || cs.size<=maxChangesets) {
-					response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+cid}>${cid}</a>`)
+					response.write(' '+osmLinks.changeset(cid).at(cid))
 				} else if (i==1) {
 					response.write(e.h` ...${cs.size-2} more changesets...`)
 				}
@@ -237,11 +235,11 @@ export function analyzeKeys(response,project,changesets) {
 }
 
 export function analyzeChangesPerChangesetPerElement(response,project,changesets) { // TODO handle incomplete data - w/o prev versions
-	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
-	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
+	const makeElementHeaderHtml=(type,id)=>osmLinks.element(type,id).at(`${type} #${id}`)
+	const makeElementTableHtml=(type,id,ver)=>id?osmLinks.elementVersion(type,id,ver).at(`${type[0]}${id}v${ver}`):''
 	response.write(`<h2>Changes per changeset per element</h2>\n`)
 	for (const [cid,changes] of changesets) {
-		response.write(`<h3><a href=${'https://www.openstreetmap.org/changeset/'+cid}>Changeset #${cid}</a></h3>\n`)
+		response.write(`<h3>`+osmLinks.changeset(cid).at(`Changeset #${cid}`)+`</h3>\n`)
 		const parentQuery=createParentQuery(project,changes)
 		for (const [,etype,eid,ev] of changes) {
 			let changeType
@@ -478,15 +476,10 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		)
 	}
 	const makeElementFeature=(edata)=>{
-		const makeKvLink=(k,v)=>{
-			const keyHref=`https://wiki.openstreetmap.org/wiki/Key:${k}`
-			const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-			return e.h`<code><a href=${keyHref}>${k}</a>=<a href=${tagHref}>${v}</a></code>`
-		}
+		const makeKvLink=(k,v)=>'<code>'+osmLinks.key(k).at(k)+'='+osmLinks.tag(k,v).at(v)+'</code>'
 		const makeVLink=(k,v)=>{
 			if (v=='yes') return makeKvLink(k,v)
-			const tagHref=`https://wiki.openstreetmap.org/wiki/Tag:${k}=${v}`
-			return e.h`<a href=${tagHref}>${v.replace(/_/g,' ')}</a>`
+			return osmLinks.tag(k,v).at(v.replace(/_/g,' '))
 		}
 		const features=[]
 		for (const [k,v] of Object.entries(edata.tags)) {
@@ -561,8 +554,8 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		if (Object.keys(fullDiff).length==0) changeSummary.push('(returned to the original state)')
 		return changeSummary
 	}
-	const makeElementHeaderHtml=(type,id)=>e.h`<a href=${'https://www.openstreetmap.org/'+type+'/'+id}>${type} #${id}</a>`
-	const makeElementTableHtml=(type,id,ver)=>id?e.h`<a href=${'https://api.openstreetmap.org/api/0.6/'+type+'/'+id+'/'+ver+'.json'}>${type[0]}${id}v${ver}</a>`:''
+	const makeElementHeaderHtml=(type,id)=>osmLinks.element(type,id).at(`${type} #${id}`)
+	const makeElementTableHtml=(type,id,ver)=>id?osmLinks.elementVersion(type,id,ver).at(`${type[0]}${id}v${ver}`):''
 	const makeTimestampHtml=(timestamp)=>{
 		if (timestamp==null) return 'unknown'
 		const pad=n=>n.toString().padStart(2,'0')
@@ -602,7 +595,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		iterate((cstate,cid,cv)=>makeElementTableHtml(etype,cid,cv))
 		response.write(`<td><button formaction=fetch-history>Update history</button>`)
 		response.write(`\n<tr><th>changeset`)
-		iterate((cstate,cid,cv,cdata)=>e.h`<a href=${'https://www.openstreetmap.org/changeset/'+cdata.changeset}>${cdata.changeset}</a>`)
+		iterate((cstate,cid,cv,cdata)=>osmLinks.changeset(cdata.changeset).at(cdata.changeset))
 		response.write(`<th>last updated on`)
 		response.write(`\n<tr><th>timestamp`)
 		iterate((cstate,cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
@@ -712,10 +705,9 @@ export function viewElements(response,project,changesets,filters) {
 		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
 		const elementStore=project.store[elementType][elementId]
 		const elementVersion=elementVersions[elementVersions.length-1]
-		const timestampString=new Date(elementStore[elementVersion].timestamp-1000).toISOString()
-		const query=`[date:"${timestampString}"];\n${elementType}(${elementId});\nout meta geom;`
-		response.write(e.h`<td><a href=${'https://overpass-turbo.eu/map.html?Q='+encodeURIComponent(query)}>ov-</a>`)
-		response.write(e.h`<td><a href=${'https://osmlab.github.io/osm-deep-history/#/'+elementType+'/'+elementId}>odh</a>`)
+		const elementTimestamp=elementStore[elementVersion].timestamp
+		response.write('<td>'+osmLinks.elementTimestamp(elementType,elementId,elementTimestamp).overpassTurboBefore.at('ov-'))
+		response.write('<td>'+osmLinks.element(elementType,elementId).deepHistory.at('odh'))
 		const majorTags={}
 		for (const [ver,data] of Object.entries(elementStore)) {
 			if (!Number(ver)) continue
