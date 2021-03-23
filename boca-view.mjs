@@ -280,3 +280,26 @@ export class UserView extends View {
 		response.write(`</ul>\n`)
 	}
 }
+
+export class ChangesetView extends View {
+	constructor(project,cid) {
+		super(project)
+		this.cid=cid
+	}
+	getChangesets() {
+		return [[this.cid,this.project.store.changeset[this.cid]]]
+	}
+	getTitle() {
+		return 'changeset '+this.cid
+	}
+	writeHeading(response) {
+		response.write(`<h1>Changeset #`+osmLinks.changeset(this.cid).at(this.cid)+`</h1>\n`)
+	}
+	writeMain(response) {
+		const href=osmLinks.changeset(this.cid)
+		response.write(e.h`<ul>\n`)
+		response.write(e.h`<li><a href=map>changeset viewer</a>\n`)
+		response.write(e.h`<li>external tools: `+href.osmcha.at('osmcha')+` `+href.achavi.at('achavi')+`</li>\n`)
+		response.write(e.h`</ul>\n`)
+	}
+}

@@ -10,7 +10,7 @@ import * as osm from './osm.js'
 import * as osmLinks from './osm-links.mjs'
 import Project from './boca-project.mjs'
 import * as respond from './boca-respond.mjs'
-import {AllView,ScopeView,UserView} from './boca-view.mjs'
+import {AllView,ScopeView,UserView,ChangesetView} from './boca-view.mjs'
 
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
@@ -97,14 +97,22 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`User route not defined`)
 			}
-		} else if (match=pathname.match(new RegExp('^/changeset/([1-9]\\d*)/$'))) {
-			const [,cid]=match
+		} else if (match=pathname.match(new RegExp('^/changeset/([1-9]\\d*)/([^/]*)$'))) {
+			const [,cid,subpath]=match
 			if (!project.store.changeset[cid]) {
 				response.writeHead(404)
 				response.end(`Changeset #${cid} not found`)
 				return
 			}
-			serveChangeset(response,project,cid)
+			const view=new ChangesetView(project,cid)
+			if (await serveViewRoutes(view,subpath)) {
+				// ok
+			} else if (subpath=='map') {
+				serveChangeset(response,project,cid)
+			} else {
+				response.writeHead(404)
+				response.end(`Changeset route not defined`)
+			}
 		} else if (pathname=='/favicon.ico') {
 			fs.readFile(new URL('./favicon.ico',import.meta.url),(err,data)=>{
 				if (err) {
@@ -503,7 +511,7 @@ async function serveChangeset(response,project,cid) {
 			'changeset',
 			data,
 			`changeset ${cid}`,
-			(x=>[x.at('[osm]'),x.osmcha.at('[osmcha]')])(
+			(x=>[x.at('[osm]'),x.osmcha.at('[osmcha]'),x.achavi.at('[achavi]')])(
 				changeset?.uid ? osmLinks.changesetOfUser(cid,changeset.uid) : osmLinks.changeset(cid)
 			)
 		)

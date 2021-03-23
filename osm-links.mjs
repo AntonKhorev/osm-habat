@@ -67,6 +67,11 @@ export const changeset=(cid)=>({__proto__:hrefProto,
 			return e.u`https://osmcha.org/changesets/${cid}/`
 		},
 	}},
+	get achavi() { return {__proto__:hrefProto,
+		toString() {
+			return e.u`https://overpass-api.de/achavi/?changeset=${cid}`
+		},
+	}},
 })
 
 export const changesetOfUser=(cid,uid)=>({__proto__:changeset(cid),
