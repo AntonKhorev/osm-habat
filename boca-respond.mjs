@@ -188,8 +188,8 @@ export function mapTail(response) {
 Please enable javascript to see the map.
 </div>
 <script>
-addMapAndControls(document.querySelector('div.map'))
-function addMapAndControls($mapContainer) {
+addMapAndControls(document.querySelector('.items'),document.querySelector('.map'))
+function addMapAndControls($itemContainer,$mapContainer) {
 	if (!$mapContainer) {
 		console.log('map container not defined')
 		return
@@ -200,25 +200,74 @@ function addMapAndControls($mapContainer) {
 		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
 	)).fitWorld()
 	const layerGroup=L.featureGroup().addTo(map)
+	const isItem=$item=>$item.classList.contains('item')
+	const getCheckbox=$item=>$item.querySelector('input[type=checkbox]')
+	const updateItemVisibility=()=>{
+		for (const $item of $itemContainer.querySelectorAll('.item')) {
+			const $itemCheckbox=getCheckbox($item)
+			if ($itemCheckbox.checked) {
+				showItem(layerGroup,$item)
+			} else {
+				hideItem(layerGroup,$item)
+			}
+		}
+	}
+	const setChildrenCheckboxes=($item,checked)=>{
+		for (const $childItem of $item.children) {
+			if (!isItem($childItem)) continue
+			const $childItemCheckbox=getCheckbox($childItem)
+			$childItemCheckbox.checked=checked
+			$childItemCheckbox.indeterminate=false
+			setChildrenCheckboxes($childItem,checked)
+		}
+	}
+	const updateParentCheckbox=($item)=>{
+		const $parentItem=$item.parentElement
+		if (!isItem($parentItem)) return
+		const $parentItemCheckbox=getCheckbox($parentItem)
+		let someChecked=false
+		let someUnchecked=false
+		for (const $siblingItem of $parentItem.children) {
+			if (!isItem($siblingItem)) continue
+			const $siblingItemCheckbox=getCheckbox($siblingItem)
+			if ($siblingItemCheckbox.checked) {
+				someChecked=true
+			} else {
+				someUnchecked=true
+			}
+			if ($siblingItemCheckbox.indeterminate) {
+				someChecked=someUnchecked=true
+			}
+		}
+		if (someChecked && someUnchecked) {
+			$parentItemCheckbox.indeterminate=true
+		} else {
+			$parentItemCheckbox.indeterminate=false
+			if (someChecked) $parentItemCheckbox.checked=true
+			if (someUnchecked) $parentItemCheckbox.checked=false
+		}
+		updateParentCheckbox($parentItem)
+	}
 	const itemCheckboxListener=(event)=>{
 		const $itemCheckbox=event.target
 		const $item=$itemCheckbox.closest('.item')
-		if ($itemCheckbox.checked) {
-			showItem(layerGroup,$item)
-		} else {
-			hideItem(layerGroup,$item)
-		}
+		setChildrenCheckboxes($item,$itemCheckbox.checked)
+		updateParentCheckbox($item)
+		updateItemVisibility()
 	}
 	const panButtonListener=(event)=>{
 		const $panButton=event.target
 		const $item=$panButton.closest('.item')
-		const $itemCheckbox=$item.querySelector('input[type=checkbox]')
+		const $itemCheckbox=getCheckbox($item)
 		$itemCheckbox.checked=true
-		showItem(layerGroup,$item)
+		$itemCheckbox.indeterminate=false
+		setChildrenCheckboxes($item,true)
+		updateParentCheckbox($item)
+		updateItemVisibility()
 		panToItem(map,layerGroup,$item)
 	}
-	for (const $item of document.querySelectorAll('.item')) {
-		const $itemCheckbox=$item.querySelector('input[type=checkbox]')
+	for (const $item of $itemContainer.querySelectorAll('.item')) {
+		const $itemCheckbox=getCheckbox($item)
 		if ($itemCheckbox.checked) showItem(layerGroup,$item)
 		$itemCheckbox.addEventListener('change',itemCheckboxListener)
 		const $panButton=document.createElement('button')
@@ -230,11 +279,11 @@ function addMapAndControls($mapContainer) {
 function showItem(layerGroup,$item) {
 	if ($item.dataset.layerId!=null) return
 	let feature
-	if ($item.classList.contains('changeset') && $item.dataset.minLat!=null) {
+	if ($item.classList.contains('bbox') && $item.dataset.minLat!=null) {
 		feature=L.rectangle([
 			[$item.dataset.minLat,$item.dataset.minLon],
 			[$item.dataset.maxLat,$item.dataset.maxLon],
-		])
+		],{color:'#bca9f5',fill:false})
 	} else if ($item.classList.contains('node') && $item.dataset.lat!=null) {
 		feature=L.circleMarker([$item.dataset.lat,$item.dataset.lon])
 	} else if ($item.classList.contains('way')) {

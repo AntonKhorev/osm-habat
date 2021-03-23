@@ -485,6 +485,11 @@ async function serveChangeset(response,project,cid) {
 	}
 	respond.mapHead(response,'changeset '+cid)
 	writeChangesetStart(cid)
+	const changeset=project.changeset[cid]
+	if (changeset?.min_lat && changeset?.min_lon && changeset?.max_lat && changeset?.max_lon) {
+		writeBboxStart(cid)
+		writeItemEnd()
+	}
 	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
 		writeElementStart(ctype,etype,eid,ev)
 		writeItemEnd()
@@ -494,12 +499,6 @@ async function serveChangeset(response,project,cid) {
 	function writeChangesetStart(cid) {
 		const data={id:cid}
 		const changeset=project.changeset[cid]
-		if (changeset?.min_lat && changeset?.min_lon && changeset?.max_lat && changeset?.max_lon) {
-			data['min-lat']=changeset.min_lat
-			data['min-lon']=changeset.min_lon
-			data['max-lat']=changeset.max_lat
-			data['max-lon']=changeset.max_lon
-		}
 		writeItemStart(
 			'changeset',
 			data,
@@ -507,6 +506,21 @@ async function serveChangeset(response,project,cid) {
 			(x=>[x.at('[osm]'),x.osmcha.at('[osmcha]')])(
 				changeset?.uid ? osmLinks.changesetOfUser(cid,changeset.uid) : osmLinks.changeset(cid)
 			)
+		)
+	}
+	function writeBboxStart(cid) {
+		const changeset=project.changeset[cid]
+		const data={
+			id:cid,
+			['min-lat']:changeset.min_lat,
+			['min-lon']:changeset.min_lon,
+			['max-lat']:changeset.max_lat,
+			['max-lon']:changeset.max_lon,
+		}
+		writeItemStart(
+			'bbox',
+			data,
+			`bounding box`,
 		)
 	}
 	function writeElementStart(ctype,etype,eid,ev) {
@@ -538,7 +552,7 @@ async function serveChangeset(response,project,cid) {
 			dataAttrs+=e.h` data-${k}=${v}`
 		}
 		response.write(e.h`<details class=${itemClass}`+dataAttrs+e.h`><summary><label><input type=checkbox>${label}</label></summary>\n`)
-		response.write('<div>'+links.join(' ')+'</div>\n')
+		if (links) response.write('<nav>'+links.join(' ')+'</nav>\n')
 	}
 	function writeItemEnd() {
 		response.write(`</details>\n`)
