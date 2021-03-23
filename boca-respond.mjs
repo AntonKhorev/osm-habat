@@ -116,6 +116,12 @@ export function fetchError(response,ex,pageTitle,pageBody) {
 	tail(response)
 }
 
+const bboxColor='#bca9f5'
+const createColor='#39dbc0'
+const modifyColor='#e8e845'
+const modifyPrevColor='#db950a'
+const deleteColor='#cc2c47'
+
 export function mapHead(response,title,httpCode=200) {
 	response.writeHead(httpCode,{'Content-Type':'text/html; charset=utf-8'})
 	const titleHtml=e.h`${title}`
@@ -155,6 +161,10 @@ body {
 	box-sizing: border-box;
 	padding-left: 1em;
 }
+.item.bbox   { background: ${bboxColor}44; }
+.item.create { background: ${createColor}44; }
+.item.modify { background: ${modifyColor}44; }
+.item.delete { background: ${deleteColor}44; }
 .item {
 	clear: both;
 }
@@ -288,17 +298,33 @@ function showItem(layerGroup,$item) {
 			return L.rectangle([
 				[$item.dataset.minLat,$item.dataset.minLon],
 				[$item.dataset.maxLat,$item.dataset.maxLon],
-			],{color:'#bca9f5',fill:false})
+			],{color:'${bboxColor}',fill:false})
 		}
+		const color=getColor()
+		const prevColor=getPrevColor()
 		if ($item.classList.contains('node') && $item.dataset.lat!=null) {
-			return L.circleMarker([$item.dataset.lat,$item.dataset.lon])
+			return L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color})
 		}
 		if ($item.classList.contains('way')) {
 			const latlons=[]
 			for ($nodeItem of $item.querySelectorAll('.nd')) {
 				latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
 			}
-			if (latlons.length>1) return L.polyline(latlons)
+			if (latlons.length>1) return L.polyline(latlons,{color})
+		}
+	}
+	function getColor() {
+		if ($item.classList.contains('create')) {
+			return '${createColor}'
+		} else {
+			return '${modifyColor}'
+		}
+	}
+	function getPrevColor() {
+		if ($item.classList.contains('delete')) {
+			return '${deleteColor}'
+		} else {
+			return '${modifyPrevColor}'
 		}
 	}
 }

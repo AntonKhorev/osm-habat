@@ -530,8 +530,13 @@ async function serveChangeset(response,project,cid) {
 			data.lat=element.lat
 			data.lon=element.lon
 		}
+		const prevElement=project.store[etype][eid][ev-1]
+		if (prevElement && prevElement.lat!=null && prevElement.lon!=null) {
+			data.prevLat=prevElement.lat
+			data.prevLon=prevElement.lon
+		}
 		writeItemStart(
-			etype,
+			ctype+' '+etype,
 			data,
 			`${ctype} ${etype} ${eid}`,
 			(x=>[x.at('[osm]'),x.history.at('[osm hist]'),x.deepHistory.at('[deep hist]')])(osmLinks.element(etype,eid))
@@ -546,10 +551,11 @@ async function serveChangeset(response,project,cid) {
 		}
 	}
 	function writeItemStart(type,data,label,links) {
+		const toDashStyle=k=>k.replace(/[A-Z]/g,x=>'-'+x.toLowerCase())
 		const itemClass=`item ${type}`
 		let dataAttrs=''
 		for (const [k,v] of Object.entries(data)) {
-			dataAttrs+=e.h` data-${k}=${v}`
+			dataAttrs+=e.h` data-${toDashStyle(k)}=${v}`
 		}
 		response.write(e.h`<details class=${itemClass}`+dataAttrs+e.h`><summary><label><input type=checkbox>${label}</label></summary>\n`)
 		if (links) response.write('<nav>'+links.join(' ')+'</nav>\n')
