@@ -2,6 +2,7 @@
 
 import * as e from './escape.js'
 import * as osm from './osm.js'
+import * as osmLinks from './osm-links.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import filterElements from './boca-filter.mjs'
 
@@ -611,8 +612,7 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
 				if (nid) {
-					const nHref=e.u`https://www.openstreetmap.org/node/${nid}`
-					return e.h`<a href=${nHref}>${nid}</a>`
+					return osmLinks.element('node',nid).at(nid)
 				} else {
 					return ''
 				}
@@ -675,10 +675,8 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 		const collapsedVersionTable=collapseVersionTable(versionTable)
 		response.write(e.h`<details class=element open=${isInteresting(etype,versionTable)}><summary>\n`)
 		response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
-		const ohHref=e.u`https://www.openstreetmap.org/${etype}/${eid}/history`
-		const dhHref=e.u`https://osmlab.github.io/osm-deep-history/#/${etype}/${eid}`
-		const ddHref=e.u`http://osm.mapki.com/history/${etype}.php?id=${eid}`
-		response.write(e.h`: <a href=${ohHref}>history</a>, <a href=${dhHref}>deep history</a>, <a href=${ddHref}>deep diff</a>\n`)
+		const elementLinks=osmLinks.element(etype,eid)
+		response.write(`: `+elementLinks.history.at('history')+`, `+elementLinks.deepHistory.at('deep history')+`, `+elementLinks.deepDiff.at('deep diff')+`\n`)
 		const changeSummary=makeChangeSummary(etype,collapsedVersionTable)
 		if (changeSummary.length>0) response.write(': '+changeSummary.join('; ')+'\n')
 		response.write(`</summary>\n`)
