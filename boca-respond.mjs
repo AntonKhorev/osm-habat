@@ -303,23 +303,17 @@ function showItem(layerGroup,$item) {
 		const color=getColor()
 		const prevColor=getPrevColor()
 		if ($item.classList.contains('node')) {
-			let nodeFeature,prevNodeFeature
+			const markers=[]
 			if ($item.dataset.lat!=null) {
-				nodeFeature=L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color})
+				markers.push(L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color}))
 			}
 			if ($item.dataset.prevLat!=null && (
 				$item.dataset.prevLat!=$item.dataset.lat ||
 				$item.dataset.prevLon!=$item.dataset.lon
 			)) {
-				prevNodeFeature=L.circleMarker([$item.dataset.prevLat,$item.dataset.prevLon],{color:prevColor})
+				markers.push(L.circleMarker([$item.dataset.prevLat,$item.dataset.prevLon],{color:prevColor}))
 			}
-			if (nodeFeature && prevNodeFeature) {
-				return L.layerGroup([nodeFeature,prevNodeFeature])
-			} else if (nodeFeature) {
-				return nodeFeature
-			} else if (prevNodeFeature) {
-				return prevNodeFeature
-			}
+			if (markers.length>0) return L.featureGroup(markers)
 		}
 		if ($item.classList.contains('way')) {
 			const latlons=[]
@@ -360,11 +354,7 @@ function panToItem(map,layerGroup,$item) {
 	}
 	if ($item.dataset.layerId==null) return
 	const feature=layerGroup.getLayer(Number($item.dataset.layerId))
-	if ($item.classList.contains('node')) {
-		map.setView(feature.getLatLng(),18)
-	} else {
-		map.fitBounds(feature.getBounds())
-	}
+	map.fitBounds(feature.getBounds())
 }
 </script>
 </body>
