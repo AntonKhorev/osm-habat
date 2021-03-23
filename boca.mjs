@@ -504,7 +504,9 @@ async function serveChangeset(response,project,cid) {
 			'changeset',
 			data,
 			`changeset ${cid}`,
-			osmLinks.changeset(cid)
+			(x=>[x.at('[osm]'),x.osmcha.at('[osmcha]')])(
+				changeset?.uid ? osmLinks.changesetOfUser(cid,changeset.uid) : osmLinks.changeset(cid)
+			)
 		)
 	}
 	function writeElementStart(ctype,etype,eid,ev) {
@@ -518,7 +520,7 @@ async function serveChangeset(response,project,cid) {
 			etype,
 			data,
 			`${ctype} ${etype} ${eid}`,
-			osmLinks.element(etype,eid)
+			(x=>[x.at('[osm]'),x.history.at('[osm hist]'),x.deepHistory.at('[deep hist]')])(osmLinks.element(etype,eid))
 		)
 		if (etype=='way') {
 			response.write(`<div>way nodes:<ul>\n`)
@@ -529,14 +531,14 @@ async function serveChangeset(response,project,cid) {
 			response.write(`</ul></div>\n`)
 		}
 	}
-	function writeItemStart(type,data,label,osmHref) {
+	function writeItemStart(type,data,label,links) {
 		const itemClass=`item ${type}`
 		let dataAttrs=''
 		for (const [k,v] of Object.entries(data)) {
 			dataAttrs+=e.h` data-${k}=${v}`
 		}
 		response.write(e.h`<details class=${itemClass}`+dataAttrs+e.h`><summary><label><input type=checkbox>${label}</label></summary>\n`)
-		response.write(e.h`<div><a href=${osmHref}>[osm]</a></div>\n`)
+		response.write('<div>'+links.join(' ')+'</div>\n')
 	}
 	function writeItemEnd() {
 		response.write(`</details>\n`)

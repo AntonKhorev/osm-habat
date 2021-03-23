@@ -62,6 +62,20 @@ export const changeset=(cid)=>({__proto__:hrefProto,
 	toString() {
 		return e.u`https://www.openstreetmap.org/changeset/${cid}`
 	},
+	get osmcha() { return {__proto__:hrefProto,
+		toString() {
+			return e.u`https://osmcha.org/changesets/${cid}/`
+		},
+	}},
+})
+
+export const changesetOfUser=(cid,uid)=>({__proto__:changeset(cid),
+	get osmcha() { return {__proto__:hrefProto,
+		toString() {
+			const osmchaFilter=osmchaFilterTag`{"uids":${uid},"date__gte":${''}}`
+			return e.u`https://osmcha.org/changesets/${cid}/?filters=${osmchaFilter}`
+		},
+	}},
 })
 
 export const changesets=(cids)=>({ // not a href b/c don't know any obvious href
