@@ -278,24 +278,28 @@ function addMapAndControls($itemContainer,$mapContainer) {
 }
 function showItem(layerGroup,$item) {
 	if ($item.dataset.layerId!=null) return
-	let feature
-	if ($item.classList.contains('bbox') && $item.dataset.minLat!=null) {
-		feature=L.rectangle([
-			[$item.dataset.minLat,$item.dataset.minLon],
-			[$item.dataset.maxLat,$item.dataset.maxLon],
-		],{color:'#bca9f5',fill:false})
-	} else if ($item.classList.contains('node') && $item.dataset.lat!=null) {
-		feature=L.circleMarker([$item.dataset.lat,$item.dataset.lon])
-	} else if ($item.classList.contains('way')) {
-		const latlons=[]
-		for ($nodeItem of $item.querySelectorAll('.nd')) {
-			latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
-		}
-		if (latlons.length>1) feature=L.polyline(latlons)
-	}
+	const feature=makeFeature()
 	if (feature) {
 		feature.addTo(layerGroup)
 		$item.dataset.layerId=layerGroup.getLayerId(feature)
+	}
+	function makeFeature() {
+		if ($item.classList.contains('bbox') && $item.dataset.minLat!=null) {
+			return L.rectangle([
+				[$item.dataset.minLat,$item.dataset.minLon],
+				[$item.dataset.maxLat,$item.dataset.maxLon],
+			],{color:'#bca9f5',fill:false})
+		}
+		if ($item.classList.contains('node') && $item.dataset.lat!=null) {
+			return L.circleMarker([$item.dataset.lat,$item.dataset.lon])
+		}
+		if ($item.classList.contains('way')) {
+			const latlons=[]
+			for ($nodeItem of $item.querySelectorAll('.nd')) {
+				latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
+			}
+			if (latlons.length>1) return L.polyline(latlons)
+		}
 	}
 }
 function hideItem(layerGroup,$item) {
@@ -304,6 +308,14 @@ function hideItem(layerGroup,$item) {
 	delete $item.dataset.layerId
 }
 function panToItem(map,layerGroup,$item) {
+	if ($item.classList.contains('changeset')) {
+		const $bboxItem=$item.querySelector('.item.bbox')
+		if ($bboxItem) {
+			const bboxFeature=layerGroup.getLayer(Number($bboxItem.dataset.layerId))
+			map.fitBounds(bboxFeature.getBounds())
+			return
+		}
+	}
 	if ($item.dataset.layerId==null) return
 	const feature=layerGroup.getLayer(Number($item.dataset.layerId))
 	if ($item.classList.contains('node')) {
