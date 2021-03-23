@@ -302,8 +302,24 @@ function showItem(layerGroup,$item) {
 		}
 		const color=getColor()
 		const prevColor=getPrevColor()
-		if ($item.classList.contains('node') && $item.dataset.lat!=null) {
-			return L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color})
+		if ($item.classList.contains('node')) {
+			let nodeFeature,prevNodeFeature
+			if ($item.dataset.lat!=null) {
+				nodeFeature=L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color})
+			}
+			if ($item.dataset.prevLat!=null && (
+				$item.dataset.prevLat!=$item.dataset.lat ||
+				$item.dataset.prevLon!=$item.dataset.lon
+			)) {
+				prevNodeFeature=L.circleMarker([$item.dataset.prevLat,$item.dataset.prevLon],{color:prevColor})
+			}
+			if (nodeFeature && prevNodeFeature) {
+				return L.layerGroup([nodeFeature,prevNodeFeature])
+			} else if (nodeFeature) {
+				return nodeFeature
+			} else if (prevNodeFeature) {
+				return prevNodeFeature
+			}
 		}
 		if ($item.classList.contains('way')) {
 			const latlons=[]
