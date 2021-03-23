@@ -62,7 +62,7 @@ export default class Project {
 	get changesetsFilename() { return path.join(this.dirname,'changesets.json') }
 	get scopesFilename() { return path.join(this.dirname,'scopes.txt') }
 	get redactionsDirname() { return path.join(this.dirname,'redactions') }
-	getUserLink(uid) { // TODO move somewhere else
+	getUserLink(uid) { // TODO move somewhere else + use osmLinks module
 		if (uid in this.user) {
 			const href=e.u`https://www.openstreetmap.org/user/${this.user[uid].displayName}`
 			return e.h`<a href=${href}>${uid} = ${this.user[uid].displayName}</a>`

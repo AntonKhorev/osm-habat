@@ -7,6 +7,7 @@ import open from 'open'
 
 import * as e from './escape.js'
 import * as osm from './osm.js'
+import * as osmLinks from './osm-links.mjs'
 import Project from './boca-project.mjs'
 import * as respond from './boca-respond.mjs'
 import {AllView,ScopeView,UserView} from './boca-view.mjs'
@@ -225,7 +226,7 @@ function serveBbox(response,project,user,noscope=false) {
 		response.write(e.x`  <way id="-${i+1}">\n`)
 		for (let j=0;j<=4;j++) {
 			response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
-			response.write(e.x`    <tag k="url" v="https://www.openstreetmap.org/changeset/${cids[i]}" />\n`)
+			response.write(e.x`    <tag k="url" v="${osmLinks.changeset(cids[i])}" />\n`)
 			const comment=project.changeset[cids[i]].tags.comment
 			if (comment!==undefined) response.write(e.x`    <tag k="name" v="${comment}" />\n`)
 		}
@@ -325,7 +326,7 @@ async function serveUid(response,project,uid) {
 		}
 		project.saveUsers()
 	}
-	response.writeHead(301,{'Location':e.u`https://www.openstreetmap.org/user/${project.user[uid].displayName}`})
+	response.writeHead(301,{'Location':osmLinks.username(project.user[uid].displayName)})
 	response.end()
 }
 
@@ -503,7 +504,7 @@ async function serveChangeset(response,project,cid) {
 			'changeset',
 			data,
 			`changeset ${cid}`,
-			e.u`https://www.openstreetmap.org/changeset/${cid}`
+			osmLinks.changeset(cid)
 		)
 	}
 	function writeElementStart(ctype,etype,eid,ev) {
@@ -517,14 +518,13 @@ async function serveChangeset(response,project,cid) {
 			etype,
 			data,
 			`${ctype} ${etype} ${eid}`,
-			e.u`https://www.openstreetmap.org/${etype}/${eid}`
+			osmLinks.element(etype,eid)
 		)
 		if (etype=='way') {
 			response.write(`<div>way nodes:<ul>\n`)
 			for (const [nodeId,nodeVersion] of wayNodes[eid]) {
 				const node=project.store.node[nodeId][nodeVersion]
-				const nodeHref=e.u`https://www.openstreetmap.org/node/${nodeId}`
-				response.write(e.h`<li class=nd data-lat=${node.lat} data-lon=${node.lon}><a href=${nodeHref}>node ${nodeId}</a> v${nodeVersion}\n`)
+				response.write(e.h`<li class=nd data-lat=${node.lat} data-lon=${node.lon}>`+osmLinks.node(nodeId).at('node '+nodeId)+e.h` v${nodeVersion}\n`)
 			}
 			response.write(`</ul></div>\n`)
 		}
