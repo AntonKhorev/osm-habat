@@ -1,14 +1,7 @@
 import * as e from './escape.js'
+import * as osmLinks from './osm-links.mjs'
 import * as respond from './boca-respond.mjs'
 import * as scoped from './boca-scoped.mjs'
-
-const osmchaFilterTag=e.independentValuesEscape(value=>{
-	if (!Array.isArray(value)) value=[value]
-	return '['+value.map(singleValue=>{
-		const cEscapedValue=String(singleValue).replace(/\\/g,'\\\\').replace(/"/g,'\\"')
-		return `{"label":"${cEscapedValue}","value":"${cEscapedValue}"}`
-	}).join(',')+']'
-})
 
 class View {
 	constructor(project) {
@@ -150,11 +143,9 @@ export class ScopeView extends View {
 	writeMain(response) {
 		const cids=[]
 		for (const [cid,] of this.getChangesets()) cids.push(cid)
-		const osmchaFilter=osmchaFilterTag`{"ids":${cids},"date__gte":${''}}`
-		const osmchaHref=e.u`https://osmcha.org/?filters=${osmchaFilter}`
-		response.write(e.h`<ul>\n`)
-		response.write(e.h`<li>external tools: <a href=${osmchaHref}>osmcha</a></li>\n`)
-		response.write(e.h`</ul>\n`)
+		response.write(`<ul>\n`)
+		response.write(`<li>external tools: `+osmLinks.changesets(cids).osmcha.at('osmcha')+`\n`)
+		response.write(`</ul>\n`)
 		response.write(`<textarea>\n`)
 		for (const line of this.project.scope[this.scope]) {
 			response.write(e.h`${line}\n`)
@@ -175,17 +166,13 @@ export class UserView extends View {
 		return 'user '+this.user.displayName
 	}
 	writeHeading(response) {
-		const osmHref=e.u`https://www.openstreetmap.org/user/${this.user.displayName}`
-		response.write(e.h`<h1>User #${this.user.id} <a href=${osmHref}>${this.user.displayName}</a></h1>\n`)
+		response.write(e.h`<h1>User #${this.user.id} `+osmLinks.username(this.user.displayName).at(this.user.displayName)+`</h1>\n`)
 	}
 	writeMain(response) {
-		const osmchaFilter=osmchaFilterTag`{"uids":${this.user.id},"date__gte":${''}}`
-		const osmchaHref=e.u`https://osmcha.org/?filters=${osmchaFilter}`
-		const hdycHref=e.u`http://hdyc.neis-one.org/?${this.user.displayName}`
 		response.write(e.h`<ul>\n`)
 		response.write(e.h`<li>last update was on ${Date(this.user.updateTimestamp)}\n`)
 		response.write(e.h`<li>downloaded metadata of ${this.user.changesets.length}/${this.user.changesetsCount} changesets\n`)
-		response.write(e.h`<li>external tools: <a href=${hdycHref}>hdyc</a> <a href=${osmchaHref}>osmcha</a></li>\n`)
+		response.write(e.h`<li>external tools: `+osmLinks.username(this.user.displayName).hdyc.at('hdyc')+` `+osmLinks.user(this.user.id).osmcha.at('osmcha')+`</li>\n`)
 		response.write(e.h`</ul>\n`)
 		response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
 			`## ${this.user.displayName}\n`+
@@ -222,7 +209,7 @@ export class UserView extends View {
 				currentMonth=date.getMonth()
 				response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 			}
-			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+changeset.id}>${changeset.id}</a>`)
+			response.write(' '+osmLinks.changeset(changeset.id).at(changeset.id))
 			if (changeset.changes_count==0) {
 				response.write(`○`)
 			} else if (!(changeset.id in this.project.store.changeset)) {
@@ -281,7 +268,7 @@ export class UserView extends View {
 			response.write(`none`)
 		}
 		for (const id of changesetsWithComments) {
-			response.write(e.h` <a href=${'https://www.openstreetmap.org/changeset/'+id}>${id}</a>`)
+			response.write(' '+osmLinks.changeset(id).at(id))
 		}
 		response.write(`\n`)
 		response.write(`</dl>\n`)
