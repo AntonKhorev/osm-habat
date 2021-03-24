@@ -97,6 +97,10 @@ function showItem(layerGroup,$item) {
 	if (feature) {
 		feature.addTo(layerGroup)
 		$item.dataset.layerId=layerGroup.getLayerId(feature)
+	} else if (!$item.classList.contains('changeset')) {
+		const $panButton=$item.querySelector('button')
+		$panButton.disabled=true
+		$panButton.title="can't display this item"
 	}
 	function makeFeature() {
 		if ($item.classList.contains('bbox') && $item.dataset.minLat!=null) {

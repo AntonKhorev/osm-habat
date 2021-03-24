@@ -173,6 +173,9 @@ body {
 .item button {
 	float: right;
 }
+.item button[disabled] {
+	outline: solid red;
+}
 .item summary {
 	list-style-position: outside;
 }
