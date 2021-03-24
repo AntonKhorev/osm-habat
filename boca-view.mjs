@@ -113,7 +113,7 @@ class View {
 		if (this.project.isEmptyPendingRedactions()) {
 			response.write(`<p>no pending redactions\n`)
 		} else {
-			response.write(`<p><a href=/redactions>view all pending redactions</a>\n`)
+			response.write(`<p><a href=/redactions/>view all pending redactions</a>\n`)
 		}
 		response.write(`</div>\n`)
 		response.write(`<form method=post>`)

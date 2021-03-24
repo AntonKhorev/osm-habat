@@ -168,7 +168,7 @@ export default class Project {
 		let result=''
 		for (const etype of ['node','way','relation']) {
 			for (const [eid,evs] of Object.entries(this.pendingRedactions[etype])) {
-				for (const ev of evs) {
+				for (const ev in evs) {
 					result+=`${etype}/${eid}/${ev}\n`
 				}
 			}

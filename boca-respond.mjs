@@ -58,6 +58,11 @@ details.element tr:first-child td.target {
 details.element tr:last-child td.target {
 	border-bottom: solid 3px #004;
 }
+textarea {
+	box-sizing: border-box;
+	width: 100%;
+	height: 20em;
+}
 </style>
 </head>
 <body>

@@ -113,6 +113,22 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Changeset route not defined`)
 			}
+		} else if (pathname=='/redactions/') {
+			serveRedactions(response,project)
+		} else if (pathname=='/redactions/download') {
+			response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
+			response.end(project.marshallPendingRedactions())
+		} else if (pathname=='/redactions/clear') {
+			const post=await readPost(request)
+			if (post.confirm) {
+				project.clearPendingRedactions()
+				project.savePendingRedactions()
+				response.writeHead(303,{'Location':'.'})
+				response.end()
+			} else {
+				response.writeHead(404)
+				response.end('Need to confirm redaction clearing')
+			}
 		} else if (pathname=='/boca-map.js') {
 			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
 		} else if (pathname=='/favicon.ico') {
@@ -160,9 +176,6 @@ async function serveCommonViewRoute(response,project,route,passPostQuery,referer
 		project.savePendingRedactions()
 		response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
 		response.end()
-	} else if (route=='make-redaction') { // TODO move it?
-		response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
-		response.end(project.marshallPendingRedactions())
 	} else {
 		return false
 	}
@@ -218,6 +231,13 @@ function serveRoot(response,project) {
 	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
+	respond.tail(response)
+}
+
+function serveRedactions(response,project) {
+	respond.head(response,'habat-boca')
+	response.write(`<h1>Pending redactions</h1>\n`)
+	response.write(e.h`<textarea readonly>${project.marshallPendingRedactions()}</textarea>\n`)
 	respond.tail(response)
 }
 
