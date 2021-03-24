@@ -28,6 +28,7 @@ export default class Project {
 			}
 		}
 		this.loadRedactions()
+		this.loadPendingRedactions()
 	}
 	loadRedactions() {
 		this.redacted={node:{},way:{},relation:{}}
@@ -109,6 +110,77 @@ export default class Project {
 	*getChangesFromChangesets(changesets) {
 		for (const [,changesetChanges] of changesets) {
 			yield* changesetChanges
+		}
+	}
+
+	// pending redactions
+	get pendingRedactionsFilename() { return path.join(this.dirname,'pending-redactions.json') }
+	get pendingRedactionsBackupFilename() { return path.join(this.dirname,'pending-redactions.backup.json') }
+	loadPendingRedactions() {
+		this.clearPendingRedactions()
+		if (fs.existsSync(this.pendingRedactionsFilename)) {
+			this.pendingRedactions=JSON.parse(fs.readFileSync(this.pendingRedactionsFilename))
+		}
+	}
+	savePendingRedactions() {
+		if (this.isEmptyPendingRedactions()) {
+			if (fs.existsSync(this.pendingRedactionsFilename)) {
+				fs.renameSync(this.pendingRedactionsFilename,this.pendingRedactionsBackupFilename)
+			}
+		} else {
+			fs.writeFileSync(this.pendingRedactionsFilename,JSON.stringify(this.pendingRedactions,null,2))
+		}
+	}
+	isEmptyPendingRedactions() {
+		for (const etype of ['node','way','relation']) {
+			if (Object.keys(this.pendingRedactions[etype]).length>0) return false
+		}
+		return true
+	}
+	redactElementVersions(etype,eid,evs) {
+		if (!this.pendingRedactions[etype][eid]) {
+			this.pendingRedactions[etype][eid]={}
+		}
+		const timestamp=Date.now()
+		let changed=false
+		for (const ev of evs) {
+			if (this.pendingRedactions[etype][eid][ev]) continue
+			if (!changed) {
+				changed=true
+				this.pendingRedactions.last=[]
+			}
+			this.pendingRedactions[etype][eid][ev]=timestamp
+			this.pendingRedactions.last.push(['create',etype,eid,ev])
+		}
+	}
+	unredactElement(etype,eid) {
+		if (!this.pendingRedactions[etype][eid]) return
+		this.pendingRedactions.last=[]
+		for (const ev in this.pendingRedactions[etype][eid]) {
+			this.pendingRedactions.last.push(['delete',etype,eid,ev])
+		}
+		delete this.pendingRedactions[etype][eid]
+	}
+	getElementPendingRedactions(etype,eid) {
+		return this.pendingRedactions[etype][eid]??{}
+	}
+	marshallPendingRedactions() {
+		let result=''
+		for (const etype of ['node','way','relation']) {
+			for (const [eid,evs] of Object.entries(this.pendingRedactions[etype])) {
+				for (const ev of evs) {
+					result+=`${etype}/${eid}/${ev}\n`
+				}
+			}
+		}
+		return result
+	}
+	clearPendingRedactions() {
+		this.pendingRedactions={
+			node:{},
+			way:{},
+			relation:{},
+			last:[],
 		}
 	}
 }

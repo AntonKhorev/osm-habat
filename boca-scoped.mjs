@@ -650,12 +650,19 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 			if (project.redacted[etype][cid]?.[cv]!=null) {
 				return e.h`${project.redacted[etype][cid][cv]}`
 			} else if (cstate==IN || cstate==OUT) {
-				return e.h`<input type=checkbox name=version value=${cv}>`
+				let t=''
+				let checked=false
+				if (project.getElementPendingRedactions(etype,eid)[cv]) {
+					t+='pending '
+					checked=true
+				}
+				t+=e.h`<input type=checkbox name=version value=${cv} checked=${checked}>`
+				return t
 			} else {
 				return ''
 			}
 		})
-		response.write(`<td><button formaction=make-redactions>Make redactions file</button>`)
+		response.write(`<td><button formaction=redact>Redact selected</button><button formaction=unredact>Unredact</button>`)
 		response.write(`\n</table>\n`)
 	}
 	response.write(`<h2>Changes per element</h2>\n`)

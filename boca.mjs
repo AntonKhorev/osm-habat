@@ -142,15 +142,27 @@ function serveStaticFile(response,pathname,contentType) {
 }
 
 async function serveCommonViewRoute(response,project,route,passPostQuery,referer) {
+	const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
 	if (route=='fetch-history') {
 		const args=await passPostQuery()
 		await serveFetchHistory(response,project,args.type,args.id,referer)
 	} else if (route=='reload-redactions') {
 		serveReloadRedactions(response,project,referer)
-	} else if (route=='make-redactions') {
+	} else if (route=='redact') {
 		const args=await passPostQuery()
-		const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
-		serveMakeRedactions(response,project,args.type,args.id,getVersions(args.version))
+		project.redactElementVersions(args.type,args.id,getVersions(args.version))
+		project.savePendingRedactions()
+		response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
+		response.end()
+	} else if (route=='unredact') {
+		const args=await passPostQuery()
+		project.unredactElement(args.type,args.id)
+		project.savePendingRedactions()
+		response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
+		response.end()
+	} else if (route=='make-redaction') { // TODO move it?
+		response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
+		response.end(project.marshallPendingRedactions())
 	} else {
 		return false
 	}
@@ -470,14 +482,6 @@ async function serveFetchHistory(response,project,etype,eid,referer) {
 function serveReloadRedactions(response,project,referer) {
 	project.loadRedactions()
 	response.writeHead(303,{'Location':referer??'.'})
-	response.end()
-}
-
-function serveMakeRedactions(response,project,etype,eid,evs) {
-	response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
-	for (const ev of evs) {
-		response.write(`${etype}/${eid}/${ev}\n`)
-	}
 	response.end()
 }
 

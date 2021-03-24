@@ -101,6 +101,21 @@ class View {
 	writeTail(response) {
 		response.write(`</main>\n`)
 		response.write(`<footer>\n`)
+		response.write(`<div>\n`)
+		if (this.project.pendingRedactions.last.length>0) {
+			response.write(`<p>last redaction changes:<ul>\n`)
+			for (const [action,etype,eid,ev] of this.project.pendingRedactions.last) {
+				const anchor='#'+etype[0]+eid
+				response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> v${ev}\n`)
+			}
+			response.write(`</ul>\n`)
+		}
+		if (this.project.isEmptyPendingRedactions()) {
+			response.write(`<p>no pending redactions\n`)
+		} else {
+			response.write(`<p><a href=/redactions>view all pending redactions</a>\n`)
+		}
+		response.write(`</div>\n`)
 		response.write(`<form method=post>`)
 		response.write(`<button formaction=fetch-previous>Fetch previous versions</button>`)
 		response.write(`<button formaction=fetch-latest>Fetch latest versions</button>`)
