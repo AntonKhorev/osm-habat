@@ -491,9 +491,36 @@ function mergeChangesets(changesets1,changesets2) {
 }
 
 async function serveChangeset(response,project,cid) {
-	let wayNodes
+	let earliestNodeChangeTimestamp
+	const csetNodeVersions={}
+	const csetWayVersionsAndTimestamps={}
+	const prevWayVersionsAndTimestamps={}
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		if (etype!='node') continue
+		csetNodeVersions[eid]=ev
+		const newTimestamp=project.store[etype][eid][ev].timestamp
+		if (earliestNodeChangeTimestamp==null || earliestNodeChangeTimestamp>newTimestamp) {
+			earliestNodeChangeTimestamp=newTimestamp
+		}
+	}
+	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
+		if (etype!='way') continue
+		const wayStore=project.store[etype][eid]
+		const wayTimestamp=wayStore[ev].timestamp
+		csetWayVersionsAndTimestamps[eid]=[ev,wayTimestamp]
+		if (ev>1 && wayStore[ev-1]) {
+			let earliestTimestamp=wayTimestamp
+			if (earliestNodeChangeTimestamp!=null && earliestNodeChangeTimestamp<earliestTimestamp) {
+				earliestTimestamp=earliestNodeChangeTimestamp
+			}
+			prevWayVersionsAndTimestamps[eid]=[ev-1,earliestTimestamp-1] // timestamp right before either way change or earliest node change
+			// TODO probably better to check earliest time of way nodes instead of all nodes - but which ones: new or old way nodes?
+		}
+	}
+	let csetWayNodes,prevWayNodes
 	try {
-		wayNodes=await getWayNodes(project,cid)
+		csetWayNodes=await getWayNodes(project,csetWayVersionsAndTimestamps,csetNodeVersions)
+		prevWayNodes=await getWayNodes(project,prevWayVersionsAndTimestamps)
 	} catch (ex) {
 		return respond.fetchError(response,ex,'way node fetch error',`<p>fetching way nodes failed\n`)
 	}
@@ -556,12 +583,35 @@ async function serveChangeset(response,project,cid) {
 			(x=>[x.at('[osm]'),x.history.at('[osm hist]'),x.deepHistory.at('[deep hist]')])(osmLinks.element(etype,eid))
 		)
 		if (etype=='way') {
-			response.write(`<div>way nodes:<ul>\n`)
-			for (const [nodeId,nodeVersion] of wayNodes[eid]) {
+			if (haveSameNodes(csetWayNodes[eid],prevWayNodes[eid])) {
+				response.write(`<div class='nds new old'>way nodes:<ul>\n`)
+				writeNodeListItems(csetWayNodes[eid])
+				response.write(`</ul></div>\n`)
+			} else {
+				response.write(`<div class='nds new'>new way nodes:<ul>\n`)
+				writeNodeListItems(csetWayNodes[eid])
+				response.write(`</ul></div>\n`)
+				if (prevWayNodes[eid]) {
+					response.write(`<div class='nds old'>old way nodes:<ul>\n`)
+					writeNodeListItems(prevWayNodes[eid])
+					response.write(`</ul></div>\n`)
+				}
+			}
+		}
+		function haveSameNodes(nodes1,nodes2) { // TODO compare coords instead - but then single listed node may have two versions
+			if (nodes1?.length!=nodes2?.length) return false
+			for (let i=0;i<nodes1.length;i++) {
+				const [nid1,nv1]=nodes1[i]
+				const [nid2,nv2]=nodes2[i]
+				if (nid1!=nid2 || nv1!=nv2) return false
+			}
+			return true
+		}
+		function writeNodeListItems(nodes) {
+			for (const [nodeId,nodeVersion] of nodes) {
 				const node=project.store.node[nodeId][nodeVersion]
 				response.write(e.h`<li class=nd data-id=${nodeId} data-lat=${node.lat} data-lon=${node.lon}>`+osmLinks.node(nodeId).at('node '+nodeId)+e.h` v${nodeVersion}\n`)
 			}
-			response.write(`</ul></div>\n`)
 		}
 	}
 	function writeItemStart(type,data,label,links) {
@@ -579,20 +629,14 @@ async function serveChangeset(response,project,cid) {
 	}
 }
 
-async function getWayNodes(project,cid) {
-	const csetNodeVersions={}
-	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
-		if (etype!='node') continue
-		csetNodeVersions[eid]=ev
-	}
+async function getWayNodes(project,wayVersionsAndTimestamps,forceNodeVersions={}) {
 	const needNodeTimestamp={} // id:timestamp
-	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
-		if (etype!='way') continue
-		const way=project.store[etype][eid][ev]
+	for (const [eid,[ev,et]] of Object.entries(wayVersionsAndTimestamps)) {
+		const way=project.store.way[eid][ev]
 		for (const nodeId of way.nds) {
-			if (csetNodeVersions[nodeId]) continue
+			if (forceNodeVersions[nodeId]) continue
 			if (needNodeTimestamp[nodeId]==null) needNodeTimestamp[nodeId]=0
-			if (needNodeTimestamp[nodeId]<way.timestamp) needNodeTimestamp[nodeId]=way.timestamp
+			if (needNodeTimestamp[nodeId]<et) needNodeTimestamp[nodeId]=et
 		}
 	}
 	const nodeVersions={}
@@ -606,10 +650,9 @@ async function getWayNodes(project,cid) {
 		project.saveStore()
 	}
 	const wayNodes={}
-	for (const [ctype,etype,eid,ev] of project.store.changeset[cid]) {
-		if (etype!='way') continue
-		const way=project.store[etype][eid][ev]
-		wayNodes[eid]=way.nds.map(id=>[id,csetNodeVersions[id]??nodeVersions[id]])
+	for (const [eid,[ev,et]] of Object.entries(wayVersionsAndTimestamps)) {
+		const way=project.store.way[eid][ev]
+		wayNodes[eid]=way.nds.map(id=>[id,forceNodeVersions[id]??nodeVersions[id]])
 	}
 	return wayNodes
 }

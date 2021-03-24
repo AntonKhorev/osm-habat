@@ -109,11 +109,11 @@ function showItem(layerGroup,$item) {
 				[$item.dataset.maxLat,$item.dataset.maxLon],
 			],{color:bboxColor,fill:false})
 		}
-		const elementIdHtml=$item.dataset.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')
 		const color=getColor()
 		const prevColor=getPrevColor()
 		if ($item.classList.contains('node')) {
 			const markers=[]
+			const elementIdHtml=$item.dataset.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')
 			const nodeLinkHtml=`<a href="https://www.openstreetmap.org/node/${elementIdHtml}">node #${elementIdHtml}</a>`
 			if ($item.dataset.lat!=null) {markers.push(
 				L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color}).bindPopup(nodeLinkHtml)
@@ -127,25 +127,17 @@ function showItem(layerGroup,$item) {
 			if (markers.length>0) return L.featureGroup(markers)
 		}
 		if ($item.classList.contains('way')) {
-			const nids=[]
-			const latlons=[]
-			for (const $nodeItem of $item.querySelectorAll('.nd')) {
-				nids.push(Number($nodeItem.dataset.id))
-				latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
+			const features=[]
+			const $newOldNds=$item.querySelector('.nds.new.old')
+			const $newNds=$item.querySelector('.nds.new')
+			const $oldNds=$item.querySelector('.nds.old')
+			if ($newOldNds) {
+				features.push(...getWayVersionFeatures($newOldNds,color))
+			} else {
+				if ($newNds) features.push(...getWayVersionFeatures($newNds,color))
+				if ($oldNds) features.push(...getWayVersionFeatures($oldNds,prevColor))
 			}
-			if (latlons.length>1) {
-				const wayLinkHtml=`<a href="https://www.openstreetmap.org/way/${elementIdHtml}">way #${elementIdHtml}</a>`
-				const features=[
-					L.polyline(latlons,{color}).bindPopup(wayLinkHtml),
-				]
-				if (nids[0]==nids[nids.length-1]) {features.push(
-					L.circleMarker(latlons[0],{color}).bindPopup(wayLinkHtml+' first and last node')
-				)} else {features.push(
-					L.circleMarker(latlons[0],{color}).bindPopup(wayLinkHtml+' first node'),
-					L.circleMarker(latlons[latlons.length-1],{color}).bindPopup(wayLinkHtml+' last node')
-				)}
-				return L.featureGroup(features)
-			}
+			if (features.length>0) return L.featureGroup(features)
 		}
 	}
 	function getColor() {
@@ -161,6 +153,29 @@ function showItem(layerGroup,$item) {
 		} else {
 			return modifyPrevColor
 		}
+	}
+	function getWayVersionFeatures($nds,color) {
+		const features=[]
+		const nids=[]
+		const latlons=[]
+		for (const $nodeItem of $nds.querySelectorAll('.nd')) {
+			nids.push(Number($nodeItem.dataset.id))
+			latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
+		}
+		if (latlons.length>1) {
+			const elementIdHtml=$item.dataset.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')
+			const wayLinkHtml=`<a href="https://www.openstreetmap.org/way/${elementIdHtml}">way #${elementIdHtml}</a>`
+			features.push(
+				L.polyline(latlons,{color}).bindPopup(wayLinkHtml),
+			)
+			if (nids[0]==nids[nids.length-1]) {features.push(
+				L.circleMarker(latlons[0],{color}).bindPopup(wayLinkHtml+' first and last node')
+			)} else {features.push(
+				L.circleMarker(latlons[0],{color}).bindPopup(wayLinkHtml+' first node'),
+				L.circleMarker(latlons[latlons.length-1],{color}).bindPopup(wayLinkHtml+' last node')
+			)}
+		}
+		return features
 	}
 }
 function hideItem(layerGroup,$item) {
