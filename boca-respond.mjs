@@ -27,6 +27,9 @@ footer {
 	background: Canvas;
 	box-shadow: 0 0 .5em;
 }
+footer p, footer ul {
+	margin: 0 0 .5em 0;
+}
 table td { text-align: right }
 .create {background: #CFC}
 .modify {background: #FFC}
@@ -78,6 +81,9 @@ function checkVersions($link) {
 	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
 		if (minVersion<=Number($checkbox.value)) $checkbox.checked=true
 	}
+	const $redactButton=$form.querySelector('button[formaction=redact]')
+	if (!$redactButton) return
+	$redactButton.click()
 }
 function openRcLink(ev) {
 	ev.preventDefault()
