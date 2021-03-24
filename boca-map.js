@@ -129,13 +129,13 @@ function showItem(layerGroup,$item) {
 		if ($item.classList.contains('way')) {
 			const features=[]
 			const $newOldNds=$item.querySelector('.nds.new.old')
+			const $oldNds=$item.querySelector('.nds.old') // TODO show in different layers
 			const $newNds=$item.querySelector('.nds.new')
-			const $oldNds=$item.querySelector('.nds.old')
 			if ($newOldNds) {
 				features.push(...getWayVersionFeatures($newOldNds,color))
 			} else {
-				if ($newNds) features.push(...getWayVersionFeatures($newNds,color))
 				if ($oldNds) features.push(...getWayVersionFeatures($oldNds,prevColor))
+				if ($newNds) features.push(...getWayVersionFeatures($newNds,color))
 			}
 			if (features.length>0) return L.featureGroup(features)
 		}
