@@ -105,38 +105,41 @@ function showItem(layerGroup,$item) {
 				[$item.dataset.maxLat,$item.dataset.maxLon],
 			],{color:bboxColor,fill:false})
 		}
+		const elementIdHtml=$item.dataset.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')
 		const color=getColor()
 		const prevColor=getPrevColor()
 		if ($item.classList.contains('node')) {
 			const markers=[]
-			if ($item.dataset.lat!=null) {
-				markers.push(L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color}))
-			}
+			const nodeLinkHtml=`<a href="https://www.openstreetmap.org/node/${elementIdHtml}">node #${elementIdHtml}</a>`
+			if ($item.dataset.lat!=null) {markers.push(
+				L.circleMarker([$item.dataset.lat,$item.dataset.lon],{color}).bindPopup(nodeLinkHtml)
+			)}
 			if ($item.dataset.prevLat!=null && (
 				$item.dataset.prevLat!=$item.dataset.lat ||
 				$item.dataset.prevLon!=$item.dataset.lon
-			)) {
-				markers.push(L.circleMarker([$item.dataset.prevLat,$item.dataset.prevLon],{color:prevColor}))
-			}
+			)) {markers.push(
+				L.circleMarker([$item.dataset.prevLat,$item.dataset.prevLon],{color:prevColor}).bindPopup(nodeLinkHtml)
+			)}
 			if (markers.length>0) return L.featureGroup(markers)
 		}
 		if ($item.classList.contains('way')) {
 			const nids=[]
 			const latlons=[]
-			for ($nodeItem of $item.querySelectorAll('.nd')) {
+			for (const $nodeItem of $item.querySelectorAll('.nd')) {
 				nids.push(Number($nodeItem.dataset.id))
 				latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
 			}
 			if (latlons.length>1) {
-				// const wayIdHtml=$item.dataset.id.replace(/&/g,'&amp;').replace(/"/g,'&quot;')
-				// const wayLinkHtml='<a href="'+wayIdHtml+'">way '
+				const wayLinkHtml=`<a href="https://www.openstreetmap.org/way/${elementIdHtml}">way #${elementIdHtml}</a>`
 				const features=[
-					L.polyline(latlons,{color}), //.bindPopup(wayHtml),
-					L.circleMarker(latlons[0],{color}), // make line more visible on low zooms
+					L.polyline(latlons,{color}).bindPopup(wayLinkHtml),
 				]
-				if (nids[0]!=nids[nids.length-1]) features.push(
-					L.circleMarker(latlons[latlons.length-1],{color})
-				)
+				if (nids[0]==nids[nids.length-1]) {features.push(
+					L.circleMarker(latlons[0],{color}).bindPopup(wayLinkHtml+' first and last node')
+				)} else {features.push(
+					L.circleMarker(latlons[0],{color}).bindPopup(wayLinkHtml+' first node'),
+					L.circleMarker(latlons[latlons.length-1],{color}).bindPopup(wayLinkHtml+' last node')
+				)}
 				return L.featureGroup(features)
 			}
 		}
