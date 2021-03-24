@@ -151,6 +151,8 @@ body {
 	width: 80%;
 	height: 100%;
 	right: 0;
+	background: #000;
+	color: #CCC;
 }
 .items {
 	position: fixed;
@@ -207,7 +209,10 @@ function addMapAndControls($itemContainer,$mapContainer) {
 	$mapContainer.replaceChildren()
 	const map=L.map($mapContainer).addLayer(L.tileLayer(
 		'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-		{attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>"}
+		{
+			attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
+			opacity: 0.5,
+		}
 	)).fitWorld()
 	const layerGroup=L.featureGroup().addTo(map)
 	const isItem=$item=>$item.classList.contains('item')
