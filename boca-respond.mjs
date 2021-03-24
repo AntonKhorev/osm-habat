@@ -212,6 +212,8 @@ function addMapAndControls($itemContainer,$mapContainer) {
 		{
 			attribution: "© <a href=https://www.openstreetmap.org/copyright>OpenStreetMap contributors</a>",
 			opacity: 0.5,
+			maxNativeZoom: 19,
+			maxZoom: 24,
 		}
 	)).fitWorld()
 	const layerGroup=L.featureGroup().addTo(map)
