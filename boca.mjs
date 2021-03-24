@@ -238,6 +238,11 @@ function serveRedactions(response,project) {
 	respond.head(response,'habat-boca')
 	response.write(`<h1>Pending redactions</h1>\n`)
 	response.write(e.h`<textarea readonly>${project.marshallPendingRedactions()}</textarea>\n`)
+	response.write(`<p><a href=download>download redactions file</a>\n`)
+	response.write(`<form method=post action=clear>\n`)
+	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to clear pending redactions.</label></div>\n`)
+	response.write(`<div><button>Clear pending redactions</button></div>\n`)
+	response.write(`</form>\n`)
 	respond.tail(response)
 }
 
