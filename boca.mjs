@@ -553,7 +553,7 @@ async function serveChangeset(response,project,cid) {
 			response.write(`<div>way nodes:<ul>\n`)
 			for (const [nodeId,nodeVersion] of wayNodes[eid]) {
 				const node=project.store.node[nodeId][nodeVersion]
-				response.write(e.h`<li class=nd data-lat=${node.lat} data-lon=${node.lon}>`+osmLinks.node(nodeId).at('node '+nodeId)+e.h` v${nodeVersion}\n`)
+				response.write(e.h`<li class=nd data-id=${nodeId} data-lat=${node.lat} data-lon=${node.lon}>`+osmLinks.node(nodeId).at('node '+nodeId)+e.h` v${nodeVersion}\n`)
 			}
 			response.write(`</ul></div>\n`)
 		}

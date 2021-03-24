@@ -316,11 +316,22 @@ function showItem(layerGroup,$item) {
 			if (markers.length>0) return L.featureGroup(markers)
 		}
 		if ($item.classList.contains('way')) {
+			const nids=[]
 			const latlons=[]
 			for ($nodeItem of $item.querySelectorAll('.nd')) {
+				nids.push(Number($nodeItem.dataset.id))
 				latlons.push([Number($nodeItem.dataset.lat),Number($nodeItem.dataset.lon)])
 			}
-			if (latlons.length>1) return L.polyline(latlons,{color})
+			if (latlons.length>1) {
+				const features=[
+					L.polyline(latlons,{color}),
+					L.circleMarker(latlons[0],{color}), // make line more visible on low zooms
+				]
+				if (nids[0]!=nids[nids.length-1]) features.push(
+					L.circleMarker(latlons[latlons.length-1],{color})
+				)
+				return L.featureGroup(features)
+			}
 		}
 	}
 	function getColor() {
