@@ -113,25 +113,31 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Changeset route not defined`)
 			}
+		} else if (pathname=='/boca-map.js') {
+			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
 		} else if (pathname=='/favicon.ico') {
-			fs.readFile(new URL('./favicon.ico',import.meta.url),(err,data)=>{
-				if (err) {
-					res.writeHead(404)
-					res.end()
-					return
-				}
-				response.writeHead(200,{
-					'Content-Type':'image/x-icon',
-					'Cache-Control':'public, max-age=604800, immutable',
-				})
-				response.end(data)
-			})
+			serveStaticFile(response,pathname,'image/x-icon')
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
 		}
 	}).listen(process.env.PORT||0).on('listening',()=>{
 		if (!process.env.PORT) open('http://localhost:'+server.address().port)
+	})
+}
+
+function serveStaticFile(response,pathname,contentType) {
+	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
+		if (err) {
+			response.writeHead(404)
+			response.end()
+			return
+		}
+		response.writeHead(200,{
+			'Content-Type':contentType,
+			'Cache-Control':'public, max-age=604800, immutable',
+		})
+		response.end(data)
 	})
 }
 
