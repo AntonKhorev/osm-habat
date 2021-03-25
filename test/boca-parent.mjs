@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 
-import ParentChecker from './boca-parent.mjs'
+import ParentChecker from '../boca-parent.mjs'
 
 {
 	const pc=new ParentChecker()
@@ -189,3 +189,5 @@ import ParentChecker from './boca-parent.mjs'
 		"Get parent of deleted and replaced way"
 	)
 }
+
+console.log('ran all boca-parent tests')

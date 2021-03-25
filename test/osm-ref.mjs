@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 
-import * as osmRef from './osm-ref.mjs'
+import * as osmRef from '../osm-ref.mjs'
 
 {
 	assert.throws(()=>{
@@ -54,3 +54,5 @@ import * as osmRef from './osm-ref.mjs'
 		'shorthand node'
 	)
 }
+
+console.log('ran all osm-ref tests')

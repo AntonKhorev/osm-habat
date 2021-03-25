@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 
-import filterElements from './boca-filter.mjs'
+import filterElements from '../boca-filter.mjs'
 
 const project={
 	store:{
@@ -46,3 +46,5 @@ function *gen(changesetsArray) {
 		['node',100013,[2]],
 	])
 }
+
+console.log('ran all boca-filter tests')
