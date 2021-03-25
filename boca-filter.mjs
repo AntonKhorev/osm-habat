@@ -108,18 +108,23 @@ export default function *filterElements(project,changesets,filters,order,detailL
 		for (const result of iterateFiltered()) {
 			const [etype,eid]=result
 			const ekey=etype[0]+eid
-			let eLastDefinedName
+			let eSortName
 			for (const ev of vsEntries.get(ekey)??[]) { // first look for last name in selected versions
 				const ename=project.store[etype][eid][ev].tags.name
-				if (ename!=null) eLastDefinedName=ename
+				if (ename!=null) eSortName=ename
 			}
-			if (eLastDefinedName==null) { // then look for last name in previous versions
+			if (eSortName==null) { // then look for last name in previous versions
 				for (const ev of vpEntries.get(ekey)??[]) {
 					const ename=project.store[etype][eid][ev]?.tags.name
-					if (ename!=null) eLastDefinedName=ename
+					if (ename!=null) eSortName=ename
 				}
 			}
-			resultsWithNames.push([result,eLastDefinedName])
+			if (eSortName==null && etype=='way' && wayParents[eid]) { // then check parent name if it was computed
+				const [pid,pv]=wayParents[eid]
+				const pname=project.store.way[pid][pv].tags.name
+				if (pname!=null) eSortName=pname
+			}
+			resultsWithNames.push([result,eSortName])
 		}
 		resultsWithNames.sort(([result1,ename1],[result2,ename2])=>(ename1??'').localeCompare(ename2??''))
 		for (const [result] of resultsWithNames) {
