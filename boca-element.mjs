@@ -310,6 +310,10 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid]?.top?.timestamp))
 		response.write(`\n<tr><th>visible`)
 		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
+		response.write(`<td>`+makeRcLink(
+			e.u`load_object?objects=${etype[0]+eid}`,
+			`[load]`
+		))
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
 				if (nid) {
@@ -341,29 +345,25 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			}
 		}
 		for (const k in allTags) {
-			let nIterations=0
-			let isChanged=false
+			let changeName
 			let previousValue
-			let lastValue
 			let changedVersion
-			let lastVersion
 			response.write(e.h`\n<tr><td>${k}`)
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
-				nIterations++
-				lastValue=cdata.tags[k]??''
-				lastVersion=cv
 				const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
-				if (change && !isChanged) {
-					isChanged=true
+				if (change && !changeName) {
+					changeName='undo'
 					previousValue=pdata.tags[k]??''
+					changedVersion=cv
+				} else if (pstate==NULL && cdata.tags[k]!=null) {
+					changeName='delete'
+					previousValue=''
 					changedVersion=cv
 				}
 				return [output,change]
 			})
-			if (isChanged) {
-				writeUndoCell('undo',changedVersion,k,previousValue)
-			} else if (nIterations==1 && lastValue!='') {
-				writeUndoCell('delete',lastVersion,k,'')
+			if (changeName) {
+				writeUndoCell(changeName,changedVersion,k,previousValue)
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
