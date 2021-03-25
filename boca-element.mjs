@@ -26,18 +26,19 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		'amenity','barrier','emergency','leisure','man_made','place','tourism'
 	])
 	const getVersionTable=(etype,eid,evs,parent)=>{
+		if (!project.store[etype][eid]) return [[UNKNOWN]]
 		// [[state,eid,ev],...]
 		// first state is always either UNKNOWN or NULL
 		const versionTable=[]
 		const targetVersions=new Set(evs)
-		const minVersion=evs[0]
+		const minVersion=evs[0]??1 // start either from first provided version or from first version
 		const maxVersion=osm.topVersion(project.store[etype][eid])
 		if (parent) {
 			versionTable.push([UNKNOWN])
 			versionTable.push([PARENT,...parent])
 		} else if (minVersion==1) {
 			versionTable.push([NULL])
-		} else if (project.store[etype][eid][minVersion-1]) {
+		} else if (minVersion!=null && project.store[etype][eid][minVersion-1]) {
 			versionTable.push([UNKNOWN])
 			versionTable.push([OUT,eid,minVersion-1])
 		} else {
@@ -170,6 +171,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		return diff
 	}
 	const compareFirstAndLastVersions=(etype,collapsedVersionTable)=>{
+		if (collapsedVersionTable.length<=1) return {} // don't compare fully unknown element b/c currently assumes c-versions to be known
 		const [cstate,cid,cv]=collapsedVersionTable[collapsedVersionTable.length-1]
 		const [pstate,pid,pv]=collapsedVersionTable[0]
 		const getData=(state,eid,ev)=>{
@@ -305,7 +307,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		response.write(`<th>last updated on`)
 		response.write(`\n<tr><th>timestamp`)
 		iterate((cstate,cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
-		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid].top?.timestamp))
+		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid]?.top?.timestamp))
 		response.write(`\n<tr><th>visible`)
 		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
 		if (etype=='way') {

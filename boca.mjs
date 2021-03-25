@@ -156,6 +156,12 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Error removing extra element from pending redactions: <code>${ex.message}</code>`)
 			}
+		} else if (match=pathname.match(new RegExp('^/redactions/([^/]*)$'))) {
+			const [,subpath]=match
+			if (!await serveCommonViewRoute(response,project,subpath,()=>readPost(request),referer)) {
+				response.writeHead(404)
+				response.end(`Redactions route not defined`)
+			}
 		} else if (pathname=='/boca-map.js') {
 			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
 		} else if (pathname=='/favicon.ico') {
