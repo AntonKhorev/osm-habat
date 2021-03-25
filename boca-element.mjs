@@ -329,12 +329,29 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			Object.assign(allTags,cdata.tags)
 			return ''
 		})
+		const writeUndoCell=(name,changedVersion,k,v)=>{
+			if (project.store[etype][eid].top) {
+				response.write(`<td>`+makeRcLink(
+					e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${v}`,
+					`[${name}]`,
+					{version:changedVersion}
+				))
+			} else {
+				response.write(`<td>update to enable ${name}`)
+			}
+		}
 		for (const k in allTags) {
+			let nIterations=0
 			let isChanged=false
 			let previousValue
+			let lastValue
 			let changedVersion
+			let lastVersion
 			response.write(e.h`\n<tr><td>${k}`)
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
+				nIterations++
+				lastValue=cdata.tags[k]??''
+				lastVersion=cv
 				const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 				if (change && !isChanged) {
 					isChanged=true
@@ -343,14 +360,10 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 				}
 				return [output,change]
 			})
-			if (isChanged && project.store[etype][eid].top) {
-				response.write(`<td>`+makeRcLink(
-					e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${previousValue}`,
-					`[undo]`,
-					{version:changedVersion}
-				))
-			} else if (isChanged) {
-				response.write(`<td>update to enable undo`)
+			if (isChanged) {
+				writeUndoCell('undo',changedVersion,k,previousValue)
+			} else if (nIterations==1 && lastValue!='') {
+				writeUndoCell('delete',lastVersion,k,'')
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
