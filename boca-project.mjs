@@ -119,7 +119,10 @@ export default class Project {
 	loadPendingRedactions() {
 		this.clearPendingRedactions()
 		if (fs.existsSync(this.pendingRedactionsFilename)) {
-			this.pendingRedactions=JSON.parse(fs.readFileSync(this.pendingRedactionsFilename))
+			Object.assign( // keeps newly added blank props created by this.clearPendingRedactions()
+				this.pendingRedactions,
+				JSON.parse(fs.readFileSync(this.pendingRedactionsFilename))
+			)
 		}
 	}
 	savePendingRedactions() {
@@ -135,7 +138,7 @@ export default class Project {
 		for (const etype of ['node','way','relation']) {
 			if (Object.keys(this.pendingRedactions[etype]).length>0) return false
 		}
-		return true
+		return this.pendingRedactions.extra.legnth==0
 	}
 	redactElementVersions(etype,eid,evs) {
 		if (!this.pendingRedactions[etype][eid]) {
@@ -181,6 +184,22 @@ export default class Project {
 			way:{},
 			relation:{},
 			last:[],
+			extra:[],
+		}
+	}
+	addExtraElementToPendingRedactions(etype,eid) {
+		for (const [etype1,eid1] of this.pendingRedactions.extra) {
+			if (etype1==etype && eid1==eid) return
+		}
+		this.pendingRedactions.extra.push([etype,eid])
+	}
+	removeExtraElementFromPendingRedactions(etype,eid) {
+		for (let i=0;i<this.pendingRedactions.extra.length;i++) {
+			const [etype1,eid1]=this.pendingRedactions.extra[i]
+			if (etype1==etype && eid1==eid) {
+				this.pendingRedactions.extra.splice(i,1)
+				return
+			}
 		}
 	}
 }

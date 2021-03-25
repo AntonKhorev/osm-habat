@@ -58,6 +58,14 @@ details.element tr:first-child td.target {
 details.element tr:last-child td.target {
 	border-bottom: solid 3px #004;
 }
+form.real {
+	margin: 1em 0;
+}
+input[type=text] {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+}
 textarea {
 	box-sizing: border-box;
 	width: 100%;

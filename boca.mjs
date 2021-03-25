@@ -8,6 +8,7 @@ import open from 'open'
 import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLinks from './osm-links.mjs'
+import * as osmRef from './osm-ref.mjs'
 import Project from './boca-project.mjs'
 import * as respond from './boca-respond.mjs'
 import {AllView,ScopeView,UserView,ChangesetView} from './boca-view.mjs'
@@ -115,6 +116,8 @@ function main(projectDirname) {
 			}
 		} else if (pathname=='/redactions/') {
 			serveRedactions(response,project)
+		} else if (pathname=='/redactions/extra') {
+			serveRedactionsExtra(response,project)
 		} else if (pathname=='/redactions/download') {
 			response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
 			response.end(project.marshallPendingRedactions())
@@ -128,6 +131,29 @@ function main(projectDirname) {
 			} else {
 				response.writeHead(404)
 				response.end('Need to confirm redaction clearing')
+			}
+		} else if (pathname=='/redactions/add-element') {
+			const post=await readPost(request)
+			try {
+				const [etype,eid]=osmRef.element(post.element)
+				project.addExtraElementToPendingRedactions(etype,eid)
+				project.savePendingRedactions()
+				response.writeHead(303,{'Location':'.'})
+				response.end()
+			} catch (ex) {
+				response.writeHead(404)
+				response.end(`Error adding extra element to pending redactions: <code>${ex.message}</code>`)
+			}
+		} else if (pathname=='/redactions/remove-element') {
+			const post=await readPost(request)
+			try {
+				project.removeExtraElementFromPendingRedactions(post.type,post.id)
+				project.savePendingRedactions()
+				response.writeHead(303,{'Location':'.'})
+				response.end()
+			} catch (ex) {
+				response.writeHead(404)
+				response.end(`Error removing extra element from pending redactions: <code>${ex.message}</code>`)
 			}
 		} else if (pathname=='/boca-map.js') {
 			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
@@ -222,11 +248,11 @@ function serveRoot(response,project) {
 	}
 	response.write(`</div>\n`)
 	response.write(`<h2>Actions</h2>\n`)
-	response.write(`<form method=post action=/fetch-user>\n`)
+	response.write(`<form class=real method=post action=/fetch-user>\n`)
 	response.write(`<label>User to fetch: <input type=text name=user></label>\n`)
 	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
-	response.write(`<form method=post action=/fetch-changeset>\n`)
+	response.write(`<form class=real method=post action=/fetch-changeset>\n`)
 	response.write(`<label>Changeset to fetch: <input type=text name=changeset></label>\n`)
 	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
@@ -235,14 +261,37 @@ function serveRoot(response,project) {
 }
 
 function serveRedactions(response,project) {
-	respond.head(response,'habat-boca')
+	respond.head(response,'redactions')
 	response.write(`<h1>Pending redactions</h1>\n`)
 	response.write(e.h`<textarea readonly>${project.marshallPendingRedactions()}</textarea>\n`)
-	response.write(`<p><a href=download>download redactions file</a>\n`)
-	response.write(`<form method=post action=clear>\n`)
+	response.write(`<div><a href=download>download redactions file</a></div>\n`)
+	response.write(`<form class=real method=post action=add-element>\n`)
+	response.write(`<label>OSM URL of element: <input type=text name=element></label>\n`)
+	response.write(`<button>Add extra element to redaction</button>\n`)
+	response.write(`</form>\n`)
+	response.write(`<table>\n`)
+	response.write(`<tr><th>extra element\n`)
+	for (const [etype,eid] of project.pendingRedactions.extra) {
+		response.write(`<tr><td>`+osmLinks.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
+		response.write(`<form method=post action=remove-element>`)
+		response.write(`<input type=hidden name=type value=${etype}>`)
+		response.write(`<input type=hidden name=id value=${eid}>`)
+		response.write(`<button>Remove</button>`)
+		response.write(`</form>`)
+	}
+	response.write(`</table>\n`)
+	response.write(`<div><a href=extra>view changes on extra elements</a></div>\n`)
+	response.write(`<form class=real method=post action=clear>\n`)
 	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to clear pending redactions.</label></div>\n`)
 	response.write(`<div><button>Clear pending redactions</button></div>\n`)
 	response.write(`</form>\n`)
+	respond.tail(response)
+}
+
+function serveRedactionsExtra(response,project) {
+	respond.head(response,'extra elements in redactions')
+	response.write(`<h1>Extra elements in pending redactions</h1>\n`)
+	// TODO
 	respond.tail(response)
 }
 
