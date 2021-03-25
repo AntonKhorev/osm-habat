@@ -12,6 +12,7 @@ import * as osmRef from './osm-ref.mjs'
 import Project from './boca-project.mjs'
 import * as respond from './boca-respond.mjs'
 import {AllView,ScopeView,UserView,ChangesetView} from './boca-view.mjs'
+import elementWriter from './boca-element.mjs'
 
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
@@ -291,7 +292,9 @@ function serveRedactions(response,project) {
 function serveRedactionsExtra(response,project) {
 	respond.head(response,'extra elements in redactions')
 	response.write(`<h1>Extra elements in pending redactions</h1>\n`)
-	// TODO
+	for (const [etype,eid] of project.pendingRedactions.extra) {
+		elementWriter(response,project,etype,eid,[])
+	}
 	respond.tail(response)
 }
 
