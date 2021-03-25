@@ -109,9 +109,15 @@ export default function *filterElements(project,changesets,filters,order,detailL
 			const [etype,eid]=result
 			const ekey=etype[0]+eid
 			let eLastDefinedName
-			for (const ev of vsEntries.get(ekey)) {
+			for (const ev of vsEntries.get(ekey)??[]) { // first look for last name in selected versions
 				const ename=project.store[etype][eid][ev].tags.name
 				if (ename!=null) eLastDefinedName=ename
+			}
+			if (eLastDefinedName==null) { // then look for last name in previous versions
+				for (const ev of vpEntries.get(ekey)??[]) {
+					const ename=project.store[etype][eid][ev]?.tags.name
+					if (ename!=null) eLastDefinedName=ename
+				}
 			}
 			resultsWithNames.push([result,eLastDefinedName])
 		}
