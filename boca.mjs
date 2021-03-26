@@ -156,6 +156,10 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Error removing extra element from pending redactions: <code>${ex.message}</code>`)
 			}
+		} else if (pathname=='/redactions/status') {
+			response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
+			views.writeRedactionsStatus(response,project)
+			response.end()
 		} else if (match=pathname.match(new RegExp('^/redactions/extra/([^/]*)$'))) {
 			const [,subpath]=match
 			const view=new views.RedactionsExtraElementsView(project)

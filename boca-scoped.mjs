@@ -357,7 +357,7 @@ export function viewElements(response,project,changesets,query) {
 	} else {
 		response.write(`</table>\n`)
 		response.write(`<form method=post action=fetch-latest>\n`)
-		for (const [k,v] of Object.entries(filters)) {
+		for (const [k,v] of Object.entries(query)) {
 			response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
 		}
 		response.write(`<button>Fetch a batch of latest versions from OSM</button>\n`)

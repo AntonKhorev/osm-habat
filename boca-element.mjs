@@ -383,7 +383,9 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 				return ''
 			}
 		})
-		response.write(`<td><button class=reloader formaction=redact>Redact selected</button><button class=reloader formaction=unredact>Unredact</button>`)
+		response.write(`<td>`)
+		response.write(`<button class='reloader redactor' formaction=redact>Redact selected</button>`)
+		response.write(`<button class='reloader redactor' formaction=unredact>Unredact</button>`)
 		response.write(`\n</table>\n`)
 	}
 	const versionTable=getVersionTable(etype,eid,evs,parent)

@@ -39,9 +39,6 @@ async function postAndReload(ev) {
 	}
 	disableControls()
 	try {
-		for (const [k,v] of new FormData($button.form).entries()) {
-			console.log(k,'=',v)
-		}
 		const response=await fetch($button.formAction+'-reload',{
 			method: 'POST',
 			headers: {'Content-Type':'application/x-www-form-urlencoded'},
@@ -53,10 +50,20 @@ async function postAndReload(ev) {
 			return
 		}
 		$reloadable.innerHTML=await response.text()
-		setupListeners($reloadable)
 	} catch (ex) {
 		$reloadable.insertAdjacentHTML('beforeend',`<div class=error>Error: <code>${escapeHtml(ex.message)}</code></div>`)
 		enableControls()
+		return
+	}
+	setupListeners($reloadable)
+	if (!$button.classList.contains('redactor')) return
+	const $redactionsStatus=document.querySelector('.redactions-status')
+	try {
+		const response=await fetch('/redactions/status')
+		if (!response.ok) throw new Error('status fetch error')
+		$redactionsStatus.innerHTML=await response.text()
+	} catch (ex) {
+		$redactionsStatus.innerHTML("<p>failed to update status of redactions")
 	}
 	function disableControls() {
 		for (const $anyButton of $reloadable.querySelectorAll('button')) {

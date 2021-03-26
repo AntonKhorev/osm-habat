@@ -5,6 +5,22 @@ import * as respond from './boca-respond.mjs'
 import * as scoped from './boca-scoped.mjs'
 import elementWriter from './boca-element.mjs'
 
+export function writeRedactionsStatus(response,project) {
+	if (project.pendingRedactions.last.length>0) {
+		response.write(`<p>last redaction changes:<ul>\n`)
+		for (const [action,etype,eid,ev] of project.pendingRedactions.last) {
+			const anchor='#'+etype[0]+eid
+			response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> v${ev}\n`)
+		}
+		response.write(`</ul>\n`)
+	}
+	if (project.isEmptyPendingRedactions()) {
+		response.write(`<p>no pending redactions\n`)
+	} else {
+		response.write(`<p><a href=/redactions/>view all pending redactions</a>\n`)
+	}
+}
+
 class ElementaryView { // doesn't need to provide real changesets/changes
 	constructor(project) {
 		this.project=project
@@ -114,20 +130,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 	writeTail(response) {
 		response.write(`</main>\n`)
 		response.write(`<footer>\n`)
-		response.write(`<div>\n`)
-		if (this.project.pendingRedactions.last.length>0) {
-			response.write(`<p>last redaction changes:<ul>\n`)
-			for (const [action,etype,eid,ev] of this.project.pendingRedactions.last) {
-				const anchor='#'+etype[0]+eid
-				response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> v${ev}\n`)
-			}
-			response.write(`</ul>\n`)
-		}
-		if (this.project.isEmptyPendingRedactions()) {
-			response.write(`<p>no pending redactions\n`)
-		} else {
-			response.write(`<p><a href=/redactions/>view all pending redactions</a>\n`)
-		}
+		response.write(`<div class=redactions-status>\n`)
+		writeRedactionsStatus(response,this.project)
 		response.write(`</div>\n`)
 		response.write(`<form method=post>`)
 		this.writeFooterButtons(response)
