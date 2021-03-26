@@ -301,7 +301,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		response.write(`<table>`)
 		response.write(`\n<tr><th>element`)
 		iterate((cstate,cid,cv)=>makeElementTableHtml(etype,cid,cv))
-		response.write(`<td><button formaction=fetch-history>Update history</button>`)
+		response.write(`<td><button class=reloader formaction=fetch-history>Update history</button>`)
 		response.write(`\n<tr><th>changeset`)
 		iterate((cstate,cid,cv,cdata)=>osmLinks.changeset(cdata.changeset).at(cdata.changeset))
 		response.write(`<th>last updated on`)
@@ -388,7 +388,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 	}
 	const versionTable=getVersionTable(etype,eid,evs,parent)
 	const collapsedVersionTable=collapseVersionTable(versionTable)
-	response.write(e.h`<details class=element open=${isInteresting(etype,versionTable)}><summary>\n`)
+	response.write(e.h`<details class='reloadable element' open=${isInteresting(etype,versionTable)}><summary>\n`)
 	response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
 	const elementLinks=osmLinks.element(etype,eid)
 	response.write(`: `+elementLinks.history.at('history')+`, `+elementLinks.deepHistory.at('deep history')+`, `+elementLinks.deepDiff.at('deep diff')+`\n`)

@@ -162,7 +162,7 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Redactions route not defined`)
 			}
-		} else if (pathname=='/boca-map.js') {
+		} else if (pathname=='/boca-map.js' || pathname=='/boca-common.js') {
 			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
 		} else if (pathname=='/favicon.ico') {
 			serveStaticFile(response,pathname,'image/x-icon')
