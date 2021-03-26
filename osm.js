@@ -269,3 +269,12 @@ exports.topVersion=(elementStore)=>{
 	}
 	return maxVersion
 }
+
+exports.allVersions=(elementStore)=>{
+	const vs=[]
+	for (const k in elementStore) {
+		const n=Number(k)
+		if (n) vs.push(n)
+	}
+	return vs.sort((n1,n2)=>n1-n2)
+}

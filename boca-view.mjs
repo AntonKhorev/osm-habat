@@ -1,43 +1,159 @@
 import * as e from './escape.js'
+import * as osm from './osm.js'
 import * as osmLinks from './osm-links.mjs'
 import * as respond from './boca-respond.mjs'
 import * as scoped from './boca-scoped.mjs'
+import elementWriter from './boca-element.mjs'
 
-class View {
+class ElementaryView { // doesn't need to provide real changesets/changes
 	constructor(project) {
 		this.project=project
-	}
-	serveMain(response) {
-		this.writeHead(response)
-		this.writeMain(response)
-		this.writeTail(response)
-	}
-	serveByChangeset(response,insides,order) {
-		this.writeHead(response)
-		insides(response,this.project,this.getChangesets(),order)
-		this.writeTail(response)
-	}
-	serveByElement(response,insides,filters) {
-		this.writeHead(response)
-		insides(response,this.project,this.getChangesets(),filters)
-		this.writeTail(response)
-	}
-	async serveFetchElements(response,insides,filters,referer,errorMessage) {
-		try {
-			await insides(response,this.project,this.getChangesets(),filters)
-		} catch (ex) {
-			return respond.fetchError(response,ex,'elements fetch error',errorMessage)
-		}
-		this.project.saveStore()
-		response.writeHead(303,{'Location':referer??'.'})
-		response.end()
 	}
 	async serveRoute(response,route,getQuery,passPostQuery,referer) {
 		if (route=='') {
 			this.serveMain(response)
 		} else if (route=='elements') {
 			this.serveByElement(response,scoped.viewElements,getQuery)
-		} else if (route=='counts') {
+		} else if (route=='cpe') {
+			this.serveByElement(response,scoped.analyzeChangesPerElement,getQuery)
+		} else if (route=='reload-redactions') {
+			this.project.loadRedactions()
+			response.writeHead(303,{'Location':referer??'.'})
+			response.end()
+		} else {
+			return await this.serveReloadableRoute(response,route,getQuery,passPostQuery,referer)
+		}
+		return true
+	}
+	async serveReloadableRoute(response,route,getQuery,passPostQuery,referer) {
+		const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
+		const actions=[
+			['fetch-history',async({type,id})=>{
+				await osm.fetchToStore(this.project.store,e.u`/api/0.6/${type}/${id}/history`,true)
+				if (!this.project.store[type][id]) throw new Error(`Fetch completed but the element record is empty for ${type} #${id}`)
+				this.project.saveStore()
+			}],
+			['redact',async({type,id,version})=>{
+				this.project.redactElementVersions(type,id,getVersions(version))
+				this.project.savePendingRedactions()
+			}],
+			['unredact',async({type,id})=>{
+				this.project.unredactElement(type,id)
+				this.project.savePendingRedactions()
+			}],
+		]
+		for (const [routePrefix,action] of actions) {
+			if (route==routePrefix) {
+				const args=await passPostQuery()
+				try {
+					await action(args)
+				} catch (ex) {
+					respond.fetchError(response,ex,'element action error',e.h`<p>cannot perform action for element ${args.type} #${args.id}\n`)
+					return true
+				}
+				response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
+				response.end()
+				return true
+			} else if (route==routePrefix+'-reload') {
+				const args=await passPostQuery()
+				try {
+					await action(args)
+				} catch (ex) {
+					response.writeHead(500,{'Content-Type':'text/plain; charset=utf-8'})
+					response.write(`cannot perform action for element ${args.type} #${args.id}\n`)
+					response.write(`the error was: ${ex.message}\n`)
+					response.end()
+					return true
+				}
+				response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
+				const etype=args.type
+				const eid=Number(args.id)
+				const [evs,parent]=this.getSelectedElementVersionsAndParent(etype,eid)
+				elementWriter(response,this.project,etype,eid,evs,parent)
+				response.end()
+				return true
+			}
+		}
+		return false
+	}
+	getSelectedElementVersionsAndParent(targetEtype,targetEid) {
+		const evs=[]
+		let parent
+		for (const [,changes] of this.getChangesets()) { // TODO optimized version for full views - look through csets in element history
+			for (const [,etype,eid,ev] of changes) {
+				if (etype==targetEtype && eid==targetEid) {
+					evs.push(ev)
+					if (targetEtype=='way' && ev==1) {
+						const parentQuery=createParentQuery(this.project,changes)
+						parent=parentQuery(eid)
+					}
+				}
+			}
+		}
+		return [evs,parent]
+	}
+	serveMain(response) {
+		this.writeHead(response)
+		this.writeMain(response)
+		this.writeTail(response)
+	}
+	serveByElement(response,insides,query) {
+		this.writeHead(response)
+		insides(response,this.project,this.getChangesets(),query)
+		this.writeTail(response)
+	}
+	writeHead(response) {
+		respond.head(response,this.getTitle())
+		this.writeHeading(response)
+		response.write(`<nav><ul>\n`)
+		for (const [href,text] of this.listNavLinks()) {
+			response.write(`<li><a href=${href}>${text}</a>\n`)
+		}
+		response.write(`</ul></nav>\n`)
+	}
+	writeTail(response) {
+		response.write(`</main>\n`)
+		response.write(`<footer>\n`)
+		response.write(`<div>\n`)
+		if (this.project.pendingRedactions.last.length>0) {
+			response.write(`<p>last redaction changes:<ul>\n`)
+			for (const [action,etype,eid,ev] of this.project.pendingRedactions.last) {
+				const anchor='#'+etype[0]+eid
+				response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> v${ev}\n`)
+			}
+			response.write(`</ul>\n`)
+		}
+		if (this.project.isEmptyPendingRedactions()) {
+			response.write(`<p>no pending redactions\n`)
+		} else {
+			response.write(`<p><a href=/redactions/>view all pending redactions</a>\n`)
+		}
+		response.write(`</div>\n`)
+		response.write(`<form method=post>`)
+		this.writeFooterButtons(response)
+		response.write(`</form>\n`)
+		response.write(`</footer>\n`)
+		respond.tailNoMain(response)
+	}
+	writeFooterButtons(response) {
+		response.write(`<button formaction=reload-redactions>Reload redactions</button>`)
+	}
+	*listNavLinks() {
+		yield* [
+			['/','root'],
+			['.','main view'],
+			['elements','elements'],
+			['cpe','changes per element'],
+		]
+	}
+}
+
+class FullView extends ElementaryView {
+	async serveRoute(response,route,getQuery,passPostQuery,referer) {
+		if (await super.serveRoute(response,route,getQuery,passPostQuery,referer)) {
+			return true
+		}
+		if (route=='counts') {
 			this.serveByChangeset(response,scoped.analyzeCounts)
 		} else if (route=='formulas') {
 			this.serveByChangeset(response,scoped.analyzeFormulas)
@@ -47,8 +163,6 @@ class View {
 			this.serveByChangeset(response,scoped.analyzeDeletes)
 		} else if (route=='cpcpe') {
 			this.serveByChangeset(response,scoped.analyzeChangesPerChangesetPerElement)
-		} else if (route=='cpe') {
-			this.serveByChangeset(response,scoped.analyzeChangesPerElement,getQuery.order)
 		} else if (route=='fetch-previous') {
 			const filters=await passPostQuery()
 			await this.serveFetchElements(response,
@@ -81,52 +195,40 @@ class View {
 		}
 		return true
 	}
-	writeHead(response) {
-		respond.head(response,this.getTitle())
-		this.writeHeading(response)
-		response.write(`<nav><ul>\n`)
-		for (const [href,text] of [
-			['/','root'],
-			['.','main view'],
-			['elements','elements'],
+	serveByChangeset(response,insides,query) { // became same as serveByElement()
+		this.writeHead(response)
+		insides(response,this.project,this.getChangesets(),query)
+		this.writeTail(response)
+	}
+	async serveFetchElements(response,insides,filters,referer,errorMessage) {
+		try {
+			await insides(response,this.project,this.getChangesets(),filters)
+		} catch (ex) {
+			return respond.fetchError(response,ex,'elements fetch error',errorMessage)
+		}
+		this.project.saveStore()
+		response.writeHead(303,{'Location':referer??'.'})
+		response.end()
+	}
+	writeFooterButtons(response) {
+		super.writeFooterButtons(response)
+		response.write(`<button formaction=fetch-previous>Fetch previous versions</button>`)
+		response.write(`<button formaction=fetch-latest>Fetch latest versions</button>`)
+		response.write(`<button formaction=fetch-redacted>Fetch a batch of elements with last version redacted</button>`)
+	}
+	*listNavLinks() {
+		yield* super.listNavLinks()
+		yield* [
 			['counts','element counts'],
 			['formulas','change formulas'],
 			['keys','changed keys'],
 			['deletes','deletion distributions'],
 			['cpcpe','changes per changeset per element'],
-			['cpe','changes per element'],
-		]) response.write(`<li><a href=${href}>${text}</a>\n`)
-		response.write(`</ul></nav>\n`)
-	}
-	writeTail(response) {
-		response.write(`</main>\n`)
-		response.write(`<footer>\n`)
-		response.write(`<div>\n`)
-		if (this.project.pendingRedactions.last.length>0) {
-			response.write(`<p>last redaction changes:<ul>\n`)
-			for (const [action,etype,eid,ev] of this.project.pendingRedactions.last) {
-				const anchor='#'+etype[0]+eid
-				response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> v${ev}\n`)
-			}
-			response.write(`</ul>\n`)
-		}
-		if (this.project.isEmptyPendingRedactions()) {
-			response.write(`<p>no pending redactions\n`)
-		} else {
-			response.write(`<p><a href=/redactions/>view all pending redactions</a>\n`)
-		}
-		response.write(`</div>\n`)
-		response.write(`<form method=post>`)
-		response.write(`<button formaction=fetch-previous>Fetch previous versions</button>`)
-		response.write(`<button formaction=fetch-latest>Fetch latest versions</button>`)
-		response.write(`<button formaction=reload-redactions>Reload redactions</button>`)
-		response.write(`<button formaction=fetch-redacted>Fetch a batch of elements with last version redacted</button>`)
-		response.write(`</footer>\n`)
-		respond.tailNoMain(response)
+		]
 	}
 }
 
-export class AllView extends View {
+export class AllView extends FullView {
 	getChangesets() {
 		return this.project.getAllChangesets()
 	}
@@ -141,7 +243,7 @@ export class AllView extends View {
 	}
 }
 
-export class ScopeView extends View {
+export class ScopeView extends FullView {
 	constructor(project,scope) {
 		super(project)
 		this.scope=scope
@@ -169,7 +271,7 @@ export class ScopeView extends View {
 	}
 }
 
-export class UserView extends View {
+export class UserView extends FullView {
 	constructor(project,user) {
 		super(project)
 		this.user=user
@@ -296,7 +398,7 @@ export class UserView extends View {
 	}
 }
 
-export class ChangesetView extends View {
+export class ChangesetView extends FullView {
 	constructor(project,cid) {
 		super(project)
 		this.cid=cid
@@ -316,5 +418,26 @@ export class ChangesetView extends View {
 		response.write(e.h`<li><a href=map>changeset viewer</a>\n`)
 		response.write(e.h`<li>external tools: `+href.osmcha.at('osmcha')+` `+href.achavi.at('achavi')+`</li>\n`)
 		response.write(e.h`</ul>\n`)
+	}
+}
+
+export class RedactionsExtraElementsView extends ElementaryView {
+	*getChangesets() {
+		for (const [etype,eid] of this.project.pendingRedactions.extra) {
+			for (const ev of osm.allVersions(this.project.store[etype][eid])) {
+				yield [null,[
+					[null,etype,eid,ev]
+				]]
+			}
+		}
+	}
+	getTitle() {
+		return 'extra elements in pending redactions'
+	}
+	writeHeading(response) {
+		response.write(`<h1>Extra elements in pending redactions</h1>\n`)
+	}
+	writeMain(response) {
+		response.write(e.h`<p>${this.project.pendingRedactions.extra.length} elements in total\n`)
 	}
 }

@@ -11,8 +11,7 @@ import * as osmLinks from './osm-links.mjs'
 import * as osmRef from './osm-ref.mjs'
 import Project from './boca-project.mjs'
 import * as respond from './boca-respond.mjs'
-import {AllView,ScopeView,UserView,ChangesetView} from './boca-view.mjs'
-import elementWriter from './boca-element.mjs'
+import * as views from './boca-view.mjs'
 
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
@@ -34,8 +33,7 @@ function main(projectDirname) {
 			}
 		} catch {}
 		const serveViewRoutes=async(view,subpath)=>(
-			await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer) ||
-			await serveCommonViewRoute(response,project,subpath,()=>readPost(request),referer)
+			await view.serveRoute(response,subpath,queryParams,()=>readPost(request),referer)
 		)
 		let match
 		if (pathname=='/') {
@@ -55,7 +53,7 @@ function main(projectDirname) {
 			await serveFetchChangeset(response,project,post.changeset,referer)
 		} else if (match=pathname.match(new RegExp('^/all/([^/]*)$'))) {
 			const [,subpath]=match
-			const view=new AllView(project)
+			const view=new views.AllView(project)
 			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else {
@@ -69,7 +67,7 @@ function main(projectDirname) {
 				response.end(`Scope "${scope}" not found`)
 				return
 			}
-			const view=new ScopeView(project,scope)
+			const view=new views.ScopeView(project,scope)
 			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else {
@@ -84,7 +82,7 @@ function main(projectDirname) {
 				return
 			}
 			const user=project.user[uid]
-			const view=new UserView(project,user)
+			const view=new views.UserView(project,user)
 			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else if (subpath=='bbox.osm') {
@@ -106,7 +104,7 @@ function main(projectDirname) {
 				response.end(`Changeset #${cid} not found`)
 				return
 			}
-			const view=new ChangesetView(project,cid)
+			const view=new views.ChangesetView(project,cid)
 			if (await serveViewRoutes(view,subpath)) {
 				// ok
 			} else if (subpath=='map') {
@@ -117,8 +115,6 @@ function main(projectDirname) {
 			}
 		} else if (pathname=='/redactions/') {
 			serveRedactions(response,project)
-		} else if (pathname=='/redactions/extra') {
-			serveRedactionsExtra(response,project)
 		} else if (pathname=='/redactions/download') {
 			response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
 			response.end(project.marshallPendingRedactions())
@@ -137,6 +133,10 @@ function main(projectDirname) {
 			const post=await readPost(request)
 			try {
 				const [etype,eid]=osmRef.element(post.element)
+				// have to fetch element - otherwise can't present it in elementary views
+				await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`,true)
+				if (!project.store[etype][eid]) throw new Error(`Fetch completed but the element record is empty for ${etype} #${eid}`)
+				project.saveStore()
 				project.addExtraElementToPendingRedactions(etype,eid)
 				project.savePendingRedactions()
 				response.writeHead(303,{'Location':'.'})
@@ -156,11 +156,14 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Error removing extra element from pending redactions: <code>${ex.message}</code>`)
 			}
-		} else if (match=pathname.match(new RegExp('^/redactions/([^/]*)$'))) {
+		} else if (match=pathname.match(new RegExp('^/redactions/extra/([^/]*)$'))) {
 			const [,subpath]=match
-			if (!await serveCommonViewRoute(response,project,subpath,()=>readPost(request),referer)) {
+			const view=new views.RedactionsExtraElementsView(project)
+			if (await serveViewRoutes(view,subpath)) {
+				// ok
+			} else {
 				response.writeHead(404)
-				response.end(`Redactions route not defined`)
+				response.end(`Redactions extra elements route not defined`)
 			}
 		} else if (pathname=='/boca-map.js' || pathname=='/boca-common.js') {
 			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
@@ -188,61 +191,6 @@ function serveStaticFile(response,pathname,contentType) {
 		})
 		response.end(data)
 	})
-}
-
-async function serveCommonViewRoute(response,project,route,passPostQuery,referer) {
-	const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
-	if (route=='reload-redactions') {
-		project.loadRedactions()
-		response.writeHead(303,{'Location':referer??'.'})
-		response.end()
-		return true
-	}
-	for (const [routePrefix,action] of [
-		['fetch-history',async({type,id})=>{
-			await osm.fetchToStore(project.store,e.u`/api/0.6/${type}/${id}/history`,true)
-			if (!project.store[type][id]) throw new Error(`Fetch completed but the element record is empty for ${type} #${id}`)
-			project.saveStore()
-		}],
-		['redact',async({type,id,version})=>{
-			project.redactElementVersions(type,id,getVersions(version))
-			project.savePendingRedactions()
-		}],
-		['unredact',async({type,id})=>{
-			project.unredactElement(type,id)
-			project.savePendingRedactions()
-		}],
-	]) {
-		if (route==routePrefix) {
-			const args=await passPostQuery()
-			try {
-				await action(args)
-			} catch (ex) {
-				return respond.fetchError(response,ex,'element action error',e.h`<p>cannot perform action for element ${args.type} #${args.id}\n`)
-			}
-			response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
-			response.end()
-			return true
-		} else if (route==routePrefix+'-reload') {
-			const args=await passPostQuery()
-			try {
-				await action(args)
-			} catch (ex) {
-				response.writeHead(500,{'Content-Type':'text/plain; charset=utf-8'})
-				response.end(`cannot perform action for element ${args.type} #${args.id}\n`)
-				return
-			}
-			response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
-			// { TODO setup evs,parent
-			const evs=[]
-			const parent=undefined
-			// }
-			elementWriter(response,project,args.type,Number(args.id),evs,parent)
-			response.end()
-			return true
-		}
-	}
-	return false
 }
 
 async function readPost(request) {
@@ -317,20 +265,11 @@ function serveRedactions(response,project) {
 		response.write(`</form>`)
 	}
 	response.write(`</table>\n`)
-	response.write(`<div><a href=extra>view changes on extra elements</a></div>\n`)
+	response.write(`<div><a href=extra/cpe>view changes on extra elements</a></div>\n`)
 	response.write(`<form class=real method=post action=clear>\n`)
 	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to clear pending redactions.</label></div>\n`)
 	response.write(`<div><button>Clear pending redactions</button></div>\n`)
 	response.write(`</form>\n`)
-	respond.tail(response)
-}
-
-function serveRedactionsExtra(response,project) {
-	respond.head(response,'extra elements in redactions')
-	response.write(`<h1>Extra elements in pending redactions</h1>\n`)
-	for (const [etype,eid] of project.pendingRedactions.extra) {
-		elementWriter(response,project,etype,eid,[])
-	}
 	respond.tail(response)
 }
 
