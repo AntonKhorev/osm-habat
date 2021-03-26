@@ -383,12 +383,12 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 				return ''
 			}
 		})
-		response.write(`<td><button formaction=redact>Redact selected</button><button formaction=unredact>Unredact</button>`)
+		response.write(`<td><button class=reloader formaction=redact>Redact selected</button><button class=reloader formaction=unredact>Unredact</button>`)
 		response.write(`\n</table>\n`)
 	}
 	const versionTable=getVersionTable(etype,eid,evs,parent)
 	const collapsedVersionTable=collapseVersionTable(versionTable)
-	response.write(e.h`<details class='reloadable element' open=${isInteresting(etype,versionTable)}><summary>\n`)
+	response.write(e.h`<details class='element' open=${isInteresting(etype,versionTable)}><summary>\n`)
 	response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
 	const elementLinks=osmLinks.element(etype,eid)
 	response.write(`: `+elementLinks.history.at('history')+`, `+elementLinks.deepHistory.at('deep history')+`, `+elementLinks.deepDiff.at('deep diff')+`\n`)

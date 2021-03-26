@@ -304,7 +304,9 @@ export function analyzeChangesPerElement(response,project,changesets,order) {
 	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
 	response.write(`</ul>\n`)
 	for (const [etype,eid,evs,,parent] of filterElements(project,changesets,{},order,5)) {
+		response.write(`<div class=reloadable>\n`)
 		elementWriter(response,project,etype,eid,evs,parent)
+		response.write(`</div>\n`)
 	}
 }
 

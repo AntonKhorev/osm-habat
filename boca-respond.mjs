@@ -74,6 +74,14 @@ textarea {
 .js-enabled {
 	outline: solid 1px #F80;
 }
+.error {
+	border: solid .5em #F00;
+	padding: 1em;
+	margin: .5em 0;
+}
+.error.outdated {
+	border-color: #888;
+}
 </style>
 </head>
 <body>

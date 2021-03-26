@@ -192,27 +192,57 @@ function serveStaticFile(response,pathname,contentType) {
 
 async function serveCommonViewRoute(response,project,route,passPostQuery,referer) {
 	const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
-	if (route=='fetch-history') {
-		const args=await passPostQuery()
-		await serveFetchHistory(response,project,args.type,args.id,referer)
-	} else if (route=='reload-redactions') {
-		serveReloadRedactions(response,project,referer)
-	} else if (route=='redact') {
-		const args=await passPostQuery()
-		project.redactElementVersions(args.type,args.id,getVersions(args.version))
-		project.savePendingRedactions()
-		response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
+	if (route=='reload-redactions') {
+		project.loadRedactions()
+		response.writeHead(303,{'Location':referer??'.'})
 		response.end()
-	} else if (route=='unredact') {
-		const args=await passPostQuery()
-		project.unredactElement(args.type,args.id)
-		project.savePendingRedactions()
-		response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
-		response.end()
-	} else {
-		return false
+		return true
 	}
-	return true
+	for (const [routePrefix,action] of [
+		['fetch-history',async({type,id})=>{
+			await osm.fetchToStore(project.store,e.u`/api/0.6/${type}/${id}/history`,true)
+			if (!project.store[type][id]) throw new Error(`Fetch completed but the element record is empty for ${type} #${id}`)
+			project.saveStore()
+		}],
+		['redact',async({type,id,version})=>{
+			project.redactElementVersions(type,id,getVersions(version))
+			project.savePendingRedactions()
+		}],
+		['unredact',async({type,id})=>{
+			project.unredactElement(type,id)
+			project.savePendingRedactions()
+		}],
+	]) {
+		if (route==routePrefix) {
+			const args=await passPostQuery()
+			try {
+				await action(args)
+			} catch (ex) {
+				return respond.fetchError(response,ex,'element action error',e.h`<p>cannot perform action for element ${args.type} #${args.id}\n`)
+			}
+			response.writeHead(303,{'Location':(referer??'.')+e.u`#${args.type[0]+args.id}`}) // TODO check if referer is a path that supports element anchor
+			response.end()
+			return true
+		} else if (route==routePrefix+'-reload') {
+			const args=await passPostQuery()
+			try {
+				await action(args)
+			} catch (ex) {
+				response.writeHead(500,{'Content-Type':'text/plain; charset=utf-8'})
+				response.end(`cannot perform action for element ${args.type} #${args.id}\n`)
+				return
+			}
+			response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
+			// { TODO setup evs,parent
+			const evs=[]
+			const parent=undefined
+			// }
+			elementWriter(response,project,args.type,Number(args.id),evs,parent)
+			response.end()
+			return true
+		}
+	}
+	return false
 }
 
 async function readPost(request) {
@@ -545,25 +575,6 @@ async function serveFetchChangeset(response,project,changesetId,referer) {
 		return respond.fetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${changesetId}\n`)
 	}
 	project.saveStore()
-	response.writeHead(303,{'Location':referer??'.'})
-	response.end()
-}
-
-async function serveFetchHistory(response,project,etype,eid,referer) {
-	try {
-		const timestamp=Date.now()
-		await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`,true)
-		if (!project.store[etype][eid]) throw new Error(`Fetch completed but the element record is empty for ${etype} #${eid}`)
-	} catch (ex) {
-		return respond.fetchError(response,ex,'element history fetch error',e.h`<p>cannot fetch element ${etype} #${eid} history\n`)
-	}
-	project.saveStore()
-	response.writeHead(303,{'Location':(referer??'.')+e.u`#${etype[0]+eid}`}) // TODO check if referer is a path that supports element anchor
-	response.end()
-}
-
-function serveReloadRedactions(response,project,referer) {
-	project.loadRedactions()
 	response.writeHead(303,{'Location':referer??'.'})
 	response.end()
 }
