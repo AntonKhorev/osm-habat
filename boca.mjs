@@ -121,8 +121,7 @@ function main(projectDirname) {
 		} else if (pathname=='/redactions/clear') {
 			const post=await readPost(request)
 			if (post.confirm) {
-				project.clearPendingRedactions()
-				project.savePendingRedactions()
+				project.backupAndClearPendingRedactions()
 				response.writeHead(303,{'Location':'.'})
 				response.end()
 			} else {

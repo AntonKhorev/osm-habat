@@ -126,13 +126,13 @@ export default class Project {
 		}
 	}
 	savePendingRedactions() {
-		if (this.isEmptyPendingRedactions()) {
-			if (fs.existsSync(this.pendingRedactionsFilename)) {
-				fs.renameSync(this.pendingRedactionsFilename,this.pendingRedactionsBackupFilename)
-			}
-		} else {
-			fs.writeFileSync(this.pendingRedactionsFilename,JSON.stringify(this.pendingRedactions,null,2))
+		fs.writeFileSync(this.pendingRedactionsFilename,JSON.stringify(this.pendingRedactions,null,2))
+	}
+	backupAndClearPendingRedactions() {
+		if (fs.existsSync(this.pendingRedactionsFilename)) {
+			fs.renameSync(this.pendingRedactionsFilename,this.pendingRedactionsBackupFilename)
 		}
+		this.clearPendingRedactions()
 	}
 	isEmptyPendingRedactions() {
 		for (const etype of ['node','way','relation']) {
