@@ -138,7 +138,7 @@ export default class Project {
 		for (const etype of ['node','way','relation']) {
 			if (Object.keys(this.pendingRedactions[etype]).length>0) return false
 		}
-		return this.pendingRedactions.extra.legnth==0
+		return this.pendingRedactions.extra.length==0
 	}
 	redactElementVersions(etype,eid,evs) {
 		if (!this.pendingRedactions[etype][eid]) {
