@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 
-import filterElements from '../boca-filter.mjs'
+import * as filter from '../boca-filter.mjs'
 
 const project={
 	store:{
@@ -25,7 +25,7 @@ function *gen(changesetsArray) {
 			['modify','node',100013,2],
 		]],
 	]
-	const result2=[...filterElements(
+	const result2=[...filter.filterElements(
 		project,gen(changesets),{},undefined,2
 	)]
 	assert.deepStrictEqual(result2,[
@@ -35,7 +35,7 @@ function *gen(changesetsArray) {
 		['node',100012],
 		['node',100013],
 	])
-	const result3=[...filterElements(
+	const result3=[...filter.filterElements(
 		project,gen(changesets),{},undefined,3
 	)]
 	assert.deepStrictEqual(result3,[

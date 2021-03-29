@@ -4,7 +4,7 @@ import * as osmLinks from './osm-links.mjs'
 import * as respond from './boca-respond.mjs'
 import * as scoped from './boca-scoped.mjs'
 import elementWriter from './boca-element.mjs'
-import {createParentQuery} from './boca-parent.mjs'
+import * as filter from './boca-filter.mjs'
 
 export function writeRedactionsStatus(response,project) {
 	if (project.pendingRedactions.last.length>0) {
@@ -30,9 +30,9 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		if (route=='') {
 			this.serveMain(response)
 		} else if (route=='elements') {
-			this.serveByElement(response,scoped.viewElements,getQuery)
+			this.serveByElement(response,scoped.viewElements,route,getQuery)
 		} else if (route=='cpe') {
-			this.serveByElement(response,scoped.analyzeChangesPerElement,getQuery)
+			this.serveByElement(response,scoped.analyzeChangesPerElement,route,getQuery)
 		} else if (route=='reload-redactions') {
 			this.project.loadRedactions()
 			response.writeHead(303,{'Location':referer??'.'})
@@ -114,10 +114,30 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		this.writeMain(response)
 		this.writeTail(response)
 	}
-	serveByElement(response,insides,query) {
+	serveByElement(response,insides,route,query) {
+		const [filters,order]=this.parseQuery(query)
 		this.writeHead(response)
+		response.write(`<h2>Element filters</h2>\n`)
+		response.write(e.h`<form class=real action=${route}>\n`)
+		response.write(e.h`<textarea name=filters>${filter.makeQueryText(filters,order)}</textarea>\n`)
+		response.write(`<details><summary>Filter syntax</summary>\n`)
+		response.write(filter.syntaxDescription)
+		response.write(`</details>\n`)
+		response.write(`<div><button>Apply filters</button></div>\n`)
+		response.write(`</form>\n`)
 		insides(response,this.project,this.getChangesets(),query)
 		this.writeTail(response)
+	}
+	parseQuery(query) {
+		let order
+		if (query.order!=null && query.order=='name') {
+			order='name'
+		}
+		const filters={}
+		if (query.filters!=null) {
+
+		}
+		return [filters,order]
 	}
 	writeHead(response) {
 		respond.head(response,this.getTitle())
@@ -200,9 +220,9 @@ class FullView extends ElementaryView {
 		}
 		return true
 	}
-	serveByChangeset(response,insides,query) { // became same as serveByElement()
+	serveByChangeset(response,insides) {
 		this.writeHead(response)
-		insides(response,this.project,this.getChangesets(),query)
+		insides(response,this.project,this.getChangesets())
 		this.writeTail(response)
 	}
 	async serveFetchElements(response,insides,filters,referer,errorMessage) {

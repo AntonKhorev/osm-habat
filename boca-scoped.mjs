@@ -299,10 +299,6 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 
 export function analyzeChangesPerElement(response,project,changesets,query) {
 	response.write(`<h2>Changes per element</h2>\n`)
-	response.write(`<ul>\n`)
-	response.write(`<li><a href=cpe>default order</a>\n`)
-	response.write(`<li><a href='cpe?order=name'>order by name</a>\n`)
-	response.write(`</ul>\n`)
 	for (const [etype,eid,evs,,parent] of filterElements(project,changesets,query,query.order,5)) {
 		response.write(`<div class=reloadable>\n`)
 		elementWriter(response,project,etype,eid,evs,parent)
@@ -312,12 +308,6 @@ export function analyzeChangesPerElement(response,project,changesets,query) {
 
 export function viewElements(response,project,changesets,query) {
 	response.write(`<h2>Filtered elements list</h2>\n`)
-	response.write(`<table>\n`)
-	response.write(`<tr><th>enabled filter<th>value\n`)
-	for (const [k,v] of Object.entries(query)) {
-		response.write(e.h`<tr><td>${k}<td>${v}\n`)
-	}
-	response.write(`</table>\n`)
 	let first=true
 	for (const [elementType,elementId,elementVersions] of filterElements(project,changesets,query,query.order,3)) {
 		if (first) {

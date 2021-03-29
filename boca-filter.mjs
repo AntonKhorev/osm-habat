@@ -2,19 +2,12 @@ import * as osm from './osm.js'
 import {createParentQuery} from './boca-parent.mjs'
 
 /*
-	filters:
-	v1.*=*    v1 must satifsy
-	vt.*=*    currently known top version must satisfy
-	vs.*=*    any of selected versions must satisfy
-	vp.*=*    any of previous versions must satisfy
-	          previous versions = all not selected versions that precede selected versions
-
 	returns generator of entries:
 	[etype,eid,selectedVersions,previousVersions,parent],
 	 1     2   3                4                5 = detailLevel
 	parent = [pid,pv] or undefined
 */
-export default function *filterElements(project,changesets,filters,order,detailLevel=4) {
+export function *filterElements(project,changesets,filters,order,detailLevel=4) {
 	const verFilters={}
 	for (const [filterVerKey,filterValue] of Object.entries(filters)) {
 		let match
@@ -134,3 +127,54 @@ export default function *filterElements(project,changesets,filters,order,detailL
 		yield* iterateFiltered()
 	}
 }
+export { filterElements as default }
+
+export function parseQuery(query) {
+}
+
+export function makeQueryText(filters,order) {
+	/*
+	for (const [ver,verFilters] of Object.entries(filters)) {
+		for (const [key,value] of Object.entries(verFilters)) {
+			response.write(e.h`${ver}.${key}=${value}\n`)
+		}
+	}
+	*/
+}
+
+export function makeQueryPairs(filters,order) {
+}
+
+export const syntaxDescription=`<ul>
+<li>Each line is either a <em>filter statement</em> or an <em>order statement</em>
+<li>There can be any number of <em>filter statements</em>
+<li>There can be zero or one <em>order statement</em>
+</ul>
+<dl>
+<dt>filter statement
+<dd><em>version descriptor</em><kbd>.</kbd><em>filter key</em><kbd>=</kbd><em>filter value</em>
+<dt>version descriptor
+<dd>Indicates which element versions must satisfy filter conditions. Have to be one of the following values:
+	<dl>
+	<dt><kbd>v1</kbd> <dd>first version
+	<dt><kbd>vt</kbd> <dd>currently known top version
+	<dt><kbd>vs</kbd> <dd>any of selected versions
+	<dt><kbd>vp</kbd> <dd>any of previous versions; previous versions are all not selected versions that precede selected versions
+	</dl>
+<dt>filter key
+<dd>Indicates a type of condition to be satisfied by filtered elements. Have to be one of the following values:
+	<dl>
+	<dt><kbd>type</kbd> <dd>the element version is of a given type;
+		since the element type can't change it's better to use this filter with <kbd>vs</kbd>
+	<dt><kbd>version</kbd> <dd>the element version number is equal to a given value
+	<dt><kbd>visible</kbd> <dd>the element visiblilty (the state of being not deleted) matches a given value;
+		values <kbd>0</kbd>, <kbd>no</kbd> and <kbd>false</kbd> correspond to invisibility, other values correspond to visibility
+	<dt><kbd>uid</kbd> <dd>the element version was created by a user with a given id
+	<dt><kbd>redacted</kbd> <dd>the element version was recorded as redacted;
+		this requires putting a redaction file into <code>redactions</code> directory inside a project directory
+	</dl>
+<dt>order statement
+<dd>Currently only <kbd>odrer=name</kbd> is supported to sort elements by the value of name tag.
+</dl>
+`
+// TODO examples
