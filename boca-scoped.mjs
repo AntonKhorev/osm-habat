@@ -3,8 +3,8 @@
 import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLinks from './osm-links.mjs'
+import * as filter from './boca-filter.mjs'
 import {createParentQuery} from './boca-parent.mjs'
-import filterElements from './boca-filter.mjs'
 import elementWriter from './boca-element.mjs'
 
 export function analyzeCounts(response,project,changesets) {
@@ -297,19 +297,19 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 	}
 }
 
-export function analyzeChangesPerElement(response,project,changesets,query) {
+export function analyzeChangesPerElement(response,project,changesets,filters,order) {
 	response.write(`<h2>Changes per element</h2>\n`)
-	for (const [etype,eid,evs,,parent] of filterElements(project,changesets,query,query.order,5)) {
+	for (const [etype,eid,evs,,parent] of filter.filterElements(project,changesets,filters,order,5)) {
 		response.write(`<div class=reloadable>\n`)
 		elementWriter(response,project,etype,eid,evs,parent)
 		response.write(`</div>\n`)
 	}
 }
 
-export function viewElements(response,project,changesets,query) {
+export function viewElements(response,project,changesets,filters,order) {
 	response.write(`<h2>Filtered elements list</h2>\n`)
 	let first=true
-	for (const [elementType,elementId,elementVersions] of filterElements(project,changesets,query,query.order,3)) {
+	for (const [elementType,elementId,elementVersions] of filter.filterElements(project,changesets,filters,order,3)) {
 		if (first) {
 			first=false
 			response.write(`<table>\n`)
@@ -347,9 +347,10 @@ export function viewElements(response,project,changesets,query) {
 	} else {
 		response.write(`</table>\n`)
 		response.write(`<form method=post action=fetch-latest>\n`)
-		for (const [k,v] of Object.entries(query)) {
-			response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
-		}
+		//for (const [k,v] of Object.entries(query)) {
+		//	response.write(e.h`<input type=hidden name=${k} value=${v}>\n`)
+		//}
+		response.write(e.h`<input type=hidden name=filters value=${filter.makeQueryText(filters,order)}>\n`)
 		response.write(`<button>Fetch a batch of latest versions from OSM</button>\n`)
 		response.write(`</form>`)
 	}
@@ -357,7 +358,7 @@ export function viewElements(response,project,changesets,query) {
 
 export async function fetchFirstVersions(response,project,changesets,filters) {
 	const multifetchList=[]
-	for (const [etype,eid] of filterElements(project,changesets,filters,null,2)) {
+	for (const [etype,eid] of filter.filterElements(project,changesets,filters,null,2)) {
 		if (project.store[etype][eid]?.[1]) continue
 		multifetchList.push([etype,eid,1])
 		if (multifetchList.length>=10000) break
@@ -367,7 +368,7 @@ export async function fetchFirstVersions(response,project,changesets,filters) {
 
 export async function fetchPreviousVersions(response,project,changesets,filters) {
 	const multifetchList=[]
-	for (const [etype,eid,,ePreviousVersions] of filterElements(project,changesets,filters,null,4)) {
+	for (const [etype,eid,,ePreviousVersions] of filter.filterElements(project,changesets,filters,null,4)) {
 		for (const ev of ePreviousVersions) {
 			if (project.store[etype][eid]?.[ev]) continue
 			multifetchList.push([etype,eid,ev])
@@ -379,7 +380,7 @@ export async function fetchPreviousVersions(response,project,changesets,filters)
 
 export async function fetchLatestVersions(response,project,changesets,filters) {
 	const preMultifetchList=[]
-	for (const [etype,eid] of filterElements(project,changesets,filters,null,2)) {
+	for (const [etype,eid] of filter.filterElements(project,changesets,filters,null,2)) {
 		preMultifetchList.push([
 			etype,eid,
 			project.store[etype][eid].top?.timestamp??0

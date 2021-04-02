@@ -161,8 +161,8 @@ export function makeQueryText(filters,order) {
 	return text
 }
 
-export function makeQueryPairs(filters,order) {
-}
+//export function makeQueryPairs(filters,order) {
+//}
 
 export const syntaxDescription=`<ul>
 <li>Each line is either a <em>filter statement</em> or an <em>order statement</em>

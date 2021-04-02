@@ -125,7 +125,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		response.write(`</details>\n`)
 		response.write(`<div><button>Apply filters</button></div>\n`)
 		response.write(`</form>\n`)
-		insides(response,this.project,this.getChangesets(),query)
+		insides(response,this.project,this.getChangesets(),filters,order)
 		this.writeTail(response)
 	}
 	writeHead(response) {
@@ -178,21 +178,24 @@ class FullView extends ElementaryView {
 		} else if (route=='cpcpe') {
 			this.serveByChangeset(response,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='fetch-previous') {
-			const filters=await passPostQuery()
+			const query=await passPostQuery()
+			const [filters,order]=filter.parseQuery(query)
 			await this.serveFetchElements(response,
 				scoped.fetchPreviousVersions,
 				filters,referer,
 				`<p>cannot fetch previous versions of elements\n`
 			)
 		} else if (route=='fetch-first') {
-			const filters=await passPostQuery()
+			const query=await passPostQuery()
+			const [filters,order]=filter.parseQuery(query)
 			await this.serveFetchElements(response,
 				scoped.fetchFirstVersions,
 				filters,referer,
 				`<p>cannot fetch first versions of elements\n`
 			)
 		} else if (route=='fetch-latest') {
-			const filters=await passPostQuery()
+			const query=await passPostQuery()
+			const [filters,order]=filter.parseQuery(query)
 			await this.serveFetchElements(response,
 				scoped.fetchLatestVersions,
 				filters,referer,
