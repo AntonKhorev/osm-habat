@@ -62,8 +62,19 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 		}
 		return true
 	}
+	const passOneVersion=(filters,etype,eid,ev)=>{
+		if (filters.count!=null) {
+			if (filters.count!=1) return false
+		}
+		return passFilters(filters,etype,eid,ev)
+	}
 	const passAnyVersion=(filters,etype,eid,evSet)=>{
-		if (!evSet) return false
+		if (!evSet) {
+			evSet=new Set()
+		}
+		if (filters.count!=null) {
+			if (filters.count!=evSet.size) return false
+		}
 		for (const ev of evSet) {
 			if (passFilters(filters,etype,eid,ev)) return true
 		}
@@ -71,8 +82,8 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 	}
 	const iterateFiltered=function*(){
 		for (const [ekey,etype,eid] of iterateKeys(vsEntries)) {
-			if (filters.v1 && !passFilters(filters.v1,etype,eid,1)) continue
-			if (filters.vt && !passFilters(filters.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
+			if (filters.v1 && !passOneVersion(filters.v1,etype,eid,1)) continue
+			if (filters.vt && !passOneVersion(filters.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
 			if (filters.vp && !passAnyVersion(filters.vp,etype,eid,vpEntries.get(ekey))) continue
 			if (filters.vs && !passAnyVersion(filters.vs,etype,eid,vsEntries.get(ekey))) continue
 			const result=[etype,eid]
@@ -177,8 +188,10 @@ export const syntaxDescription=`<ul>
 	<dl>
 	<dt><kbd>v1</kbd> <dd>first version
 	<dt><kbd>vt</kbd> <dd>currently known top version
-	<dt><kbd>vs</kbd> <dd>any of selected versions
-	<dt><kbd>vp</kbd> <dd>any of previous versions; previous versions are all not selected versions that precede selected versions
+	<dt><kbd>vs</kbd> <dd>any<sup>[1]</sup> of selected versions
+	<dt><kbd>vp</kbd> <dd>any<sup>[1]</sup> of previous versions<sup>[2]</sup>
+	<dt><sup>[1]</sup> <dd>unless it's an <strong>aggregate filter</strong>
+	<dt><sup>[2]</sup> <dd>previous versions are all not selected versions that precede selected versions; they could be not fetched yet
 	</dl>
 <dt>filter key
 <dd>Indicates a type of condition to be satisfied by filtered elements. Have to be one of the following values:
@@ -191,6 +204,7 @@ export const syntaxDescription=`<ul>
 	<dt><kbd>uid</kbd> <dd>the element version was created by a user with a given id
 	<dt><kbd>redacted</kbd> <dd>the element version was recorded as redacted;
 		this requires putting a redaction file into <code>redactions</code> directory inside a project directory
+	<dt><kbd>count</kbd> <dd><strong>aggregate filter</strong>: the number of versions corresponding to this <em>version descriptor</em> is equal to a given value
 	</dl>
 <dt>order statement
 <dd>Currently only <kbd>order=name</kbd> is supported to sort elements by the value of name tag.

@@ -291,17 +291,16 @@ import * as filter from '../boca-filter.mjs'
 
 // filterElements()
 
-const project={
-	store:{
-		// TODO
-	},
-}
-
 function *gen(changesetsArray) {
 	yield* changesetsArray
 }
 
 {
+	const project={
+		store:{
+			// TODO
+		},
+	}
 	const changesets=[
 		[124,[
 			['modify','node',100001,3],
@@ -333,6 +332,77 @@ function *gen(changesetsArray) {
 		['node',100008,[7]],
 		['node',100012,[8]],
 		['node',100013,[2]],
+	])
+}
+{ // count
+	const makeDummyNode=()=>({})
+	const project={
+		store:{
+			node:{
+				100001:{
+					3:makeDummyNode(),
+					4:makeDummyNode(),
+				},
+				100002:{
+					2:makeDummyNode(),
+					3:makeDummyNode(),
+					4:makeDummyNode(),
+				},
+				100003:{
+					7:makeDummyNode(),
+				},
+			}
+		}
+	}
+	const changesets=[
+		[101,[
+			['modify','node',100001,3],
+			['modify','node',100002,2],
+			['modify','node',100003,7],
+		]],
+		[102,[
+			['modify','node',100001,4],
+			['modify','node',100002,3],
+		]],
+		[103,[
+			['modify','node',100002,4],
+		]],
+	]
+
+	const filter1={
+		vs:{
+			count:1
+		}
+	}
+	const result1=[...filter.filterElements(
+		project,gen(changesets),filter1,undefined,2
+	)]
+	assert.deepStrictEqual(result1,[
+		['node',100003],
+	])
+
+	const filter2={
+		vs:{
+			count:2
+		}
+	}
+	const result2=[...filter.filterElements(
+		project,gen(changesets),filter2,undefined,2
+	)]
+	assert.deepStrictEqual(result2,[
+		['node',100001],
+	])
+
+	const filter3={
+		vs:{
+			count:3
+		}
+	}
+	const result3=[...filter.filterElements(
+		project,gen(changesets),filter3,undefined,2
+	)]
+	assert.deepStrictEqual(result3,[
+		['node',100002],
 	])
 }
 
