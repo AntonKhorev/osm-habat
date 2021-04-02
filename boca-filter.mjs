@@ -117,22 +117,36 @@ export { filterElements as default }
 
 export function parseQuery(query) {
 	const filters={}
-	for (const [filterVerKey,filterValue] of Object.entries(query)) {
+	let order=query.order
+	for (const [verKey,val] of Object.entries(query)) {
 		let match
-		if (match=filterVerKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
-			const [,filterVer,filterKey]=match
-			if (!filters[filterVer]) filters[filterVer]={}
-			if (filterKey=='visible' || filterKey=='redacted') { // boolean
-				const yn=!(filterValue==0 || filterValue=='no' || filterValue=='false')
-				filters[filterVer][filterKey]=yn
-			} else if (filterKey=='version' || filterKey=='uid') { // number
-				filters[filterVer][filterKey]=Number(filterValue)
-			} else { // string
-				filters[filterVer][filterKey]=filterValue
-			}
+		if (match=verKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
+			const [,ver,key]=match
+			handleFilterEntry(ver,key,val)
 		}
 	}
-	return [filters,query.order]
+	if (query.filters!=null) for (const line of query.filters.split(/\r\n|\r|\n/)) {
+		let match
+		if (match=line.match(/^(v[1pst])\.([a-zA-Z]+)=(.*)$/)) {
+			const [,ver,key,val]=match
+			handleFilterEntry(ver,key,val)
+		} else if (match=line.match(/^order=(.*)$/)) {
+			const [,val]=match
+			order=val
+		}
+	}
+	return [filters,order]
+	function handleFilterEntry(ver,key,val) {
+		if (!filters[ver]) filters[ver]={}
+		if (key=='visible' || key=='redacted') { // boolean
+			const yn=!(val==0 || val=='no' || val=='false')
+			filters[ver][key]=yn
+		} else if (key=='version' || key=='uid') { // number
+			filters[ver][key]=Number(val)
+		} else { // string
+			filters[ver][key]=val
+		}
+	}
 }
 
 export function makeQueryText(filters,order) {

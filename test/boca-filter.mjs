@@ -150,6 +150,81 @@ import * as filter from '../boca-filter.mjs'
 		[expectedFilters,expectedOrder]
 	)
 }
+{ // no filter lines
+	const query={
+		'filters':'',
+	}
+	const expectedFilters={}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // one filter line
+	const query={
+		'filters':'vt.type=relation',
+	}
+	const expectedFilters={
+		vt:{
+			type:'relation',
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // two filter lines
+	const query={
+		'filters':
+			'vt.type=relation\n'+
+			'vt.visible=0\n'
+	}
+	const expectedFilters={
+		vt:{
+			type:'relation',
+			visible:false,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // two filter lines with empty lines
+	const query={
+		'filters':
+			'vt.type=node\n'+
+			'\n'+
+			'vt.visible=1\n'+
+			'\n'
+	}
+	const expectedFilters={
+		vt:{
+			type:'node',
+			visible:true,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // order line
+	const query={
+		'filters':'order=name',
+	}
+	const expectedFilters={}
+	const expectedOrder='name'
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
 
 // filterElements()
 

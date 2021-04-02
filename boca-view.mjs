@@ -115,7 +115,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		this.writeTail(response)
 	}
 	serveByElement(response,insides,route,query) {
-		const [filters,order]=this.parseQuery(query)
+		const [filters,order]=filter.parseQuery(query)
 		this.writeHead(response)
 		response.write(`<h2>Element filters</h2>\n`)
 		response.write(e.h`<form class=real action=${route}>\n`)
@@ -127,17 +127,6 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		response.write(`</form>\n`)
 		insides(response,this.project,this.getChangesets(),query)
 		this.writeTail(response)
-	}
-	parseQuery(query) {
-		let order
-		if (query.order!=null && query.order=='name') {
-			order='name'
-		}
-		const filters={}
-		if (query.filters!=null) {
-
-		}
-		return [filters,order]
 	}
 	writeHead(response) {
 		respond.head(response,this.getTitle())
