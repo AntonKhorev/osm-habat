@@ -8,20 +8,6 @@ import {createParentQuery} from './boca-parent.mjs'
 	parent = [pid,pv] or undefined
 */
 export function *filterElements(project,changesets,filters,order,detailLevel=4) {
-	const verFilters={}
-	for (const [filterVerKey,filterValue] of Object.entries(filters)) {
-		let match
-		if (match=filterVerKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
-			const [,filterVer,filterKey]=match
-			if (!verFilters[filterVer]) verFilters[filterVer]={}
-			if (filterKey=='visible' || filterKey=='redacted') {
-				const yn=!(filterValue==0 || filterValue=='no' || filterValue=='false')
-				verFilters[filterVer][filterKey]=yn
-			} else {
-				verFilters[filterVer][filterKey]=filterValue
-			}
-		}
-	}
 	// maps with keys like n12345, r987 b/c need to keep order of all elements
 	const vpEntries=new Map() // previous versions even if they are not in the store
 	const vsEntries=new Map() // current versions - expected to be in the store
@@ -85,10 +71,10 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 	}
 	const iterateFiltered=function*(){
 		for (const [ekey,etype,eid] of iterateKeys(vsEntries)) {
-			if (verFilters.v1 && !passFilters(verFilters.v1,etype,eid,1)) continue
-			if (verFilters.vt && !passFilters(verFilters.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
-			if (verFilters.vp && !passAnyVersion(verFilters.vp,etype,eid,vpEntries.get(ekey))) continue
-			if (verFilters.vs && !passAnyVersion(verFilters.vs,etype,eid,vsEntries.get(ekey))) continue
+			if (filters.v1 && !passFilters(filters.v1,etype,eid,1)) continue
+			if (filters.vt && !passFilters(filters.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
+			if (filters.vp && !passAnyVersion(filters.vp,etype,eid,vpEntries.get(ekey))) continue
+			if (filters.vs && !passAnyVersion(filters.vs,etype,eid,vsEntries.get(ekey))) continue
 			const result=[etype,eid]
 			if (detailLevel>=3) result.push([...vsEntries.get(ekey)??[]])
 			if (detailLevel>=4) result.push([...vpEntries.get(ekey)??[]])
@@ -130,6 +116,23 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 export { filterElements as default }
 
 export function parseQuery(query) {
+	const filters={}
+	for (const [filterVerKey,filterValue] of Object.entries(query)) {
+		let match
+		if (match=filterVerKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
+			const [,filterVer,filterKey]=match
+			if (!filters[filterVer]) filters[filterVer]={}
+			if (filterKey=='visible' || filterKey=='redacted') { // boolean
+				const yn=!(filterValue==0 || filterValue=='no' || filterValue=='false')
+				filters[filterVer][filterKey]=yn
+			} else if (filterKey=='version' || filterKey=='uid') { // number
+				filters[filterVer][filterKey]=Number(filterValue)
+			} else { // string
+				filters[filterVer][filterKey]=filterValue
+			}
+		}
+	}
+	return [filters,query.order]
 }
 
 export function makeQueryText(filters,order) {
@@ -167,14 +170,14 @@ export const syntaxDescription=`<ul>
 	<dt><kbd>type</kbd> <dd>the element version is of a given type;
 		since the element type can't change it's better to use this filter with <kbd>vs</kbd>
 	<dt><kbd>version</kbd> <dd>the element version number is equal to a given value
-	<dt><kbd>visible</kbd> <dd>the element visiblilty (the state of being not deleted) matches a given value;
+	<dt><kbd>visible</kbd> <dd>the element visibility (the state of being not deleted) matches a given value;
 		values <kbd>0</kbd>, <kbd>no</kbd> and <kbd>false</kbd> correspond to invisibility, other values correspond to visibility
 	<dt><kbd>uid</kbd> <dd>the element version was created by a user with a given id
 	<dt><kbd>redacted</kbd> <dd>the element version was recorded as redacted;
 		this requires putting a redaction file into <code>redactions</code> directory inside a project directory
 	</dl>
 <dt>order statement
-<dd>Currently only <kbd>odrer=name</kbd> is supported to sort elements by the value of name tag.
+<dd>Currently only <kbd>order=name</kbd> is supported to sort elements by the value of name tag.
 </dl>
 `
 // TODO examples

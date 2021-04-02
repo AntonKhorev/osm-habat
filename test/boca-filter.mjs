@@ -2,6 +2,157 @@ import * as assert from 'assert'
 
 import * as filter from '../boca-filter.mjs'
 
+// parseQuery()
+
+{ // empty query
+	const query={}
+	const expectedFilters={}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // single filter parameter
+	const query={
+		'vs.type':'node',
+	}
+	const expectedFilters={
+		vs:{
+			type:'node',
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // single filter parameter
+	const query={
+		'vs.type':'node',
+	}
+	const expectedFilters={
+		vs:{
+			type:'node',
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // two same versiondescriptor filter parameters
+	const query={
+		'vs.type':'way',
+		'vs.version':'2',
+	}
+	const expectedFilters={
+		vs:{
+			type:'way',
+			version:2,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // two different versiondescriptor filter parameters
+	const query={
+		'vs.type':'way',
+		'vp.version':'3',
+	}
+	const expectedFilters={
+		vs:{
+			type:'way',
+		},
+		vp:{
+			version:3,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // boolean true filter parameters
+	const query={
+		'vs.visible':'true',
+	}
+	const expectedFilters={
+		vs:{
+			visible:true,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // boolean true (1) filter parameters
+	const query={
+		'vs.visible':'1',
+	}
+	const expectedFilters={
+		vs:{
+			visible:true,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // boolean false filter parameters
+	const query={
+		'vs.visible':'false',
+	}
+	const expectedFilters={
+		vs:{
+			visible:false,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // boolean false (0) filter parameters
+	const query={
+		'vs.visible':'0',
+	}
+	const expectedFilters={
+		vs:{
+			visible:false,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // order parameter
+	const query={
+		'order':'name',
+	}
+	const expectedFilters={}
+	const expectedOrder='name'
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+
+// filterElements()
+
 const project={
 	store:{
 		// TODO
