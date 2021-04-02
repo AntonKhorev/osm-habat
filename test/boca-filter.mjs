@@ -226,6 +226,69 @@ import * as filter from '../boca-filter.mjs'
 	)
 }
 
+// makeQueryText()
+
+{ // empty filters/order
+	const filters={}
+	const order=undefined
+	const expectedText=''
+	assert.strictEqual(
+		filter.makeQueryText(filters,order),
+		expectedText
+	)
+}
+{ // one filter, no order
+	const filters={
+		v1:{
+			type:'node',
+		}
+	}
+	const order=undefined
+	const expectedText=
+		'v1.type=node\n'
+	assert.strictEqual(
+		filter.makeQueryText(filters,order),
+		expectedText
+	)
+}
+{ // two filters, no order
+	const filters={
+		vs:{
+			version:10,
+		},
+		v1:{
+			type:'node',
+		}
+	}
+	const order=undefined
+	const expectedText=
+		'v1.type=node\n'+
+		'vs.version=10\n'
+	assert.strictEqual(
+		filter.makeQueryText(filters,order),
+		expectedText
+	)
+}
+{ // two filters, name order
+	const filters={
+		vs:{
+			version:10,
+		},
+		v1:{
+			type:'node',
+		}
+	}
+	const order='name'
+	const expectedText=
+		'v1.type=node\n'+
+		'vs.version=10\n'+
+		'order=name\n'
+	assert.strictEqual(
+		filter.makeQueryText(filters,order),
+		expectedText
+	)
+}
+
 // filterElements()
 
 const project={

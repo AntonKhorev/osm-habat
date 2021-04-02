@@ -150,13 +150,15 @@ export function parseQuery(query) {
 }
 
 export function makeQueryText(filters,order) {
-	/*
-	for (const [ver,verFilters] of Object.entries(filters)) {
-		for (const [key,value] of Object.entries(verFilters)) {
-			response.write(e.h`${ver}.${key}=${value}\n`)
+	let text=''
+	for (const ver of ['v1','vp','vs','vt']) {
+		if (!filters[ver]) continue
+		for (const [key,val] of Object.entries(filters[ver])) { // TODO sort
+			text+=`${ver}.${key}=${val}\n`
 		}
 	}
-	*/
+	if (order!=null) text+=`order=${order}\n`
+	return text
 }
 
 export function makeQueryPairs(filters,order) {
