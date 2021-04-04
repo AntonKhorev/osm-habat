@@ -1,71 +1,67 @@
 import * as assert from 'assert'
 
-import * as filter from '../boca-filter.mjs'
+import Filter from '../boca-filter.mjs'
 
-// parseQuery()
+// constructor
 
 { // empty query
 	const query={}
-	const expectedFilters={}
+	const expectedConditions={}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // single filter parameter
 	const query={
 		'vs.type':'node',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			type:'node',
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // single filter parameter
 	const query={
 		'vs.type':'node',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			type:'node',
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // two same versiondescriptor filter parameters
 	const query={
 		'vs.type':'way',
 		'vs.version':'2',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			type:'way',
 			version:2,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // two different versiondescriptor filter parameters
 	const query={
 		'vs.type':'way',
 		'vp.version':'3',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			type:'way',
 		},
@@ -74,202 +70,190 @@ import * as filter from '../boca-filter.mjs'
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // boolean true filter parameters
 	const query={
 		'vs.visible':'true',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			visible:true,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // boolean true (1) filter parameters
 	const query={
 		'vs.visible':'1',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			visible:true,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // boolean false filter parameters
 	const query={
 		'vs.visible':'false',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			visible:false,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // boolean false (0) filter parameters
 	const query={
 		'vs.visible':'0',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			visible:false,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // order parameter
 	const query={
 		'order':'name',
 	}
-	const expectedFilters={}
+	const expectedConditions={}
 	const expectedOrder='name'
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // no filter lines
 	const query={
-		'filters':'',
+		'filter':'',
 	}
-	const expectedFilters={}
+	const expectedConditions={}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // one filter line
 	const query={
-		'filters':'vt.type=relation',
+		'filter':'vt.type=relation',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vt:{
 			type:'relation',
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // two filter lines
 	const query={
-		'filters':
+		'filter':
 			'vt.type=relation\n'+
 			'vt.visible=0\n'
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vt:{
 			type:'relation',
 			visible:false,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // two filter lines with empty lines
 	const query={
-		'filters':
+		'filter':
 			'vt.type=node\n'+
 			'\n'+
 			'vt.visible=1\n'+
 			'\n'
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vt:{
 			type:'node',
 			visible:true,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // == operator line
 	const query={
-		'filters':'vs.version==2',
+		'filter':'vs.version==2',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			version:2,
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // >= operator line
 	const query={
-		'filters':'vs.version>=3',
+		'filter':'vs.version>=3',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			version:[3,'>='],
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // < operator line
 	const query={
-		'filters':'vs.version<4',
+		'filter':'vs.version<4',
 	}
-	const expectedFilters={
+	const expectedConditions={
 		vs:{
 			version:[4,'<'],
 		}
 	}
 	const expectedOrder=undefined
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
 { // order line
 	const query={
-		'filters':'order=name',
+		'filter':'order=name',
 	}
-	const expectedFilters={}
+	const expectedConditions={}
 	const expectedOrder='name'
-	assert.deepStrictEqual(
-		filter.parseQuery(query),
-		[expectedFilters,expectedOrder]
-	)
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
 }
+
+/*
 
 // makeQueryText()
 
@@ -463,5 +447,7 @@ function *gen(changesetsArray) {
 		['node',100002],
 	])
 }
+
+*/
 
 console.log('ran all boca-filter tests')
