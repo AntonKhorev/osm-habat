@@ -356,8 +356,6 @@ import Filter from '../boca-filter.mjs'
 	assert.strictEqual(filter.text,expectedText)
 }
 
-/*
-
 // filterElements()
 
 function *gen(changesetsArray) {
@@ -382,8 +380,9 @@ function *gen(changesetsArray) {
 			['modify','node',100013,2],
 		]],
 	]
+	const filter=new Filter({})
 	const result2=[...filter.filterElements(
-		project,gen(changesets),{},undefined,2
+		project,gen(changesets),2
 	)]
 	assert.deepStrictEqual(result2,[
 		['node',100001],
@@ -393,7 +392,7 @@ function *gen(changesetsArray) {
 		['node',100013],
 	])
 	const result3=[...filter.filterElements(
-		project,gen(changesets),{},undefined,3
+		project,gen(changesets),3
 	)]
 	assert.deepStrictEqual(result3,[
 		['node',100001,[3,4]],
@@ -438,56 +437,46 @@ function *gen(changesetsArray) {
 		]],
 	]
 
-	const filter1={
-		vs:{
-			count:1
-		}
-	}
-	const result1=[...filter.filterElements(
-		project,gen(changesets),filter1,undefined,2
+	const filter1=new Filter({
+		'vs.count':1
+	})
+	const result1=[...filter1.filterElements(
+		project,gen(changesets),2
 	)]
 	assert.deepStrictEqual(result1,[
 		['node',100003],
 	])
 
-	const filter2={
-		vs:{
-			count:2
-		}
-	}
-	const result2=[...filter.filterElements(
-		project,gen(changesets),filter2,undefined,2
+	const filter2=new Filter({
+		'vs.count':2
+	})
+	const result2=[...filter2.filterElements(
+		project,gen(changesets),2
 	)]
 	assert.deepStrictEqual(result2,[
 		['node',100001],
 	])
 
-	const filter3={
-		vs:{
-			count:3
-		}
-	}
-	const result3=[...filter.filterElements(
-		project,gen(changesets),filter3,undefined,2
+	const filter3=new Filter({
+		'vs.count':3
+	})
+	const result3=[...filter3.filterElements(
+		project,gen(changesets),2
 	)]
 	assert.deepStrictEqual(result3,[
 		['node',100002],
 	])
 
-	const filter2plus={
-		vs:{
-			count:[2,'>='],
-		}
-	}
-	const result2plus=[...filter.filterElements(
-		project,gen(changesets),filter2plus,undefined,2
+	const filter2plus=new Filter({
+		filter:'vs.count>=2'
+	})
+	const result2plus=[...filter2plus.filterElements(
+		project,gen(changesets),2
 	)]
 	assert.deepStrictEqual(result2plus,[
 		['node',100001],
 		['node',100002],
 	])
 }
-
-*/
 
 console.log('ran all boca-filter tests')

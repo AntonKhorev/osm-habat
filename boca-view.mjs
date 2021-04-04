@@ -121,7 +121,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		response.write(e.h`<form class=real action=${route}>\n`)
 		response.write(e.h`<textarea name=filter>${filter.text}</textarea>\n`)
 		response.write(`<details><summary>Filter syntax</summary>\n`)
-		response.write(filter.syntaxDescription)
+		response.write(Filter.syntaxDescription)
 		response.write(`</details>\n`)
 		response.write(`<div><button>Apply filters</button></div>\n`)
 		response.write(`</form>\n`)
