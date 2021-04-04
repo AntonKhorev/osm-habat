@@ -25,10 +25,10 @@ export default class Filter {
 		if (query.filter!=null) for (const line of query.filter.split(/\r\n|\r|\n/)) {
 			this.text+=line+'\n'
 			let match
-			if (match=line.match(/^(v[1pst])\.([a-zA-Z]+)(==|=|!=|>=|>|<=|<)(.*)$/)) {
+			if (match=line.trim().match(/^(v[1pst])\.([a-zA-Z]+)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
 				const [,ver,key,op,val]=match
 				handleFilterEntry(ver,key,val,op)
-			} else if (match=line.match(/^order=(.*)$/)) {
+			} else if (match=line.trim().match(/^order\s*=\s*(.*)$/)) {
 				const [,val]=match
 				this.order=val
 			}

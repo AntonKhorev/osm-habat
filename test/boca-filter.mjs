@@ -26,20 +26,6 @@ import Filter from '../boca-filter.mjs'
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
 }
-{ // single filter parameter
-	const query={
-		'vs.type':'node',
-	}
-	const expectedConditions={
-		vs:{
-			type:'node',
-		}
-	}
-	const expectedOrder=undefined
-	const filter=new Filter(query)
-	assert.deepStrictEqual(filter.conditions,expectedConditions)
-	assert.deepStrictEqual(filter.order,expectedOrder)
-}
 { // two same versiondescriptor filter parameters
 	const query={
 		'vs.type':'way',
@@ -279,6 +265,54 @@ import Filter from '../boca-filter.mjs'
 		}
 	}
 	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // whitespace around filter opetator
+	const query={
+		'filter':'vs.type = node',
+	}
+	const expectedConditions={
+		vs:{
+			type:'node',
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // whitespace around order opetator
+	const query={
+		'filter':'order = name',
+	}
+	const expectedConditions={}
+	const expectedOrder='name'
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // whitespace around filter statement
+	const query={
+		'filter':'    vs.type=node    ',
+	}
+	const expectedConditions={
+		vs:{
+			type:'node',
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // whitespace around order statement
+	const query={
+		'filter':'    order=name    ',
+	}
+	const expectedConditions={}
+	const expectedOrder='name'
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
