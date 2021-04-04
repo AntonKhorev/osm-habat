@@ -214,6 +214,51 @@ import * as filter from '../boca-filter.mjs'
 		[expectedFilters,expectedOrder]
 	)
 }
+{ // == operator line
+	const query={
+		'filters':'vs.version==2',
+	}
+	const expectedFilters={
+		vs:{
+			version:2,
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // >= operator line
+	const query={
+		'filters':'vs.version>=3',
+	}
+	const expectedFilters={
+		vs:{
+			version:[3,'>='],
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
+{ // < operator line
+	const query={
+		'filters':'vs.version<4',
+	}
+	const expectedFilters={
+		vs:{
+			version:[4,'<'],
+		}
+	}
+	const expectedOrder=undefined
+	assert.deepStrictEqual(
+		filter.parseQuery(query),
+		[expectedFilters,expectedOrder]
+	)
+}
 { // order line
 	const query={
 		'filters':'order=name',
@@ -402,6 +447,19 @@ function *gen(changesetsArray) {
 		project,gen(changesets),filter3,undefined,2
 	)]
 	assert.deepStrictEqual(result3,[
+		['node',100002],
+	])
+
+	const filter2plus={
+		vs:{
+			count:[2,'>='],
+		}
+	}
+	const result2plus=[...filter.filterElements(
+		project,gen(changesets),filter2plus,undefined,2
+	)]
+	assert.deepStrictEqual(result2plus,[
+		['node',100001],
 		['node',100002],
 	])
 }

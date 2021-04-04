@@ -43,28 +43,49 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 			}
 		}
 	}
+	const compare=(actual,expected)=>{
+		if (!Array.isArray(expected)) {
+			return actual==expected
+		}
+		const [value,operator]=expected
+		if (operator=='!=') {
+			return actual!=value
+		} else if (operator=='>') {
+			return  actual>value
+		} else if (operator=='>=') {
+			return  actual>=value
+		} else if (operator=='<') {
+			return  actual<value
+		} else if (operator=='<=') {
+			return  actual<=value
+		}
+		throw new Error(`unknown compare operator ${operator}`)
+	}
 	const passFilters=(filters,etype,eid,ev)=>{
 		const element=project.store[etype][eid][ev]
-		if (filters.type!=null &&
-		    filters.type!=etype) return false
-		if (filters.version!=null &&
-		    filters.version!=ev) return false
+		if (filters.type!=null) {
+			if (!compare(etype,filters.type)) return false
+		}
+		if (filters.version!=null) {
+			if (!compare(ev,filters.version)) return false
+		}
 		if (filters.visible!=null) {
-			if (!element || filters.visible!=
-			                element.visible) return false
+			if (!element || !compare(element.visible,filters.visible)) return false
 		}
 		if (filters.uid!=null) {
-			if (!element || filters.uid!=
-			                element.uid) return false
+			if (!element || !compare(element.uid,filters.uid)) return false
 		}
 		if (filters.redacted!=null) {
-			if (filters.redacted!=(project.redacted[etype][eid]?.[ev]!=null)) return false
+			if (!compare(
+				project.redacted[etype][eid]?.[ev]!=null,
+				filters.redacted
+			)) return false
 		}
 		return true
 	}
 	const passOneVersion=(filters,etype,eid,ev)=>{
 		if (filters.count!=null) {
-			if (filters.count!=1) return false
+			if (!compare(1,filters.count)) return false
 		}
 		return passFilters(filters,etype,eid,ev)
 	}
@@ -73,7 +94,7 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 			evSet=new Set()
 		}
 		if (filters.count!=null) {
-			if (filters.count!=evSet.size) return false
+			if (!compare(evSet.size,filters.count)) return false
 		}
 		for (const ev of evSet) {
 			if (passFilters(filters,etype,eid,ev)) return true
@@ -138,24 +159,30 @@ export function parseQuery(query) {
 	}
 	if (query.filters!=null) for (const line of query.filters.split(/\r\n|\r|\n/)) {
 		let match
-		if (match=line.match(/^(v[1pst])\.([a-zA-Z]+)=(.*)$/)) {
-			const [,ver,key,val]=match
-			handleFilterEntry(ver,key,val)
+		if (match=line.match(/^(v[1pst])\.([a-zA-Z]+)(==|=|!=|>=|>|<=|<)(.*)$/)) {
+			const [,ver,key,op,val]=match
+			handleFilterEntry(ver,key,val,op)
 		} else if (match=line.match(/^order=(.*)$/)) {
 			const [,val]=match
 			order=val
 		}
 	}
 	return [filters,order]
-	function handleFilterEntry(ver,key,val) {
+	function handleFilterEntry(ver,key,val,op='=') {
 		if (!filters[ver]) filters[ver]={}
+		let v
 		if (key=='visible' || key=='redacted') { // boolean
 			const yn=!(val==0 || val=='no' || val=='false')
-			filters[ver][key]=yn
+			v=yn
 		} else if (key=='version' || key=='uid') { // number
-			filters[ver][key]=Number(val)
+			v=Number(val)
 		} else { // string
-			filters[ver][key]=val
+			v=val
+		}
+		if (op=='=' || op=='==') {
+			filters[ver][key]=v
+		} else {
+			filters[ver][key]=[v,op]
 		}
 	}
 }
@@ -172,9 +199,6 @@ export function makeQueryText(filters,order) {
 	return text
 }
 
-//export function makeQueryPairs(filters,order) {
-//}
-
 export const syntaxDescription=`<ul>
 <li>Each line is either a <em>filter statement</em> or an <em>order statement</em>
 <li>There can be any number of <em>filter statements</em>
@@ -182,7 +206,7 @@ export const syntaxDescription=`<ul>
 </ul>
 <dl>
 <dt>filter statement
-<dd><em>version descriptor</em><kbd>.</kbd><em>filter key</em><kbd>=</kbd><em>filter value</em>
+<dd><em>version descriptor</em><kbd>.</kbd><em>filter key</em><em>=</em><em>filter value</em>
 <dt>version descriptor
 <dd>Indicates which element versions must satisfy filter conditions. Have to be one of the following values:
 	<dl>
@@ -206,6 +230,8 @@ export const syntaxDescription=`<ul>
 		this requires putting a redaction file into <code>redactions</code> directory inside a project directory
 	<dt><kbd>count</kbd> <dd><strong>aggregate filter</strong>: the number of versions corresponding to this <em>version descriptor</em> is equal to a given value
 	</dl>
+<dt>comparison operator
+<dd>One of: <kbd>= == != > >= < <=</kbd>
 <dt>order statement
 <dd>Currently only <kbd>order=name</kbd> is supported to sort elements by the value of name tag.
 </dl>
