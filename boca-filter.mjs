@@ -4,7 +4,6 @@ import {createParentQuery} from './boca-parent.mjs'
 export default class Filter {
 	constructor(query) {
 		this.conditions={}
-		this.order=query.order
 		const handleFilterEntry=(ver,key,val,op='=')=>{
 			if (!this.conditions[ver]) this.conditions[ver]={}
 			let v
@@ -22,14 +21,9 @@ export default class Filter {
 				this.conditions[ver][key]=[v,op]
 			}
 		}
-		for (const [verKey,val] of Object.entries(query)) {
-			let match
-			if (match=verKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
-				const [,ver,key]=match
-				handleFilterEntry(ver,key,val)
-			}
-		}
+		this.text=''
 		if (query.filter!=null) for (const line of query.filter.split(/\r\n|\r|\n/)) {
+			this.text+=line+'\n'
 			let match
 			if (match=line.match(/^(v[1pst])\.([a-zA-Z]+)(==|=|!=|>=|>|<=|<)(.*)$/)) {
 				const [,ver,key,op,val]=match
@@ -39,6 +33,26 @@ export default class Filter {
 				this.order=val
 			}
 		}
+		const additionalLines=[]
+		for (const [verKey,val] of Object.entries(query)) {
+			let match
+			if (match=verKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
+				additionalLines.push(`${verKey}=${val}`)
+				const [,ver,key]=match
+				handleFilterEntry(ver,key,val)
+			}
+		}
+		additionalLines.sort()
+		for (const line of additionalLines) {
+			this.text+=line+'\n'
+		}
+		if (query.order!=null) {
+			this.text+=`order=${query.order}\n`
+			this.order=query.order
+		}
+	}
+	dropOrder() { // skip ordering for performance reasons
+		this.order=undefined
 	}
 	static syntaxDescription=`<ul>
 <li>Each line is either a <em>filter statement</em> or an <em>order statement</em>
@@ -223,16 +237,4 @@ export function *filterElements(project,changesets,filters,order,detailLevel=4) 
 	} else {
 		yield* iterateFiltered()
 	}
-}
-
-export function makeQueryText(filters,order) {
-	let text=''
-	for (const ver of ['v1','vp','vs','vt']) {
-		if (!filters[ver]) continue
-		for (const [key,val] of Object.entries(filters[ver])) { // TODO sort
-			text+=`${ver}.${key}=${val}\n`
-		}
-	}
-	if (order!=null) text+=`order=${order}\n`
-	return text
 }

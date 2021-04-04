@@ -4,7 +4,7 @@ import * as osmLinks from './osm-links.mjs'
 import * as respond from './boca-respond.mjs'
 import * as scoped from './boca-scoped.mjs'
 import elementWriter from './boca-element.mjs'
-import * as filter from './boca-filter.mjs'
+import Filter from './boca-filter.mjs'
 
 export function writeRedactionsStatus(response,project) {
 	if (project.pendingRedactions.last.length>0) {
@@ -115,17 +115,17 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		this.writeTail(response)
 	}
 	serveByElement(response,insides,route,query) {
-		const [filters,order]=filter.parseQuery(query)
+		const filter=new Filter(query)
 		this.writeHead(response)
 		response.write(`<h2>Element filters</h2>\n`)
 		response.write(e.h`<form class=real action=${route}>\n`)
-		response.write(e.h`<textarea name=filter>${filter.makeQueryText(filters,order)}</textarea>\n`)
+		response.write(e.h`<textarea name=filter>${filter.text}</textarea>\n`)
 		response.write(`<details><summary>Filter syntax</summary>\n`)
 		response.write(filter.syntaxDescription)
 		response.write(`</details>\n`)
 		response.write(`<div><button>Apply filters</button></div>\n`)
 		response.write(`</form>\n`)
-		insides(response,this.project,this.getChangesets(),filters,order)
+		insides(response,this.project,this.getChangesets(),filter)
 		this.writeTail(response)
 	}
 	writeHead(response) {
@@ -179,26 +179,23 @@ class FullView extends ElementaryView {
 			this.serveByChangeset(response,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='fetch-previous') {
 			const query=await passPostQuery()
-			const [filters,order]=filter.parseQuery(query)
 			await this.serveFetchElements(response,
 				scoped.fetchPreviousVersions,
-				filters,referer,
+				query,referer,
 				`<p>cannot fetch previous versions of elements\n`
 			)
 		} else if (route=='fetch-first') {
 			const query=await passPostQuery()
-			const [filters,order]=filter.parseQuery(query)
 			await this.serveFetchElements(response,
 				scoped.fetchFirstVersions,
-				filters,referer,
+				query,referer,
 				`<p>cannot fetch first versions of elements\n`
 			)
 		} else if (route=='fetch-latest') {
 			const query=await passPostQuery()
-			const [filters,order]=filter.parseQuery(query)
 			await this.serveFetchElements(response,
 				scoped.fetchLatestVersions,
-				filters,referer,
+				query,referer,
 				`<p>cannot fetch latest versions of elements\n`
 			)
 		} else if (route=='fetch-redacted') {
@@ -217,9 +214,10 @@ class FullView extends ElementaryView {
 		insides(response,this.project,this.getChangesets())
 		this.writeTail(response)
 	}
-	async serveFetchElements(response,insides,filters,referer,errorMessage) {
+	async serveFetchElements(response,insides,query,referer,errorMessage) {
+		const filter=new Filter(query).dropOrder()
 		try {
-			await insides(response,this.project,this.getChangesets(),filters)
+			await insides(response,this.project,this.getChangesets(),filter)
 		} catch (ex) {
 			return respond.fetchError(response,ex,'elements fetch error',errorMessage)
 		}

@@ -252,71 +252,111 @@ import Filter from '../boca-filter.mjs'
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
 }
+{ // override text with a parameter
+	const query={
+		'filter':'vs.type=node',
+		'vs.type':'way',
+	}
+	const expectedConditions={
+		vs:{
+			type:'way',
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // override text line with a next line
+	const query={
+		'filter':
+			'vs.type=node\n'+
+			'vs.type=relation\n'
+	}
+	const expectedConditions={
+		vs:{
+			type:'relation',
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
 
-/*
-
-// makeQueryText()
+// query text
 
 { // empty filters/order
-	const filters={}
-	const order=undefined
+	const query={}
 	const expectedText=''
-	assert.strictEqual(
-		filter.makeQueryText(filters,order),
-		expectedText
-	)
+	const filter=new Filter(query)
+	assert.strictEqual(filter.text,expectedText)
 }
 { // one filter, no order
-	const filters={
-		v1:{
-			type:'node',
-		}
+	const query={
+		'v1.type':'node',
 	}
-	const order=undefined
 	const expectedText=
 		'v1.type=node\n'
-	assert.strictEqual(
-		filter.makeQueryText(filters,order),
-		expectedText
-	)
+	const filter=new Filter(query)
+	assert.strictEqual(filter.text,expectedText)
 }
 { // two filters, no order
-	const filters={
-		vs:{
-			version:10,
-		},
-		v1:{
-			type:'node',
-		}
+	const query={
+		'vs.version':'10',
+		'v1.type':'node',
 	}
-	const order=undefined
 	const expectedText=
 		'v1.type=node\n'+
 		'vs.version=10\n'
-	assert.strictEqual(
-		filter.makeQueryText(filters,order),
-		expectedText
-	)
+	const filter=new Filter(query)
+	assert.strictEqual(filter.text,expectedText)
 }
 { // two filters, name order
-	const filters={
-		vs:{
-			version:10,
-		},
-		v1:{
-			type:'node',
-		}
+	const query={
+		'vs.version':'10',
+		'v1.type':'node',
+		'order':'name',
 	}
-	const order='name'
 	const expectedText=
 		'v1.type=node\n'+
 		'vs.version=10\n'+
 		'order=name\n'
-	assert.strictEqual(
-		filter.makeQueryText(filters,order),
-		expectedText
-	)
+	const filter=new Filter(query)
+	assert.strictEqual(filter.text,expectedText)
 }
+{ // repeat anything
+	const query={
+		'filter':
+			'qwerty\n'+
+			'asdfgh',
+	}
+	const expectedText=
+		'qwerty\n'+
+		'asdfgh\n'
+	const filter=new Filter(query)
+	assert.strictEqual(filter.text,expectedText)
+}
+{ // repeat anything + filters and order
+	const query={
+		'filter':
+			'qwerty\n'+
+			'asdfgh',
+		'vs.version':'10',
+		'v1.type':'node',
+		'order':'name',
+	}
+	const expectedText=
+		'qwerty\n'+
+		'asdfgh\n'+
+		'v1.type=node\n'+
+		'vs.version=10\n'+
+		'order=name\n'
+	const filter=new Filter(query)
+	assert.strictEqual(filter.text,expectedText)
+}
+
+/*
 
 // filterElements()
 
