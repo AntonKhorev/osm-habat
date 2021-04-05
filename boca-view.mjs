@@ -204,6 +204,13 @@ class FullView extends ElementaryView {
 				{'vt.redacted':true},referer,
 				`<p>cannot fetch latest versions of redacted elements\n`
 			)
+		} else if (route=='fetch-subsequent') { // TODO make it work with elementary views
+			const query=await passPostQuery()
+			await this.serveFetchElements(response,
+				scoped.fetchSubsequentVersions,
+				query,referer,
+				`<p>cannot fetch subsequent versions of elements\n`
+			)
 		} else {
 			return false
 		}

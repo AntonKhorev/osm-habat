@@ -298,10 +298,20 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 
 export function analyzeChangesPerElement(response,project,changesets,filter) {
 	response.write(`<h2>Changes per element</h2>\n`)
+	let first=true
 	for (const [etype,eid,evs,,parent] of filter.filterElements(project,changesets,5)) {
+		if (first) first=false
 		response.write(`<div class=reloadable>\n`)
 		elementWriter(response,project,etype,eid,evs,parent)
 		response.write(`</div>\n`)
+	}
+	if (first) {
+		response.write(`<p>none found\n`)
+	} else {
+		response.write(`<form method=post action=fetch-subsequent>\n`)
+		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
+		response.write(`<button>Fetch a batch of subsequent versions from OSM that are necessary for reactions</button>\n`)
+		response.write(`</form>`)
 	}
 }
 
@@ -352,6 +362,9 @@ export function viewElements(response,project,changesets,filter) {
 	}
 }
 
+// TODO make fetches report if they hit the limit
+//	otherwise don't need response arg
+
 export async function fetchFirstVersions(response,project,changesets,filter) {
 	const multifetchList=[]
 	for (const [etype,eid] of filter.filterElements(project,changesets,2)) {
@@ -375,18 +388,40 @@ export async function fetchPreviousVersions(response,project,changesets,filter) 
 }
 
 export async function fetchLatestVersions(response,project,changesets,filter) {
+	const multifetchList=getLatestMultifetchList(project,changesets,filter,2)
+	await osm.multifetchToStore(project.store,multifetchList)
+}
+
+export async function fetchSubsequentVersions(response,project,changesets,filter) {
+	const multifetchList=getLatestMultifetchList(project,changesets,filter,3)
+	const actualMultifetchList=multifetchList.map(([etype,eid])=>[etype,eid])
+	await osm.multifetchToStore(project.store,actualMultifetchList)
+	const gapMultifetchList=[]
+	for (const [etype,eid,eSelectedVersion] of multifetchList) {
+		const elementStore=project.store[etype][eid]
+		const vs1=eSelectedVersion[0]
+		const vt=osm.topVersion(elementStore)
+		for (let v=vs1;v<=vt;v++) {
+			if (!elementStore[v]) gapMultifetchList.push([etype,eid,v])
+		}
+	}
+	await osm.multifetchToStore(project.store,gapMultifetchList)
+}
+
+function getLatestMultifetchList(project,changesets,filter,detail) {
 	const preMultifetchList=[]
-	for (const [etype,eid] of filter.filterElements(project,changesets,2)) {
+	for (const entry of filter.filterElements(project,changesets,detail)) {
+		const [etype,eid]=entry
 		preMultifetchList.push([
-			etype,eid,
-			project.store[etype][eid].top?.timestamp??0
+			project.store[etype][eid].top?.timestamp??0,
+			entry
 		])
 	}
-	preMultifetchList.sort(([,,t1],[,,t2])=>t1-t2)
+	preMultifetchList.sort(([t1],[t2])=>t1-t2)
 	const multifetchList=[]
-	for (const [etype,eid] of preMultifetchList) {
-		multifetchList.push([etype,eid])
+	for (const [,entry] of preMultifetchList) {
+		multifetchList.push(entry)
 		if (multifetchList.length>=10000) break
 	}
-	await osm.multifetchToStore(project.store,multifetchList)
+	return multifetchList
 }
