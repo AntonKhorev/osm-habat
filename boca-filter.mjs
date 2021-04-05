@@ -274,6 +274,13 @@ export default class Filter {
 <dt>${term('order statement')}
 <dd>Currently only <kbd>order = name</kbd> is supported to sort elements by the value of name tag.
 </dl>
+<p>Examples:</p>
+<dl>
+<dt>Highways with name added
+<dd><pre><code>vs[highway]
+vp[!name]
+vs[name]</code></pre>
+</dl>
 `
 // TODO examples
 }
