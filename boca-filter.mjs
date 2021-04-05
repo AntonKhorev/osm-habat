@@ -4,7 +4,7 @@ import {createParentQuery} from './boca-parent.mjs'
 export default class Filter {
 	constructor(query) {
 		this.conditions={}
-		const handleFilterEntry=(ver,key,val,op='=')=>{
+		const handleFilterEntry=(ver,key,op,val)=>{
 			if (!this.conditions[ver]) this.conditions[ver]={}
 			let v
 			if (key=='visible' || key=='redacted') { // boolean
@@ -18,17 +18,39 @@ export default class Filter {
 			if (op=='=' || op=='==') {
 				this.conditions[ver][key]=v
 			} else {
-				this.conditions[ver][key]=[v,op]
+				this.conditions[ver][key]=[op,v]
+			}
+		}
+		const handleTagEntry=(ver,key,op,val)=>{
+			if (!this.conditions[ver]) this.conditions[ver]={}
+			if (!this.conditions[ver].tag) this.conditions[ver].tag={}
+			if (op=='=' || op=='==') {
+				this.conditions[ver].tag[key]=val
+			} else if (val==null) {
+				this.conditions[ver].tag[key]=[op]
+			} else {
+				this.conditions[ver].tag[key]=[op,val]
 			}
 		}
 		this.text=''
 		if (query.filter!=null) for (const line of query.filter.split(/\r\n|\r|\n/)) {
 			this.text+=line+'\n'
+			const trline=line.trim()
 			let match
-			if (match=line.trim().match(/^(v[1pst])\.([a-zA-Z]+)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
+			if (match=trline.match(/^(v[1pst])\.([a-zA-Z]+)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
 				const [,ver,key,op,val]=match
-				handleFilterEntry(ver,key,val,op)
-			} else if (match=line.trim().match(/^order\s*=\s*(.*)$/)) {
+				handleFilterEntry(ver,key,op,val)
+			} else if (match=trline.match(/^(v[1pst])\[(.*)\]$/)) {
+				const [,ver,tagStatement]=match
+				const trTagStatement=tagStatement.trim()
+				if (match=trTagStatement.match(/^(!?)\s*([^=><!]+)$/)) {
+					const [,not,key]=match
+					handleTagEntry(ver,key,not?'!=*':'=*')
+				} else if (match=trTagStatement.match(/^([^=><!]+?)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
+					const [,key,op,val]=match
+					handleTagEntry(ver,key,op,val)
+				}
+			} else if (match=trline.match(/^order\s*=\s*(.*)$/)) {
 				const [,val]=match
 				this.order=val
 			}
@@ -39,7 +61,7 @@ export default class Filter {
 			if (match=verKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
 				additionalLines.push(`${verKey}=${val}`)
 				const [,ver,key]=match
-				handleFilterEntry(ver,key,val)
+				handleFilterEntry(ver,key,'=',val)
 			}
 		}
 		additionalLines.sort()
@@ -103,7 +125,7 @@ export default class Filter {
 			if (!Array.isArray(expected)) {
 				return actual==expected
 			}
-			const [value,operator]=expected
+			const [operator,value]=expected
 			if (operator=='!=') {
 				return actual!=value
 			} else if (operator=='>') {
@@ -114,6 +136,10 @@ export default class Filter {
 				return  actual<value
 			} else if (operator=='<=') {
 				return  actual<=value
+			} else if (operator=='=*') {
+				return actual!=null
+			} else if (operator=='!=*') {
+				return actual==null
 			}
 			throw new Error(`unknown compare operator ${operator}`)
 		}
@@ -136,6 +162,12 @@ export default class Filter {
 					project.redacted[etype][eid]?.[ev]!=null,
 					filters.redacted
 				)) return false
+			}
+			if (filters.tag!=null) {
+				if (!element) return false
+				for (const [k,vo] of Object.entries(filters.tag)) {
+					if (!compare(element.tags[k],vo)) return false
+				}
 			}
 			return true
 		}
@@ -209,7 +241,11 @@ export default class Filter {
 </ul>
 <dl>
 <dt>${term('filter statement')}
+<dd>One of:
 <dd>${term('version descriptor')}<kbd>.</kbd>${term('filter key')} ${term('comparison operator')} ${term('filter value')}
+<dd>${term('version descriptor')}<kbd>[</kbd>${term('tag key')}<kbd>]</kbd>
+<dd>${term('version descriptor')}<kbd>[!</kbd>${term('tag key')}<kbd>]</kbd>
+<dd>${term('version descriptor')}<kbd>[</kbd>${term('tag key')} ${term('comparison operator')} ${term('tag value')}<kbd>]</kbd>
 <dt>${term('version descriptor')}
 <dd>Indicates which element versions must satisfy filter conditions. Have to be one of the following values:
 	<dl>
@@ -236,7 +272,7 @@ export default class Filter {
 <dt>${term('comparison operator')}
 <dd>One of: <kbd>= == != > >= < <=</kbd>
 <dt>${term('order statement')}
-<dd>Currently only <kbd>order=name</kbd> is supported to sort elements by the value of name tag.
+<dd>Currently only <kbd>order = name</kbd> is supported to sort elements by the value of name tag.
 </dl>
 `
 // TODO examples

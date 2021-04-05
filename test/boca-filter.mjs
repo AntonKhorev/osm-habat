@@ -206,7 +206,7 @@ import Filter from '../boca-filter.mjs'
 	}
 	const expectedConditions={
 		vs:{
-			version:[3,'>='],
+			version:['>=',3],
 		}
 	}
 	const expectedOrder=undefined
@@ -220,7 +220,7 @@ import Filter from '../boca-filter.mjs'
 	}
 	const expectedConditions={
 		vs:{
-			version:[4,'<'],
+			version:['<',4],
 		}
 	}
 	const expectedOrder=undefined
@@ -313,6 +313,70 @@ import Filter from '../boca-filter.mjs'
 	}
 	const expectedConditions={}
 	const expectedOrder='name'
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // tag presence
+	const query={
+		'filter':'vs[highway]',
+	}
+	const expectedConditions={
+		vs:{
+			tag:{
+				highway:['=*']
+			}
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // tag absence
+	const query={
+		'filter':'vs[!highway]',
+	}
+	const expectedConditions={
+		vs:{
+			tag:{
+				highway:['!=*']
+			}
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // tag value
+	const query={
+		'filter':'vs[highway=primary]',
+	}
+	const expectedConditions={
+		vs:{
+			tag:{
+				highway:'primary'
+			}
+		}
+	}
+	const expectedOrder=undefined
+	const filter=new Filter(query)
+	assert.deepStrictEqual(filter.conditions,expectedConditions)
+	assert.deepStrictEqual(filter.order,expectedOrder)
+}
+{ // tag value with whitespace
+	const query={
+		'filter':'vs[ highway  =   primary    ]',
+	}
+	const expectedConditions={
+		vs:{
+			tag:{
+				highway:'primary'
+			}
+		}
+	}
+	const expectedOrder=undefined
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -437,21 +501,21 @@ function *gen(changesetsArray) {
 	])
 }
 { // count
-	const makeDummyNode=()=>({})
+	const node=()=>({})
 	const project={
 		store:{
 			node:{
 				100001:{
-					3:makeDummyNode(),
-					4:makeDummyNode(),
+					3:node(),
+					4:node(),
 				},
 				100002:{
-					2:makeDummyNode(),
-					3:makeDummyNode(),
-					4:makeDummyNode(),
+					2:node(),
+					3:node(),
+					4:node(),
 				},
 				100003:{
-					7:makeDummyNode(),
+					7:node(),
 				},
 			}
 		}
@@ -510,6 +574,114 @@ function *gen(changesetsArray) {
 	assert.deepStrictEqual(result2plus,[
 		['node',100001],
 		['node',100002],
+	])
+}
+{ // tag presence
+	const node=(tags)=>({tags})
+	const project={
+		store:{
+			node:{
+				100001:{
+					3:node({shop:'bakery'}),
+					4:node({shop:'bakery',name:'Bread'}),
+				},
+				100002:{
+					2:node({amenity:'pharmacy'}),
+					3:node({amenity:'pharmacy',opening_hours:'24/7'}),
+					4:node({amenity:'pharmacy',opening_hours:'08:00-23:00'}),
+				},
+				100003:{
+					7:node({amenity:'bench'}),
+				},
+			}
+		}
+	}
+	const changesets=[
+		[101,[
+			['modify','node',100001,3],
+			['modify','node',100002,2],
+			['modify','node',100003,7],
+		]],
+		[102,[
+			['modify','node',100001,4],
+			['modify','node',100002,3],
+		]],
+		[103,[
+			['modify','node',100002,4],
+		]],
+	]
+	const test=(text,expected)=>{
+		const filter=new Filter({filter:text})
+		const result=[...filter.filterElements(
+			project,gen(changesets),2
+		)]
+		assert.deepStrictEqual(result,expected)
+	}
+	test('vs[amenity]',[
+		['node',100002],
+		['node',100003],
+	])
+	test('vs[!amenity]',[
+		['node',100001],
+	])
+	test('vs[opening_hours]',[
+		['node',100002],
+	])
+}
+{ // tag value test
+	const node=(ref)=>({tags:{ref}})
+	const project={
+		store:{
+			node:{
+				100001:{
+					3:node(42),
+					4:node(43),
+				},
+				100002:{
+					2:node(23),
+					3:node(22),
+					4:node(23),
+				},
+				100003:{
+					7:node(12),
+				},
+			}
+		}
+	}
+	const changesets=[
+		[101,[
+			['modify','node',100001,3],
+			['modify','node',100002,2],
+			['modify','node',100003,7],
+		]],
+		[102,[
+			['modify','node',100001,4],
+			['modify','node',100002,3],
+		]],
+		[103,[
+			['modify','node',100002,4],
+		]],
+	]
+	const test=(text,expected)=>{
+		const filter=new Filter({filter:text})
+		const result=[...filter.filterElements(
+			project,gen(changesets),2
+		)]
+		assert.deepStrictEqual(result,expected)
+	}
+	test('vs[ref>=23]',[
+		['node',100001],
+		['node',100002],
+	])
+	test('vs[ref>=24]',[
+		['node',100001],
+	])
+	test('vs[ref<23]',[
+		['node',100002],
+		['node',100003],
+	])
+	test('vs[ref=12]',[
+		['node',100003],
 	])
 }
 
