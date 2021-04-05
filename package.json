@@ -1,18 +1,26 @@
 {
   "name": "osm-habat",
   "version": "0.0.0",
-  "description": "",
+  "description": "Tools for osm changeset analysis/reverts/redactions",
+  "keywords": [
+    "osm"
+  ],
+  "bugs": "https://github.com/AntonKhorev/osm-habat/issues",
+  "license": "ISC",
+  "author": "Anton Khorev <tony29@yandex.ru>",
   "main": "tool.js",
+  "repository": "github:AntonKhorev/osm-habat",
   "scripts": {
     "test": "node test.mjs"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "glob": "^7.1.6",
     "meow": "^7.0.1",
     "node-expat": "^2.3.18",
     "open": "^7.0.2",
     "sanitize-filename": "^1.6.3"
+  },
+  "engines": {
+    "node": ">=14"
   }
 }
