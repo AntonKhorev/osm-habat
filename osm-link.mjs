@@ -96,6 +96,11 @@ export const username=(uname)=>({__proto__:hrefProto,
 	toString() {
 		return e.u`https://www.openstreetmap.org/user/${uname}`
 	},
+	get history() { const x=this; return {__proto__:hrefProto,
+		toString() {
+			return `${x}/history`
+		},
+	}},
 	get hdyc() { return {__proto__:hrefProto,
 		toString() {
 			return e.u`https://hdyc.neis-one.org/?${uname}`

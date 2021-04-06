@@ -1,6 +1,6 @@
 import * as e from './escape.js'
 import * as osm from './osm.js'
-import * as osmLinks from './osm-links.mjs'
+import * as osmLink from './osm-link.mjs'
 import * as respond from './boca-respond.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import * as scoped from './boca-scoped.mjs'
@@ -284,7 +284,7 @@ export class ScopeView extends FullView {
 		const cids=[]
 		for (const [cid,] of this.getChangesets()) cids.push(cid)
 		response.write(`<ul>\n`)
-		response.write(`<li>external tools: `+osmLinks.changesets(cids).osmcha.at('osmcha')+`\n`)
+		response.write(`<li>external tools: `+osmLink.changesets(cids).osmcha.at('osmcha')+`\n`)
 		response.write(`</ul>\n`)
 		response.write(`<textarea>\n`)
 		for (const line of this.project.scope[this.scope]) {
@@ -306,13 +306,13 @@ export class UserView extends FullView {
 		return 'user '+this.user.displayName
 	}
 	writeHeading(response) {
-		response.write(e.h`<h1>User #${this.user.id} `+osmLinks.username(this.user.displayName).at(this.user.displayName)+`</h1>\n`)
+		response.write(e.h`<h1>User #${this.user.id} `+osmLink.username(this.user.displayName).at(this.user.displayName)+`</h1>\n`)
 	}
 	writeMain(response) {
 		response.write(e.h`<ul>\n`)
 		response.write(e.h`<li>last update was on ${Date(this.user.updateTimestamp)}\n`)
 		response.write(e.h`<li>downloaded metadata of ${this.user.changesets.length}/${this.user.changesetsCount} changesets\n`)
-		response.write(e.h`<li>external tools: `+osmLinks.username(this.user.displayName).hdyc.at('hdyc')+` `+osmLinks.user(this.user.id).osmcha.at('osmcha')+`</li>\n`)
+		response.write(e.h`<li>external tools: `+osmLink.username(this.user.displayName).hdyc.at('hdyc')+` `+osmLink.user(this.user.id).osmcha.at('osmcha')+`</li>\n`)
 		response.write(e.h`</ul>\n`)
 		response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
 			`## ${this.user.displayName}\n`+
@@ -349,7 +349,7 @@ export class UserView extends FullView {
 				currentMonth=date.getMonth()
 				response.write(e.h`\n<dt>${currentYear}-${String(currentMonth+1).padStart(2,'0')} <dd>`)
 			}
-			response.write(' '+osmLinks.changeset(changeset.id).at(changeset.id))
+			response.write(' '+osmLink.changeset(changeset.id).at(changeset.id))
 			if (changeset.changes_count==0) {
 				response.write(`○`)
 			} else if (!(changeset.id in this.project.store.changeset)) {
@@ -408,7 +408,7 @@ export class UserView extends FullView {
 			response.write(`none`)
 		}
 		for (const id of changesetsWithComments) {
-			response.write(' '+osmLinks.changeset(id).at(id))
+			response.write(' '+osmLink.changeset(id).at(id))
 		}
 		response.write(`\n`)
 		response.write(`</dl>\n`)
@@ -433,10 +433,10 @@ export class ChangesetView extends FullView {
 		return 'changeset '+this.cid
 	}
 	writeHeading(response) {
-		response.write(`<h1>Changeset #`+osmLinks.changeset(this.cid).at(this.cid)+`</h1>\n`)
+		response.write(`<h1>Changeset #`+osmLink.changeset(this.cid).at(this.cid)+`</h1>\n`)
 	}
 	writeMain(response) {
-		const href=osmLinks.changeset(this.cid)
+		const href=osmLink.changeset(this.cid)
 		response.write(e.h`<ul>\n`)
 		response.write(e.h`<li><a href=map>changeset viewer</a>\n`)
 		response.write(e.h`<li>external tools: `+href.osmcha.at('osmcha')+` `+href.achavi.at('achavi')+`</li>\n`)

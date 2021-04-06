@@ -7,7 +7,7 @@ import open from 'open'
 
 import * as e from './escape.js'
 import * as osm from './osm.js'
-import * as osmLinks from './osm-links.mjs'
+import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
 import Project from './boca-project.mjs'
 import * as respond from './boca-respond.mjs'
@@ -260,7 +260,7 @@ function serveRedactions(response,project) {
 	response.write(`<table>\n`)
 	response.write(`<tr><th>extra element\n`)
 	for (const [etype,eid] of project.pendingRedactions.extra) {
-		response.write(`<tr><td>`+osmLinks.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
+		response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
 		response.write(`<form method=post action=remove-element>`)
 		response.write(`<input type=hidden name=type value=${etype}>`)
 		response.write(`<input type=hidden name=id value=${eid}>`)
@@ -307,7 +307,7 @@ function serveBbox(response,project,user,noscope=false) {
 		response.write(e.x`  <way id="-${i+1}">\n`)
 		for (let j=0;j<=4;j++) {
 			response.write(e.x`    <nd ref="-${i*4+1+j%4}" />\n`)
-			response.write(e.x`    <tag k="url" v="${osmLinks.changeset(cids[i])}" />\n`)
+			response.write(e.x`    <tag k="url" v="${osmLink.changeset(cids[i])}" />\n`)
 			const comment=project.changeset[cids[i]].tags.comment
 			if (comment!==undefined) response.write(e.x`    <tag k="name" v="${comment}" />\n`)
 		}
@@ -407,7 +407,7 @@ async function serveUid(response,project,uid) {
 		}
 		project.saveUsers()
 	}
-	response.writeHead(301,{'Location':osmLinks.username(project.user[uid].displayName)})
+	response.writeHead(301,{'Location':osmLink.username(project.user[uid].displayName)})
 	response.end()
 }
 
@@ -585,7 +585,7 @@ async function serveChangeset(response,project,cid) {
 			data,
 			`changeset ${cid}`,
 			(x=>[x.at('[osm]'),x.osmcha.at('[osmcha]'),x.achavi.at('[achavi]')])(
-				changeset?.uid ? osmLinks.changesetOfUser(cid,changeset.uid) : osmLinks.changeset(cid)
+				changeset?.uid ? osmLink.changesetOfUser(cid,changeset.uid) : osmLink.changeset(cid)
 			)
 		)
 	}
@@ -620,7 +620,7 @@ async function serveChangeset(response,project,cid) {
 			ctype+' '+etype,
 			data,
 			`${ctype} ${etype} ${eid}`,
-			(x=>[x.at('[osm]'),x.history.at('[osm hist]'),x.deepHistory.at('[deep hist]')])(osmLinks.element(etype,eid))
+			(x=>[x.at('[osm]'),x.history.at('[osm hist]'),x.deepHistory.at('[deep hist]')])(osmLink.element(etype,eid))
 		)
 		if (etype=='way') {
 			if (haveSameNodes(csetWayNodes[eid],prevWayNodes[eid])) {
@@ -650,7 +650,7 @@ async function serveChangeset(response,project,cid) {
 		function writeNodeListItems(nodes) {
 			for (const [nodeId,nodeVersion] of nodes) {
 				const node=project.store.node[nodeId][nodeVersion]
-				response.write(e.h`<li class=nd data-id=${nodeId} data-lat=${node.lat} data-lon=${node.lon}>`+osmLinks.node(nodeId).at('node '+nodeId)+e.h` v${nodeVersion}\n`)
+				response.write(e.h`<li class=nd data-id=${nodeId} data-lat=${node.lat} data-lon=${node.lon}>`+osmLink.node(nodeId).at('node '+nodeId)+e.h` v${nodeVersion}\n`)
 			}
 		}
 	}

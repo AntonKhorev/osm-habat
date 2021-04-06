@@ -1,10 +1,13 @@
-const fs=require('fs')
-const readline=require('readline')
-const expat=require('node-expat')
-const meow=require('meow')
+import * as fs from 'fs'
+import * as readline from 'readline'
+import * as expat from 'node-expat'
 
-const osm=require('./osm')
-const User=require('./user')
+import {createRequire} from 'module'
+const meow=createRequire(import.meta.url)('meow')
+
+import * as osm from './osm.js'
+import * as osmLink from './osm-link.mjs'
+import User from './user.js'
 
 class Section {
 	constructor() {
@@ -162,6 +165,8 @@ async function processSection(section,flags) {
 					const nNewChangesets=user.changesetsCount-changesetsCount
 					if (nNewChangesets) {
 						section.report.push(`* USER ${user.displayName} MADE ${nNewChangesets} EDIT${nNewChangesets==1?'':'S'}`)
+						const userHistory=osmLink.username(user.displayName).history
+						section.report.push(`* SEE ${user.displayName}'s edit history: ${userHistory}`)
 					} else if (flags.verbose) {
 						section.report.push(`* user ${user.displayName} made no edits`)
 					}

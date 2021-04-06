@@ -2,7 +2,7 @@
 
 import * as e from './escape.js'
 import * as osm from './osm.js'
-import * as osmLinks from './osm-links.mjs'
+import * as osmLink from './osm-link.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import elementWriter from './boca-element.mjs'
 
@@ -25,7 +25,7 @@ export function analyzeCounts(response,project,changesets) {
 				globalChanges[elementType][elementId]=changeType
 			}
 		}
-		response.write(`<tr><td>`+osmLinks.changeset(changesetId).at(changesetId))
+		response.write(`<tr><td>`+osmLink.changeset(changesetId).at(changesetId))
 		for (const elementType of ['node','way','relation']) {
 			const c=count[elementType]
 			response.write(e.h`<td>${c.create}<td>${c.modify}<td>${c.delete}`)
@@ -207,7 +207,7 @@ export function analyzeKeys(response,project,changesets) {
 		response.write(`<table>\n`)
 		response.write(`<tr><th>count<th>key<th>values<th>changesets\n`)
 		for (const [key,count] of Object.entries(keyCount).sort((a,b)=>(b[1]-a[1]))) {
-			response.write(e.h`<tr><td>${count}<td>`+osmLinks.key(key).at(key)+`<td>`)
+			response.write(e.h`<tr><td>${count}<td>`+osmLink.key(key).at(key)+`<td>`)
 			const values=Object.entries(tagCount[key]).sort((a,b)=>(b[1]-a[1]))
 			for (const [i,[v,c]] of values.entries()) {
 				if (i>0) response.write(`, `)
@@ -215,14 +215,14 @@ export function analyzeKeys(response,project,changesets) {
 					response.write(e.h`<em>${values.length-maxValues} more values<em>`)
 					break
 				}
-				response.write(osmLinks.tag(key,v).at(v)+e.h`×${c}`)
+				response.write(osmLink.tag(key,v).at(v)+e.h`×${c}`)
 			}
 			response.write(`<td>`)
 			let i=0
 			let cs=keyChangesets[key]
 			for (const cid of cs) {
 				if (i==0 || i==cs.size-1 || cs.size<=maxChangesets) {
-					response.write(' '+osmLinks.changeset(cid).at(cid))
+					response.write(' '+osmLink.changeset(cid).at(cid))
 				} else if (i==1) {
 					response.write(e.h` ...${cs.size-2} more changesets...`)
 				}
@@ -235,11 +235,11 @@ export function analyzeKeys(response,project,changesets) {
 }
 
 export function analyzeChangesPerChangesetPerElement(response,project,changesets) { // TODO handle incomplete data - w/o prev versions
-	const makeElementHeaderHtml=(type,id)=>osmLinks.element(type,id).at(`${type} #${id}`)
-	const makeElementTableHtml=(type,id,ver)=>id?osmLinks.elementVersion(type,id,ver).at(`${type[0]}${id}v${ver}`):''
+	const makeElementHeaderHtml=(type,id)=>osmLink.element(type,id).at(`${type} #${id}`)
+	const makeElementTableHtml=(type,id,ver)=>id?osmLink.elementVersion(type,id,ver).at(`${type[0]}${id}v${ver}`):''
 	response.write(`<h2>Changes per changeset per element</h2>\n`)
 	for (const [cid,changes] of changesets) {
-		response.write(`<h3>`+osmLinks.changeset(cid).at(`Changeset #${cid}`)+`</h3>\n`)
+		response.write(`<h3>`+osmLink.changeset(cid).at(`Changeset #${cid}`)+`</h3>\n`)
 		const parentQuery=createParentQuery(project,changes)
 		for (const [,etype,eid,ev] of changes) {
 			let changeType
@@ -333,8 +333,8 @@ export function viewElements(response,project,changesets,filter) {
 		const elementStore=project.store[elementType][elementId]
 		const elementVersion=elementVersions[elementVersions.length-1]
 		const elementTimestamp=elementStore[elementVersion].timestamp
-		response.write('<td>'+osmLinks.elementTimestamp(elementType,elementId,elementTimestamp).overpassTurboBefore.at('ov-'))
-		response.write('<td>'+osmLinks.element(elementType,elementId).deepHistory.at('odh'))
+		response.write('<td>'+osmLink.elementTimestamp(elementType,elementId,elementTimestamp).overpassTurboBefore.at('ov-'))
+		response.write('<td>'+osmLink.element(elementType,elementId).deepHistory.at('odh'))
 		const majorTags={}
 		for (const [ver,data] of Object.entries(elementStore)) {
 			if (!Number(ver)) continue

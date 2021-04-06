@@ -1,6 +1,6 @@
 import * as e from './escape.js'
 import * as osm from './osm.js'
-import * as osmLinks from './osm-links.mjs'
+import * as osmLink from './osm-link.mjs'
 
 export default function writeElementChanges(response,project,etype,eid,evs,parent) {
 	// version states:
@@ -184,10 +184,10 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		)
 	}
 	const makeElementFeature=(edata)=>{
-		const makeKvLink=(k,v)=>'<code>'+osmLinks.key(k).at(k)+'='+osmLinks.tag(k,v).at(v)+'</code>'
+		const makeKvLink=(k,v)=>'<code>'+osmLink.key(k).at(k)+'='+osmLink.tag(k,v).at(v)+'</code>'
 		const makeVLink=(k,v)=>{
 			if (v=='yes') return makeKvLink(k,v)
-			return osmLinks.tag(k,v).at(v.replace(/_/g,' '))
+			return osmLink.tag(k,v).at(v.replace(/_/g,' '))
 		}
 		const features=[]
 		for (const [k,v] of Object.entries(edata.tags)) {
@@ -262,8 +262,8 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		if (Object.keys(fullDiff).length==0) changeSummary.push('(returned to the original state)')
 		return changeSummary
 	}
-	const makeElementHeaderHtml=(type,id)=>osmLinks.element(type,id).at(`${type} #${id}`)
-	const makeElementTableHtml=(type,id,ver)=>id?osmLinks.elementVersion(type,id,ver).at(`${type[0]}${id}v${ver}`):''
+	const makeElementHeaderHtml=(type,id)=>osmLink.element(type,id).at(`${type} #${id}`)
+	const makeElementTableHtml=(type,id,ver)=>id?osmLink.elementVersion(type,id,ver).at(`${type[0]}${id}v${ver}`):''
 	const makeTimestampHtml=(timestamp)=>{
 		if (timestamp==null) return 'unknown'
 		const pad=n=>n.toString().padStart(2,'0')
@@ -303,7 +303,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		iterate((cstate,cid,cv)=>makeElementTableHtml(etype,cid,cv))
 		response.write(`<td><button class=reloader formaction=fetch-history>Update history</button>`)
 		response.write(`\n<tr><th>changeset`)
-		iterate((cstate,cid,cv,cdata)=>osmLinks.changeset(cdata.changeset).at(cdata.changeset))
+		iterate((cstate,cid,cv,cdata)=>osmLink.changeset(cdata.changeset).at(cdata.changeset))
 		response.write(`<th>last updated on`)
 		response.write(`\n<tr><th>timestamp`)
 		iterate((cstate,cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
@@ -317,7 +317,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
 				if (nid) {
-					return osmLinks.element('node',nid).at(nid)
+					return osmLink.element('node',nid).at(nid)
 				} else {
 					return ''
 				}
@@ -392,7 +392,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 	const collapsedVersionTable=collapseVersionTable(versionTable)
 	response.write(e.h`<details class='element' open=${isInteresting(etype,versionTable)}><summary>\n`)
 	response.write(e.h`<h3 id=${etype[0]+eid}>`+makeElementHeaderHtml(etype,eid)+`</h3>\n`)
-	const elementLinks=osmLinks.element(etype,eid)
+	const elementLinks=osmLink.element(etype,eid)
 	response.write(`: `+elementLinks.history.at('history')+`, `+elementLinks.deepHistory.at('deep history')+`, `+elementLinks.deepDiff.at('deep diff')+`\n`)
 	const changeSummary=makeChangeSummary(etype,collapsedVersionTable)
 	if (changeSummary.length>0) response.write(': '+changeSummary.join('; ')+'\n')
