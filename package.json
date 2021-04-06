@@ -15,9 +15,9 @@
   },
   "dependencies": {
     "glob": "^7.1.6",
-    "meow": "^7.1.1",
-    "node-expat": "^2.3.18",
-    "open": "^7.0.2",
+    "meow": "^9.0.0",
+    "node-expat": "^2.4.0",
+    "open": "8.0.2",
     "sanitize-filename": "^1.6.3"
   },
   "engines": {
