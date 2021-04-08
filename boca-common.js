@@ -80,6 +80,13 @@ async function postAndReload(ev) {
 function checkVersions($link) {
 	if (!$link.dataset.version) return
 	const minVersion=Number($link.dataset.version)
+	const $td=$link.closest('td')
+	if ($td) {
+		const $tagCheckbox=$td.querySelector('input[type=checkbox][name=tag]')
+		if ($tagCheckbox) {
+			$tagCheckbox.checked=true
+		}
+	}
 	const $form=$link.closest('form')
 	if (!$form) return
 	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {

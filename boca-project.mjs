@@ -140,27 +140,43 @@ export default class Project {
 		}
 		return this.pendingRedactions.extra.length==0
 	}
-	redactElementVersions(etype,eid,evs) {
+	redactElementVersionsAndTags(etype,eid,evs,tags) {
 		if (!this.pendingRedactions[etype][eid]) {
 			this.pendingRedactions[etype][eid]={}
 		}
 		const timestamp=Date.now()
 		let changed=false
-		for (const ev of evs) {
-			if (this.pendingRedactions[etype][eid][ev]) continue
+		const recordLastChange=(action,attribute,etype,eid,evtag)=>{
 			if (!changed) {
 				changed=true
 				this.pendingRedactions.last=[]
 			}
+			this.pendingRedactions.last.push([action,attribute,etype,eid,evtag])
+		}
+		for (const ev of evs) {
+			if (this.pendingRedactions[etype][eid][ev]) continue
 			this.pendingRedactions[etype][eid][ev]=timestamp
-			this.pendingRedactions.last.push(['create',etype,eid,ev])
+			recordLastChange('create','version',etype,eid,ev)
+		}
+		if (tags.length>0 && !this.pendingRedactions[etype][eid].tags) {
+			this.pendingRedactions[etype][eid].tags={}
+		}
+		for (const tag of tags) {
+			if (this.pendingRedactions[etype][eid].tags[tag]) continue
+			this.pendingRedactions[etype][eid].tags[tag]=timestamp
+			recordLastChange('create','tag',etype,eid,tag)
 		}
 	}
 	unredactElement(etype,eid) {
 		if (!this.pendingRedactions[etype][eid]) return
 		this.pendingRedactions.last=[]
 		for (const ev in this.pendingRedactions[etype][eid]) {
-			this.pendingRedactions.last.push(['delete',etype,eid,ev])
+			if (Number(ev)) this.pendingRedactions.last.push(['delete','version',etype,eid,ev])
+		}
+		if (this.pendingRedactions[etype][eid].tags) {
+			for (const tag of Object.keys(this.pendingRedactions[etype][eid].tags)) {
+				this.pendingRedactions.last.push(['delete','tag',etype,eid,tag])
+			}
 		}
 		delete this.pendingRedactions[etype][eid]
 	}
@@ -172,7 +188,7 @@ export default class Project {
 		for (const etype of ['node','way','relation']) {
 			for (const [eid,evs] of Object.entries(this.pendingRedactions[etype])) {
 				for (const ev in evs) {
-					result+=`${etype}/${eid}/${ev}\n`
+					if (Number(ev)) result+=`${etype}/${eid}/${ev}\n`
 				}
 			}
 		}

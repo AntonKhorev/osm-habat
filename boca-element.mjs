@@ -334,12 +334,14 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			return ''
 		})
 		const writeUndoCell=(name,changedVersion,k,v)=>{
-			if (project.store[etype][eid].top) {
-				response.write(`<td>`+makeRcLink(
+			if (project.getElementPendingRedactions(etype,eid).tags?.[k]) {
+				response.write(e.h`<td><input type=checkbox name=tag value=${k} checked disabled>edited</label>`)
+			} else if (project.store[etype][eid].top) {
+				response.write(e.h`<td>`+makeRcLink(
 					e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${v}`,
 					`[${name}]`,
 					{version:changedVersion}
-				))
+				)+e.h` - <label><input type=checkbox name=tag value=${k}>edited</label>`)
 			} else {
 				response.write(`<td>update to enable ${name}`)
 			}

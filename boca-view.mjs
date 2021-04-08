@@ -10,9 +10,10 @@ import Filter from './boca-filter.mjs'
 export function writeRedactionsStatus(response,project) {
 	if (project.pendingRedactions.last.length>0) {
 		response.write(`<p>last redaction changes:<ul>\n`)
-		for (const [action,etype,eid,ev] of project.pendingRedactions.last) {
+		for (const [action,attribute,etype,eid,evtag] of project.pendingRedactions.last) {
 			const anchor='#'+etype[0]+eid
-			response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> v${ev}\n`)
+			const attrText=(attribute=='version' ? `v` : `tag `)
+			response.write(e.h`<li>${action} <a href=${anchor}>${etype} #${eid}</a> ${attrText}${evtag}\n`)
 		}
 		response.write(`</ul>\n`)
 	}
@@ -45,14 +46,18 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 	}
 	async serveReloadableRoute(response,route,getQuery,passPostQuery,referer) {
 		const getVersions=a=>(Array.isArray(a)?a:[a]).map(Number).filter(Number.isInteger)
+		const getTags=a=>{
+			if (a==null) return []
+			return (Array.isArray(a)?a:[a])
+		}
 		const actions=[
 			['fetch-history',async({type,id})=>{
 				await osm.fetchToStore(this.project.store,e.u`/api/0.6/${type}/${id}/history`,true)
 				if (!this.project.store[type][id]) throw new Error(`Fetch completed but the element record is empty for ${type} #${id}`)
 				this.project.saveStore()
 			}],
-			['redact',async({type,id,version})=>{
-				this.project.redactElementVersions(type,id,getVersions(version))
+			['redact',async({type,id,version,tag})=>{
+				this.project.redactElementVersionsAndTags(type,id,getVersions(version),getTags(tag))
 				this.project.savePendingRedactions()
 			}],
 			['unredact',async({type,id})=>{
