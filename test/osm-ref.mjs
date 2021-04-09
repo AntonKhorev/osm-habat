@@ -53,6 +53,11 @@ import * as osmRef from '../osm-ref.mjs'
 		['node',67890],
 		'shorthand node'
 	)
+	assert.deepStrictEqual(
+		osmRef.element('WAY: 123654'),
+		['way',123654],
+		'copypaste from osmcha popup'
+	)
 }
 
 console.log('ran all osm-ref tests')
