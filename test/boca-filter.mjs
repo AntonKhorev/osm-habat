@@ -395,7 +395,7 @@ import Filter from '../boca-filter.mjs'
 		'v1.type':'node',
 	}
 	const expectedText=
-		'v1.type=node\n'
+		'v1.type=node'
 	const filter=new Filter(query)
 	assert.strictEqual(filter.text,expectedText)
 }
@@ -406,7 +406,7 @@ import Filter from '../boca-filter.mjs'
 	}
 	const expectedText=
 		'v1.type=node\n'+
-		'vs.version=10\n'
+		'vs.version=10'
 	const filter=new Filter(query)
 	assert.strictEqual(filter.text,expectedText)
 }
@@ -419,7 +419,7 @@ import Filter from '../boca-filter.mjs'
 	const expectedText=
 		'v1.type=node\n'+
 		'vs.version=10\n'+
-		'order=name\n'
+		'order=name'
 	const filter=new Filter(query)
 	assert.strictEqual(filter.text,expectedText)
 }
@@ -431,7 +431,7 @@ import Filter from '../boca-filter.mjs'
 	}
 	const expectedText=
 		'qwerty\n'+
-		'asdfgh\n'
+		'asdfgh'
 	const filter=new Filter(query)
 	assert.strictEqual(filter.text,expectedText)
 }
@@ -449,7 +449,7 @@ import Filter from '../boca-filter.mjs'
 		'asdfgh\n'+
 		'v1.type=node\n'+
 		'vs.version=10\n'+
-		'order=name\n'
+		'order=name'
 	const filter=new Filter(query)
 	assert.strictEqual(filter.text,expectedText)
 }

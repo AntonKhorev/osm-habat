@@ -33,8 +33,12 @@ export default class Filter {
 			}
 		}
 		this.text=''
+		const addTextLine=(line)=>{
+			if (this.text.length>0) this.text+='\n' // more convenient not to have trailing eol when urlencoding
+			this.text+=line
+		}
 		if (query.filter!=null) for (const line of query.filter.split(/\r\n|\r|\n/)) {
-			this.text+=line+'\n'
+			addTextLine(line)
 			const trline=line.trim()
 			let match
 			if (match=trline.match(/^(v[1pst])\.([a-zA-Z]+)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
@@ -66,10 +70,10 @@ export default class Filter {
 		}
 		additionalLines.sort()
 		for (const line of additionalLines) {
-			this.text+=line+'\n'
+			addTextLine(line)
 		}
 		if (query.order!=null) {
-			this.text+=`order=${query.order}\n`
+			addTextLine(`order=${query.order}`)
 			this.order=query.order
 		}
 	}
