@@ -34,9 +34,9 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		if (route=='') {
 			this.serveMain(response,getQuery)
 		} else if (route=='elements') {
-			this.serveByElement(response,scoped.viewElements,route,getQuery)
+			this.serveByElement(response,route,getQuery,scoped.viewElements)
 		} else if (route=='cpe') {
-			this.serveByElement(response,scoped.analyzeChangesPerElement,route,getQuery)
+			this.serveByElement(response,route,getQuery,scoped.analyzeChangesPerElement)
 		} else if (route=='reload-redactions') {
 			this.project.loadRedactions()
 			response.writeHead(303,{'Location':referer??'.'})
@@ -119,41 +119,45 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 	}
 	serveMain(response,query) {
 		const filter=new Filter(query)
-		this.writeHead(response,filter)
-		this.writeFilter(response,'.',filter)
+		this.writeHead(response,'.',filter)
 		this.writeMain(response)
 		this.writeTail(response)
 	}
-	serveByElement(response,insides,route,query) {
+	serveByElement(response,route,query,insides) {
 		const filter=new Filter(query)
-		this.writeHead(response,filter)
-		this.writeFilter(response,route,filter)
+		this.writeHead(response,route,filter)
 		insides(response,this.project,this.getChangesets(),filter)
 		this.writeTail(response)
 	}
-	writeHead(response,filter) {
+	writeHead(response,route,filter) {
 		respond.head(response,this.getTitle())
 		this.writeHeading(response)
-		response.write(`<nav><ul>\n`)
+		response.write(`<nav class=view>\n`)
+		response.write(`<ul class=routes>\n`)
 		for (const [href,text,whatCanHave] of this.listNavLinks()) {
-			response.write(e.h`<li><a href=${href}>${text}</a>`)
+			response.write(`<li>`)
+			if (href==route) response.write(`<strong>`)
+			response.write(e.h`<a href=${href}>${text}</a>`)
 			if (filter && whatCanHave==CAN_HAVE_FILTER && filter.text!='') {
 				const filteredHref=href+e.u`?filter=${filter.text}`
 				response.write(e.h` (<a href=${filteredHref}>filtered</a>)`)
 			}
+			if (href==route) response.write(`</strong>`)
 			response.write(`\n`)
 		}
-		response.write(`</ul></nav>\n`)
-	}
-	writeFilter(response,route,filter) {
-		response.write(`<h2>Element filters</h2>\n`)
-		response.write(e.h`<form class=real action=${route}>\n`)
-		response.write(e.h`<textarea name=filter>${filter.text}</textarea>\n`)
-		response.write(`<details><summary>Filter syntax</summary>\n`)
-		response.write(Filter.syntaxDescription)
-		response.write(`</details>\n`)
-		response.write(`<div><button>Apply filters</button></div>\n`)
-		response.write(`</form>\n`)
+		response.write(`</ul>\n`)
+		if (filter) {
+			response.write(e.h`<form class=filter action=${route}>\n`)
+			response.write(`<label>element filters:\n`)
+			response.write(e.h`<textarea name=filter>${filter.text}</textarea>\n`)
+			response.write(`</label>\n`)
+			response.write(`<details><summary>Filter syntax</summary>\n`)
+			response.write(Filter.syntaxDescription)
+			response.write(`</details>\n`)
+			response.write(`<div><button>Apply filters</button></div>\n`)
+			response.write(`</form>\n`)
+		}
+		response.write(`</nav>\n`)
 	}
 	writeTail(response) {
 		response.write(`</main>\n`)
@@ -186,17 +190,17 @@ class FullView extends ElementaryView {
 			return true
 		}
 		if (route=='counts') {
-			this.serveByChangeset(response,scoped.analyzeCounts)
+			this.serveByChangeset(response,route,scoped.analyzeCounts)
 		} else if (route=='formulas') {
-			this.serveByChangeset(response,scoped.analyzeFormulas)
+			this.serveByChangeset(response,route,scoped.analyzeFormulas)
 		} else if (route=='keys') {
-			this.serveByChangeset(response,scoped.analyzeKeys)
+			this.serveByChangeset(response,route,scoped.analyzeKeys)
 		} else if (route=='deletes') {
-			this.serveByChangeset(response,scoped.analyzeDeletes)
+			this.serveByChangeset(response,route,scoped.analyzeDeletes)
 		} else if (route=='cpcpe') {
-			this.serveByChangeset(response,scoped.analyzeChangesPerChangesetPerElement)
+			this.serveByChangeset(response,route,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='nonatomic') {
-			this.serveByChangeset(response,scoped.analyzeNonatomicChangesets)
+			this.serveByChangeset(response,route,scoped.analyzeNonatomicChangesets)
 		} else if (route=='fetch-previous') {
 			const query=await passPostQuery()
 			await this.serveFetchElements(response,
@@ -236,8 +240,8 @@ class FullView extends ElementaryView {
 		}
 		return true
 	}
-	serveByChangeset(response,insides) {
-		this.writeHead(response)
+	serveByChangeset(response,route,insides) {
+		this.writeHead(response,route)
 		insides(response,this.project,this.getChangesets())
 		this.writeTail(response)
 	}

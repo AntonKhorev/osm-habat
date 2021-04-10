@@ -20,6 +20,18 @@ body {
 main {
 	margin: .5em;
 }
+nav.view {
+	display: flex;
+}
+nav.view .routes {
+	width: 30%;
+}
+nav.view .filter {
+	width: 70%;
+}
+nav.view .filter textarea {
+	height: 10em;
+}
 footer {
 	position: sticky;
 	bottom: 0;
