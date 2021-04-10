@@ -296,6 +296,43 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 	}
 }
 
+export function analyzeNonatomicChangesets(response,project,changesets) {
+	response.write(`<h2>Nonatomic changesets</h2>\n`)
+	response.write(`<p>List of changesets which contain more than one version of an element. This doesn't usually happen because changesets are typically closed right away after a sigle atomic write of all the changes.\n`)
+	let firstOverall=true
+	for (const [cid,changes] of changesets) {
+		let firstInCset=true
+		const element={node:{},way:{},relation:{}}
+		for (const [changeType,etype,eid,ev] of changes) {
+			const writeElement=([changeType,ev])=>{
+				response.write(e.h`<dd>${changeType} `+osmLink.element(etype,eid).at(`${etype} #${eid}`)+e.h` v${ev}\n`)
+			}
+			if (element[etype][eid]) {
+				if (firstOverall) {
+					firstOverall=false
+					response.write(`<dl>\n`)
+				}
+				if (firstInCset) {
+					firstInCset=false
+					response.write(`<dt>`+osmLink.changeset(cid).at(`changeset #${cid}`)+`\n`)
+				}
+				if (Array.isArray(element[etype][eid])) {
+					writeElement(element[etype][eid])
+					element[etype][eid]=true
+				}
+				writeElement([changeType,ev])
+			} else {
+				element[etype][eid]=[changeType,ev]
+			}
+		}
+	}
+	if (firstOverall) {
+		response.write(`<p>No such changesets found.\n`)
+	} else {
+		response.write(`</dl>\n`)
+	}
+}
+
 export function analyzeChangesPerElement(response,project,changesets,filter) {
 	response.write(`<h2>Changes per element</h2>\n`)
 	let first=true

@@ -183,6 +183,8 @@ class FullView extends ElementaryView {
 			this.serveByChangeset(response,scoped.analyzeDeletes)
 		} else if (route=='cpcpe') {
 			this.serveByChangeset(response,scoped.analyzeChangesPerChangesetPerElement)
+		} else if (route=='nonatomic') {
+			this.serveByChangeset(response,scoped.analyzeNonatomicChangesets)
 		} else if (route=='fetch-previous') {
 			const query=await passPostQuery()
 			await this.serveFetchElements(response,
@@ -252,6 +254,7 @@ class FullView extends ElementaryView {
 			['keys','changed keys'],
 			['deletes','deletion distributions'],
 			['cpcpe','changes per changeset per element'],
+			['nonatomic','find nonatomic changesets'],
 		]
 	}
 }
