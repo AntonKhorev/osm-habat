@@ -9,6 +9,11 @@ const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|
 export default class Project {
 	constructor(dirname) {
 		this.dirname=dirname
+		if (fs.existsSync(dirname)) {
+			if (!fs.lstatSync(dirname).isDirectory()) throw new Error(`project path ${dirname} exists as a file instead of a directory`)
+		} else {
+			fs.mkdirSync(dirname)
+		}
 		this.store=osm.readStore(this.storeFilename)
 		this.user={}
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
