@@ -13,3 +13,14 @@ export function element(s) {
 	}
 	throw new Error(`Invalid element reference "${s}"`)
 }
+
+export function changeset(s) {
+	const n=Number(s)
+	if (Number.isInteger(n)) return n
+	let match
+	if (match=s.match(/changeset[/:]?\s*(\d+)/i)) {
+		const [,cidString]=match
+		return Number(cidString)
+	}
+	throw new Error(`Invalid changeset reference "${s}"`)
+}

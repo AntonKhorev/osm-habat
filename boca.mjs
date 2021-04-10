@@ -513,11 +513,12 @@ async function serveUndeleteWay(response,project,wayId) {
 	// TODO save store if was modified
 }
 
-async function serveFetchChangeset(response,project,changesetId,referer) {
+async function serveFetchChangeset(response,project,cidString,referer) {
 	try {
-		await osm.fetchToStore(project.store,`/api/0.6/changeset/${changesetId}/download`)
+		const cid=osmRef.changeset(cidString)
+		await osm.fetchToStore(project.store,`/api/0.6/changeset/${cid}/download`)
 	} catch (ex) {
-		return respond.fetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${changesetId}\n`)
+		return respond.fetchError(response,ex,'changeset request error',e.h`<p>cannot fetch changeset ${cidString}\n`)
 	}
 	project.saveStore()
 	response.writeHead(303,{'Location':referer??'.'})
