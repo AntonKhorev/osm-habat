@@ -362,7 +362,10 @@ async function serveFetchUserMetadata(response,project,user,referer) {
 	try {
 		await osm.fetchUserToStore(project.user,user.id)
 		let timestamp
-		while (user.changesetsCount-user.changesets.length>0) {
+		for (let i=0;i<1000;i++) {
+			if (!user.gone) {
+				if (user.changesets.length>=user.changesetsCount) break
+			}
 			let requestPath=e.u`/api/0.6/changesets?user=${user.id}`
 			if (timestamp!==undefined) requestPath+=e.u`&time=2001-01-01,${timestamp}`
 			const [changesets,,newTimestamp]=await osm.fetchChangesetsToStore(project.changeset,requestPath)

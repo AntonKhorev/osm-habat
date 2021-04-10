@@ -316,7 +316,12 @@ export class UserView extends FullView {
 	writeMain(response) {
 		response.write(e.h`<ul>\n`)
 		response.write(e.h`<li>last update was on ${Date(this.user.updateTimestamp)}\n`)
-		response.write(e.h`<li>downloaded metadata of ${this.user.changesets.length}/${this.user.changesetsCount} changesets\n`)
+		if (this.user.gone) {
+			response.write(e.h`<li>downloaded metadata of ${this.user.changesets.length} changesets\n`)
+			response.write(e.h`<li>total number of changesets is unknown because the user is gone\n`)
+		} else {
+			response.write(e.h`<li>downloaded metadata of ${this.user.changesets.length}/${this.user.changesetsCount} changesets\n`)
+		}
 		response.write(e.h`<li>external tools: `+osmLink.username(this.user.displayName).hdyc.at('hdyc')+` `+osmLink.user(this.user.id).osmcha.at('osmcha')+`</li>\n`)
 		response.write(e.h`</ul>\n`)
 		response.write(`<details><summary>copypaste for caser</summary><pre><code>`+
