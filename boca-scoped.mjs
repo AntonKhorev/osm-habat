@@ -350,10 +350,14 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 	if (first) {
 		response.write(`<p>none found\n`)
 	} else {
+		response.write(`<form method=post action=fetch-previous>\n`)
+		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
+		response.write(`<button>Fetch a batch of previous versions from OSM</button>\n`)
+		response.write(`</form>\n`)
 		response.write(`<form method=post action=fetch-subsequent>\n`)
 		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
 		response.write(`<button>Fetch a batch of subsequent versions from OSM that are necessary for reactions</button>\n`)
-		response.write(`</form>`)
+		response.write(`</form>\n`)
 	}
 }
 
@@ -400,7 +404,7 @@ export function viewElements(response,project,changesets,filter) {
 		response.write(`<form method=post action=fetch-latest>\n`)
 		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
 		response.write(`<button>Fetch a batch of latest versions from OSM</button>\n`)
-		response.write(`</form>`)
+		response.write(`</form>\n`)
 	}
 }
 

@@ -201,7 +201,7 @@ class FullView extends ElementaryView {
 			this.serveByChangeset(response,route,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='nonatomic') {
 			this.serveByChangeset(response,route,scoped.analyzeNonatomicChangesets)
-		} else if (route=='fetch-previous') {
+		} else if (route=='fetch-previous') { // TODO make it work with elementary views
 			const query=await passPostQuery()
 			await this.serveFetchElements(response,
 				scoped.fetchPreviousVersions,
