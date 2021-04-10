@@ -302,29 +302,34 @@ export function analyzeNonatomicChangesets(response,project,changesets) {
 	let firstOverall=true
 	for (const [cid,changes] of changesets) {
 		let firstInCset=true
-		const element={node:{},way:{},relation:{}}
+		const nElementChanges={node:{},way:{},relation:{}}
 		for (const [changeType,etype,eid,ev] of changes) {
-			const writeElement=([changeType,ev])=>{
-				response.write(e.h`<dd>${changeType} `+osmLink.element(etype,eid).at(`${etype} #${eid}`)+e.h` v${ev}\n`)
-			}
-			if (element[etype][eid]) {
-				if (firstOverall) {
-					firstOverall=false
-					response.write(`<dl>\n`)
-				}
-				if (firstInCset) {
-					firstInCset=false
-					response.write(`<dt>`+osmLink.changeset(cid).at(`changeset #${cid}`)+`\n`)
-				}
-				if (Array.isArray(element[etype][eid])) {
-					writeElement(element[etype][eid])
-					element[etype][eid]=true
-				}
-				writeElement([changeType,ev])
-			} else {
-				element[etype][eid]=[changeType,ev]
-			}
+			if (!nElementChanges[etype][eid]) nElementChanges[etype][eid]=0
+			nElementChanges[etype][eid]++
 		}
+		let nOtherChanges=0
+		const flushOtherChanges=()=>{
+			if (nOtherChanges==0) return
+			response.write(e.h`<dd>...${nOtherChanges} other changes...\n`)
+			nOtherChanges=0
+		}
+		for (const [changeType,etype,eid,ev] of changes) {
+			if (nElementChanges[etype][eid]<=1) {
+				nOtherChanges++
+				continue
+			}
+			if (firstOverall) {
+				firstOverall=false
+				response.write(`<dl>\n`)
+			}
+			if (firstInCset) {
+				firstInCset=false
+				response.write(`<dt>`+osmLink.changeset(cid).at(`changeset #${cid}`)+`\n`)
+			}
+			flushOtherChanges()
+			response.write(e.h`<dd>${changeType} `+osmLink.element(etype,eid).at(`${etype} #${eid}`)+e.h` v${ev}\n`)
+		}
+		if (!firstInCset) flushOtherChanges()
 	}
 	if (firstOverall) {
 		response.write(`<p>No such changesets found.\n`)
