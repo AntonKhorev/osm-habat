@@ -107,7 +107,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 				if (etype==targetEtype && eid==targetEid) {
 					evs.push(ev)
 					if (targetEtype=='way' && ev==1) {
-						const parentQuery=createParentQuery(this.project,changes)
+						const parentQuery=createParentQuery(this.project.store,changes)
 						parent=parentQuery(eid)
 					}
 				}

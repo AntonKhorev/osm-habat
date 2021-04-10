@@ -112,7 +112,7 @@ export default class Filter {
 		const wayParents={}
 		for (const [cid,changes] of changesets) {
 			let parentQuery
-			if (detailLevel>=5) parentQuery=createParentQuery(project,changes)
+			if (detailLevel>=5) parentQuery=createParentQuery(project.store,changes)
 			for (const [,etype,eid,ev] of changes) {
 				if (ev>1 && !hasEntry(vsEntries,etype,eid,ev-1)) addEntry(vpEntries,etype,eid,ev-1)
 				addEntry(vsEntries,etype,eid,ev)

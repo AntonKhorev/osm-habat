@@ -69,13 +69,13 @@ export default class ParentChecker {
 	}
 }
 
-export function createParentQuery(project,changes) {
+export function createParentQuery(store,changes) {
 	const previousWayVersion={}
 	const parentChecker=new ParentChecker()
 	for (const [,etype,eid,ev] of changes) {
 		if (etype!='way') continue
-		const currentWay=project.store[etype][eid][ev]
-		const previousWay=project.store[etype][eid][ev-1]
+		const currentWay=store[etype][eid][ev]
+		const previousWay=store[etype][eid][ev-1]
 		if (currentWay.visible) parentChecker.addCurrentWay(eid,currentWay.nds)
 		if (previousWay?.visible) {
 			previousWayVersion[eid]=ev-1

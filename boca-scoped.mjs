@@ -240,7 +240,7 @@ export function analyzeChangesPerChangesetPerElement(response,project,changesets
 	response.write(`<h2>Changes per changeset per element</h2>\n`)
 	for (const [cid,changes] of changesets) {
 		response.write(`<h3>`+osmLink.changeset(cid).at(`Changeset #${cid}`)+`</h3>\n`)
-		const parentQuery=createParentQuery(project,changes)
+		const parentQuery=createParentQuery(project.store,changes)
 		for (const [,etype,eid,ev] of changes) {
 			let changeType
 			let pid,pv
