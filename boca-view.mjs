@@ -7,6 +7,8 @@ import * as scoped from './boca-scoped.mjs'
 import elementWriter from './boca-element.mjs'
 import Filter from './boca-filter.mjs'
 
+const CAN_HAVE_FILTER=Symbol()
+
 export function writeRedactionsStatus(response,project) {
 	if (project.pendingRedactions.last.length>0) {
 		response.write(`<p>last redaction changes:<ul>\n`)
@@ -30,7 +32,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 	}
 	async serveRoute(response,route,getQuery,passPostQuery,referer) {
 		if (route=='') {
-			this.serveMain(response)
+			this.serveMain(response,getQuery)
 		} else if (route=='elements') {
 			this.serveByElement(response,scoped.viewElements,route,getQuery)
 		} else if (route=='cpe') {
@@ -115,14 +117,35 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		}
 		return [evs,parent]
 	}
-	serveMain(response) {
-		this.writeHead(response)
+	serveMain(response,query) {
+		const filter=new Filter(query)
+		this.writeHead(response,filter)
+		this.writeFilter(response,'.',filter)
 		this.writeMain(response)
 		this.writeTail(response)
 	}
 	serveByElement(response,insides,route,query) {
 		const filter=new Filter(query)
-		this.writeHead(response)
+		this.writeHead(response,filter)
+		this.writeFilter(response,route,filter)
+		insides(response,this.project,this.getChangesets(),filter)
+		this.writeTail(response)
+	}
+	writeHead(response,filter) {
+		respond.head(response,this.getTitle())
+		this.writeHeading(response)
+		response.write(`<nav><ul>\n`)
+		for (const [href,text,whatCanHave] of this.listNavLinks()) {
+			response.write(e.h`<li><a href=${href}>${text}</a>`)
+			if (filter && whatCanHave==CAN_HAVE_FILTER && filter.text!='') {
+				const filteredHref=href+e.u`?filter=${filter.text}`
+				response.write(e.h` (<a href=${filteredHref}>filtered</a>)`)
+			}
+			response.write(`\n`)
+		}
+		response.write(`</ul></nav>\n`)
+	}
+	writeFilter(response,route,filter) {
 		response.write(`<h2>Element filters</h2>\n`)
 		response.write(e.h`<form class=real action=${route}>\n`)
 		response.write(e.h`<textarea name=filter>${filter.text}</textarea>\n`)
@@ -131,17 +154,6 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		response.write(`</details>\n`)
 		response.write(`<div><button>Apply filters</button></div>\n`)
 		response.write(`</form>\n`)
-		insides(response,this.project,this.getChangesets(),filter)
-		this.writeTail(response)
-	}
-	writeHead(response) {
-		respond.head(response,this.getTitle())
-		this.writeHeading(response)
-		response.write(`<nav><ul>\n`)
-		for (const [href,text] of this.listNavLinks()) {
-			response.write(`<li><a href=${href}>${text}</a>\n`)
-		}
-		response.write(`</ul></nav>\n`)
 	}
 	writeTail(response) {
 		response.write(`</main>\n`)
@@ -161,9 +173,9 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 	*listNavLinks() {
 		yield* [
 			['/','root'],
-			['.','main view'],
-			['elements','elements'],
-			['cpe','changes per element'],
+			['.','main view',CAN_HAVE_FILTER],
+			['elements','elements',CAN_HAVE_FILTER],
+			['cpe','changes per element',CAN_HAVE_FILTER],
 		]
 	}
 }
