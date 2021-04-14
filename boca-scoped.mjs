@@ -367,10 +367,14 @@ export function analyzeNameRedos(response,project,changesets,filter) {
 	const writeRow=(etype,eid,name,trumpName)=>{
 		if (first) {
 			response.write(`<table>\n`)
-			response.write(`<tr><th>element<th>reoccuring name<th>replaced name\n`)
+			response.write(`<tr><th>element<th>history<th>reoccuring name<th>replaced name\n`)
 			first=false
 		}
-		response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+e.h`<td>${name}<td>${trumpName}\n`)
+		const el=osmLink.element(etype,eid)
+		response.write(`<tr>`)
+		response.write(`<td>`+el.at(`${etype} #${eid}`))
+		response.write(`<td>`+el.history.at(`[oh]`)+` `+el.deepHistory.at(`[dh]`))
+		response.write(e.h`<td>${name}<td>${trumpName}\n`)
 	}
 	for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
 		const estore=project.store[etype][eid]
