@@ -383,14 +383,11 @@ export function analyzeNameRedos(response,project,changesets,filter) {
 		let previousName
 		for (const ev of osm.allVersions(estore)) {
 			const name=estore[ev].tags.name??''
-			if (selectedVersions.has(ev)) {
-				if (trumpedNames.has(name) && name!='') {
+			if (previousName!=null && name!=previousName) {
+				if (selectedVersions.has(ev) && trumpedNames.has(name) && name!='') {
 					writeRow(etype,eid,name,trumpedNames.get(name))
 				}
-			} else {
-				if (previousName!=null && name!=previousName) {
-					trumpedNames.set(previousName,name)
-				}
+				trumpedNames.set(previousName,name)
 			}
 			previousName=name
 		}
