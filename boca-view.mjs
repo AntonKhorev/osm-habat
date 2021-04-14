@@ -37,6 +37,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			this.serveByElement(response,route,getQuery,scoped.viewElements)
 		} else if (route=='cpe') {
 			this.serveByElement(response,route,getQuery,scoped.analyzeChangesPerElement)
+		} else if (route=='nameredos') {
+			this.serveByElement(response,route,getQuery,scoped.analyzeNameRedos)
 		} else if (route=='reload-redactions') {
 			this.project.loadRedactions()
 			response.writeHead(303,{'Location':referer??'.'})
@@ -180,6 +182,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			['.','main view',CAN_HAVE_FILTER],
 			['elements','elements',CAN_HAVE_FILTER],
 			['cpe','changes per element',CAN_HAVE_FILTER],
+			['nameredos','find name readditions',CAN_HAVE_FILTER],
 		]
 	}
 }
@@ -227,6 +230,13 @@ class FullView extends ElementaryView {
 				scoped.fetchLatestVersions,
 				{'vt.redacted':true},referer,
 				`<p>cannot fetch latest versions of redacted elements\n`
+			)
+		} else if (route=='fetch-preceding') { // TODO make it work with elementary views
+			const query=await passPostQuery()
+			await this.serveFetchElements(response,
+				scoped.fetchPrecedingVersions,
+				query,referer,
+				`<p>cannot fetch preceding versions of elements\n`
 			)
 		} else if (route=='fetch-subsequent') { // TODO make it work with elementary views
 			const query=await passPostQuery()

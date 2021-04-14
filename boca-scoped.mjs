@@ -361,6 +361,47 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 	}
 }
 
+export function analyzeNameRedos(response,project,changesets,filter) {
+	response.write(`<h2>Name readditions outside of selected changesets</h2>\n`)
+	let first=true
+	const writeRow=(etype,eid,name,trumpName)=>{
+		if (first) {
+			response.write(`<table>\n`)
+			response.write(`<tr><th>element<th>reoccuring name<th>replaced name\n`)
+			first=false
+		}
+		response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+e.h`<td>${name}<td>${trumpName}\n`)
+	}
+	for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
+		const estore=project.store[etype][eid]
+		const selectedVersions=new Set(evs)
+		const trumpedNames=new Map()
+		let previousName
+		for (const ev of osm.allVersions(estore)) {
+			const name=estore[ev].tags.name??''
+			if (selectedVersions.has(ev)) {
+				if (trumpedNames.has(name) && name!='') {
+					writeRow(etype,eid,name,trumpedNames.get(name))
+				}
+			} else {
+				if (previousName!=null && name!=previousName) {
+					trumpedNames.set(previousName,name)
+				}
+			}
+			previousName=name
+		}
+	}
+	if (first) {
+		response.write(`<p>none found\n`)
+	} else {
+		response.write(`</table>\n`)
+	}
+	response.write(`<form method=post action=fetch-preceding>\n`)
+	response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
+	response.write(`<button>Fetch a batch of preceding versions from OSM</button>\n`)
+	response.write(`</form>\n`)
+}
+
 export function viewElements(response,project,changesets,filter) {
 	response.write(`<h2>Filtered elements list</h2>\n`)
 	let first=true
@@ -411,6 +452,7 @@ export function viewElements(response,project,changesets,filter) {
 // TODO make fetches report if they hit the limit
 //	otherwise don't need response arg
 
+// [.]...!..!..
 export async function fetchFirstVersions(response,project,changesets,filter) {
 	const multifetchList=[]
 	for (const [etype,eid] of filter.filterElements(project,changesets,2)) {
@@ -421,6 +463,7 @@ export async function fetchFirstVersions(response,project,changesets,filter) {
 	await osm.multifetchToStore(project.store,multifetchList)
 }
 
+// ...[.]!.[.]!..
 export async function fetchPreviousVersions(response,project,changesets,filter) {
 	const multifetchList=[]
 	for (const [etype,eid,,ePreviousVersions] of filter.filterElements(project,changesets,4)) {
@@ -433,11 +476,27 @@ export async function fetchPreviousVersions(response,project,changesets,filter) 
 	await osm.multifetchToStore(project.store,multifetchList)
 }
 
+// [....!..]!..
+export async function fetchPrecedingVersions(response,project,changesets,filter) {
+	const multifetchList=[]
+	for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
+		const versionCap=evs[evs.length-1]
+		for (let ev=1;ev<versionCap;ev++) {
+			if (project.store[etype][eid]?.[ev]) continue
+			multifetchList.push([etype,eid,ev])
+		}
+		if (multifetchList.length>=10000) break
+	}
+	await osm.multifetchToStore(project.store,multifetchList)
+}
+
+// ....!..!.[.]
 export async function fetchLatestVersions(response,project,changesets,filter) {
 	const multifetchList=getLatestMultifetchList(project,changesets,filter,2)
 	await osm.multifetchToStore(project.store,multifetchList)
 }
 
+// ....![..!..]
 export async function fetchSubsequentVersions(response,project,changesets,filter) {
 	const multifetchList=getLatestMultifetchList(project,changesets,filter,3)
 	const actualMultifetchList=multifetchList.map(([etype,eid])=>[etype,eid])
