@@ -487,7 +487,7 @@ export async function fetchPrecedingVersions(response,project,changesets,filter)
 		}
 		if (multifetchList.length>=10000) break
 	}
-	await osm.multifetchToStore(project.store,multifetchList)
+	await osm.multifetchToStore(project.store,multifetchList,true)
 }
 
 // ....!..!.[.]

@@ -172,7 +172,7 @@ exports.fetchToStore=(store,call,isTop)=>new Promise((resolve,reject)=>{
 	})
 })
 
-exports.multifetchToStore=async(store,multifetchList)=>{
+exports.multifetchToStore=async(store,multifetchList,lenient=false)=>{
 	// get previous versions with known numbers for a list of elements
 	// /api/0.6/nodes?nodes=123456v1,654321v2
 	// uri has to be <8000 chars, <700 elements
@@ -186,10 +186,14 @@ exports.multifetchToStore=async(store,multifetchList)=>{
 			await osm.fetchToStore(store,fullQuery(elementType),!queryVersioned[elementType])
 		} catch (ex) {
 			for (const [eid,ev] of queryIVs[elementType]) {
-				if (ev==null) {
-					await osm.fetchToStore(store,`/api/0.6/${elementType}/${eid}`,true)
-				} else {
-					await osm.fetchToStore(store,`/api/0.6/${elementType}/${eid}/${ev}`,false)
+				try {
+					if (ev==null) {
+						await osm.fetchToStore(store,`/api/0.6/${elementType}/${eid}`,true)
+					} else {
+						await osm.fetchToStore(store,`/api/0.6/${elementType}/${eid}/${ev}`,false)
+					}
+				} catch (ex) {
+					if (!lenient) throw ex
 				}
 			}
 		}
