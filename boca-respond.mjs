@@ -1,4 +1,5 @@
 import * as e from './escape.js'
+import * as osm from './osm.js'
 
 export function head(response,title,httpCode=200) {
 	headNoMain(response,title,httpCode=200)
@@ -118,6 +119,9 @@ export function fetchError(response,ex,pageTitle,pageBody) {
 	head(response,pageTitle,500)
 	response.write(pageBody)
 	response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
+	if (ex instanceof osm.Error) {
+		response.write(e.h`<p><a href=${ex.apiHref}>try osm api call in browser</a>\n`)
+	}
 	response.write(`<p><a href=/>return to main page</a>\n`)
 	tail(response)
 }

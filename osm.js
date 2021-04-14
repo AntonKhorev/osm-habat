@@ -3,9 +3,9 @@ const https=require('https')
 const expat=require('node-expat')
 
 const osm=exports
+const apiUrl=`https://api.openstreetmap.org`
 
 exports.apiGet=(call,...args)=>{
-	const apiUrl=`https://api.openstreetmap.org`
 	const getUrl=apiUrl+call
 	console.log(`GET ${getUrl}`)
 	https.get(getUrl,...args)
@@ -153,11 +153,21 @@ exports.makeParser=(store,topTimestamp)=>{
 	})
 }
 
+exports.Error=class extends Error {
+	constructor(message,apiHref) {
+		super(message)
+		this.apiHref=apiHref
+	}
+}
+
 exports.fetchToStore=(store,call,isTop)=>new Promise((resolve,reject)=>{
 	let timestamp
 	if (isTop) timestamp=Date.now()
 	osm.apiGet(call,res=>{
-		if (res.statusCode!=200) return reject(new Error('failed single fetch: '+call))
+		if (res.statusCode!=200) return reject(new osm.Error(
+			'failed single fetch: '+call,
+			apiUrl+call
+		))
 		res.pipe(osm.makeParser(store,timestamp).on('end',resolve))
 	})
 })
