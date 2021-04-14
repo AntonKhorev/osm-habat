@@ -2,13 +2,14 @@ import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 
+// version states:
+export const IN=Symbol('IN')
+export const OUT=Symbol('OUT')
+export const PARENT=Symbol('PARENT')
+export const UNKNOWN=Symbol('UNKNOWN') // not fetched
+export const NULL=Symbol('NULL') // doesn't exist, pre-version-1 state
+
 export default function writeElementChanges(response,project,etype,eid,evs,parent) {
-	// version states:
-	const IN=Symbol('IN')
-	const OUT=Symbol('OUT')
-	const PARENT=Symbol('PARENT')
-	const UNKNOWN=Symbol('UNKNOWN') // not fetched
-	const NULL=Symbol('NULL') // doesn't exist, pre-version-1 state
 	// modification types:
 	const CREATE=Symbol('CREATE')
 	const MODIFY=Symbol('MODIFY')
@@ -274,13 +275,19 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		if (!pdata) return [writer(v2)]
 		return [writer(v2),getChangeTypeString(v1,v2)]
 	}
-	const makeRcLink=(request,title,data={})=>{
+	const makeRcOrNoRcLink=(mainAttrs,title,data={})=>{
 		let dataAttrs=``
 		for (const [k,v] of Object.entries(data)) {
-			dataAttrs+=e.h`data-${k}=${v} `
+			dataAttrs+=e.h` data-${k}=${v}`
 		}
-		return `<a class=rc `+dataAttrs+e.h`href=${'http://127.0.0.1:8111/'+request}>${title}</a>`
+		return `<a `+mainAttrs+dataAttrs+e.h`>${title}</a>`
 	}
+	const makeRcLink=(request,title,data={})=>makeRcOrNoRcLink(
+		e.h`class=rc href=${'http://127.0.0.1:8111/'+request}`,title,data
+	)
+	const makeNoRcLink=(title,data={})=>makeRcOrNoRcLink(
+		e.h`class=norc href=#`,title,data
+	)
 	const iterateVersionTableWritingTds=(etype,versionTable,fn)=>iterateVersionTable(etype,versionTable,(
 		cstate,cid,cv,cdata,pstate,pid,pv,pdata
 	)=>{
@@ -333,39 +340,35 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			Object.assign(allTags,cdata.tags)
 			return ''
 		})
-		const writeUndoCell=(name,changedVersion,k,v)=>{
-			if (project.getElementPendingRedactions(etype,eid).tags[k]) {
-				response.write(e.h`<td><input type=checkbox name=tag value=${k} checked disabled>edited</label>`)
+		const writeUndoCell=(tag,tagChangeTracker)=>{
+			if (project.getElementPendingRedactions(etype,eid).tags[tag]) {
+				response.write(e.h`<td><input type=checkbox name=tag value=${tag} checked disabled>edited</label>`)
 			} else if (project.store[etype][eid].top) {
-				response.write(e.h`<td>`+makeRcLink(
-					e.u`load_object?objects=${etype[0]+eid}&addtags=${k}=${v}`,
-					`[${name}]`,
-					{version:changedVersion}
-				)+e.h` - <label><input type=checkbox name=tag value=${k}>edited</label>`)
+				const getLink=()=>(tagChangeTracker.action=='hide'
+					? makeNoRcLink(
+						`[${tagChangeTracker.action}]`,
+						{versions:tagChangeTracker.versions}
+					)
+					: makeRcLink(
+						e.u`load_object?objects=${etype[0]+eid}&addtags=${tag}=${tagChangeTracker.value}`,
+						`[${tagChangeTracker.action}]`,
+						{versions:tagChangeTracker.versions}
+					)
+				)
+				response.write(e.h`<td>`+getLink()+e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`)
 			} else {
-				response.write(`<td>update to enable ${name}`)
+				response.write(`<td>update to enable ${tagChangeTracker.action}`)
 			}
 		}
 		for (const k in allTags) {
-			let changeName
-			let previousValue
-			let changedVersion
+			const tagChangeTracker=new TagChangeTracker()
 			response.write(e.h`\n<tr><td>${k}`)
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
-				const [output,change]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
-				if (change && !changeName) {
-					changeName='undo'
-					previousValue=pdata.tags[k]??''
-					changedVersion=cv
-				} else if (pstate==NULL && cdata.tags[k]!=null) {
-					changeName='delete'
-					previousValue=''
-					changedVersion=cv
-				}
-				return [output,change]
+				tagChangeTracker.trackChange(cstate,cv,cdata?.tags[k],pstate,pv,pdata?.tags[k])
+				return makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 			})
-			if (changeName) {
-				writeUndoCell(changeName,changedVersion,k,previousValue)
+			if (tagChangeTracker.action) {
+				writeUndoCell(k,tagChangeTracker)
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
@@ -405,4 +408,47 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 	writeTable(etype,eid,versionTable)
 	response.write(`</form>\n`)
 	response.write(`</details>\n`)
+}
+
+export class TagChangeTracker {
+	constructor() {
+		this.versions=[]
+		this.cleanValues=new Set()
+		this.dirtyValues=new Set()
+		this.clean=true
+	}
+	trackChange(cstate,cv,cvalue,pstate,pv,pvalue) {
+		cvalue=cvalue??''
+		pvalue=pvalue??''
+		if (pstate==NULL) {
+			this.cleanValues.add('')
+		}
+		if (cstate==OUT) {
+			if (this.cleanValues.has(cvalue)) {
+				this.clean=true
+				if (this.versions.length>0) this.action='hide'
+			} else if (this.clean && !this.dirtyValues.has(cvalue)) {
+				this.cleanValues.add(cvalue)
+			} else {
+				this.clean=false
+				if (this.fallbackValue==null) {
+					this.action='delete'
+				}
+				this.versions.push(cv)
+			}
+		} else if (cstate==IN && pstate!=UNKNOWN) {
+			if (!this.cleanValues.has(cvalue)) {
+				this.dirtyValues.add(cvalue)
+				this.clean=false
+				if (pstate==NULL) {
+					this.action='delete'
+					this.value=''
+				} else {
+					this.action='undo'
+					this.fallbackValue=this.value=pvalue
+				}
+				this.versions.push(cv)
+			}
+		}
+	}
 }

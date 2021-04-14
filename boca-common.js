@@ -4,6 +4,10 @@ function setupListeners($element) {
 		$rcLink.addEventListener('click',openRcLink)
 		$rcLink.classList.add('js-enabled')
 	}
+	for (const $noRcLink of $element.querySelectorAll('a.norc')) {
+		$noRcLink.addEventListener('click',openNoRcLink)
+		$noRcLink.classList.add('js-enabled')
+	}
 	for (const $reloaderButton of $element.querySelectorAll('.reloadable button.reloader')) {
 		$reloaderButton.addEventListener('click',postAndReload)
 		$reloaderButton.classList.add('js-enabled')
@@ -29,6 +33,10 @@ async function openRcLink(ev) {
 	} catch (ex) {
 		$status.innerHTML='[NETWORK ERROR]'
 	}
+}
+async function openNoRcLink(ev) {
+	ev.preventDefault()
+	checkVersions(this)
 }
 async function postAndReload(ev) {
 	ev.preventDefault()
@@ -78,19 +86,17 @@ async function postAndReload(ev) {
 	}
 }
 function checkVersions($link) {
-	if (!$link.dataset.version) return
-	const minVersion=Number($link.dataset.version)
+	if (!$link.dataset.versions) return
+	const versions=new Set($link.dataset.versions.split(','))
 	const $td=$link.closest('td')
 	if ($td) {
 		const $tagCheckbox=$td.querySelector('input[type=checkbox][name=tag]')
-		if ($tagCheckbox) {
-			$tagCheckbox.checked=true
-		}
+		if ($tagCheckbox) $tagCheckbox.checked=true
 	}
 	const $form=$link.closest('form')
 	if (!$form) return
 	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
-		if (minVersion<=Number($checkbox.value)) $checkbox.checked=true
+		if (versions.has($checkbox.value)) $checkbox.checked=true
 	}
 	const $redactButton=$form.querySelector('button[formaction=redact]')
 	if (!$redactButton) return
