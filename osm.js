@@ -176,28 +176,41 @@ exports.multifetchToStore=async(store,multifetchList)=>{
 	// get previous versions with known numbers for a list of elements
 	// /api/0.6/nodes?nodes=123456v1,654321v2
 	// uri has to be <8000 chars, <700 elements
-	// will fail if requested version of any element is redacted
+	// will fail if requested version of any element is redacted - this is going to be 404 error, not 403
 	const queries={}
-	const queryCounts={}
+	const queryIVs={}
 	const queryVersioned={}
 	const fullQuery=(elementType)=>`/api/0.6/${elementType}s?${elementType}s=${queries[elementType]}`
-	const doQuery=(elementType)=>osm.fetchToStore(store,fullQuery(elementType),!queryVersioned[elementType])
+	const doQuery=async(elementType)=>{
+		try {
+			await osm.fetchToStore(store,fullQuery(elementType),!queryVersioned[elementType])
+		} catch (ex) {
+			for (const [eid,ev] of queryIVs[elementType]) {
+				if (ev==null) {
+					await osm.fetchToStore(store,`/api/0.6/${elementType}/${eid}`,true)
+				} else {
+					await osm.fetchToStore(store,`/api/0.6/${elementType}/${eid}/${ev}`,false)
+				}
+			}
+		}
+	}
 	for (const [elementType,elementId,elementVersion] of multifetchList) {
 		if (!queries[elementType]) {
 			queries[elementType]=''
-			queryCounts[elementType]=0
+			queryIVs[elementType]=[]
 			queryVersioned[elementType]=false
 		}
-		if (queryCounts[elementType]++) queries[elementType]+=','
+		if (queryIVs[elementType].length!=0) queries[elementType]+=','
 		queries[elementType]+=elementId
+		queryIVs[elementType].push([elementId,elementVersion])
 		if (elementVersion!==undefined) {
 			queries[elementType]+='v'+elementVersion
 			queryVersioned[elementType]=true
 		}
-		if (queryCounts[elementType]>700 || queries[elementType].length>7500) {
+		if (queryIVs[elementType].length>700 || queries[elementType].length>7500) {
 			await doQuery(elementType)
 			delete queries[elementType]
-			delete queryCounts[elementType]
+			delete queryIVs[elementType]
 			delete queryVersioned[elementType]
 		}
 	}

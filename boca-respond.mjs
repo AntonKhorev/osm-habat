@@ -121,6 +121,7 @@ export function fetchError(response,ex,pageTitle,pageBody) {
 	response.write(e.h`<p>the error was <code>${ex.message}</code>\n`)
 	if (ex instanceof osm.Error) {
 		response.write(e.h`<p><a href=${ex.apiHref}>try osm api call in browser</a>\n`)
+		response.write(e.h`<p><a href=https://wiki.openstreetmap.org/wiki/API_v0.6>see api docs</a>\n`)
 	}
 	response.write(`<p><a href=/>return to main page</a>\n`)
 	tail(response)
