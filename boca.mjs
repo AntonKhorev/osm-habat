@@ -253,6 +253,35 @@ function serveRedactions(response,project) {
 	response.write(`<h1>Pending redactions</h1>\n`)
 	response.write(e.h`<textarea readonly>${project.marshallPendingRedactions()}</textarea>\n`)
 	response.write(`<div><a href=download>download redactions file</a></div>\n`)
+	if (!project.isEmptyPendingRedactions()) {
+		let minTimestamp=+Infinity
+		let maxTimestamp=-Infinity
+		response.write(`<table>\n`)
+		response.write(`<tr><th>element<th>attribute<th>time\n`)
+		for (const [attribute,etype,eid,evtag,timestamp] of project.listPendingRedactions()) {
+			if (timestamp<minTimestamp) minTimestamp=timestamp
+			if (timestamp>maxTimestamp) maxTimestamp=timestamp
+			response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
+			if (attribute=='version') {
+				response.write(e.h`v${evtag}`)
+			} else if (attribute=='tag') {
+				const values=new Set()
+				for (const ev of osm.allVersions(project.store[etype][eid])) {
+					const value=project.store[etype][eid][ev].tags[evtag]
+					if (value!=null) values.add(value)
+				}
+				if (values.size==0) {
+					response.write(e.h`${evtag} (value unknown)`)
+				} else {
+					response.write(e.h`${evtag} = ${[...values].join(';')}`)
+				}
+			}
+			response.write(e.h`<td><time>${new Date(timestamp)}</time>\n`)
+		}
+		response.write(e.h`<tr><td colspan=2>earliest entry<td>${new Date(minTimestamp)}\n`)
+		response.write(e.h`<tr><td colspan=2>latest entry<td>${new Date(maxTimestamp)}\n`)
+		response.write(`</table>\n`)
+	}
 	response.write(`<form class=real method=post action=add-element>\n`)
 	response.write(`<label>OSM URL of element: <input type=text name=element></label>\n`)
 	response.write(`<button>Add extra element to redaction</button>\n`)

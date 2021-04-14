@@ -147,8 +147,9 @@ export default class Project {
 	}
 	redactElementVersionsAndTags(etype,eid,evs,tags) {
 		if (!this.pendingRedactions[etype][eid]) {
-			this.pendingRedactions[etype][eid]={}
+			this.pendingRedactions[etype][eid]={versions:{},tags:{}}
 		}
+		const prElement=this.pendingRedactions[etype][eid]
 		const timestamp=Date.now()
 		let changed=false
 		const recordLastChange=(action,attribute,etype,eid,evtag)=>{
@@ -159,40 +160,49 @@ export default class Project {
 			this.pendingRedactions.last.push([action,attribute,etype,eid,evtag])
 		}
 		for (const ev of evs) {
-			if (this.pendingRedactions[etype][eid][ev]) continue
-			this.pendingRedactions[etype][eid][ev]=timestamp
+			if (prElement.versions[ev]) continue
+			prElement.versions[ev]=timestamp
 			recordLastChange('create','version',etype,eid,ev)
 		}
-		if (tags.length>0 && !this.pendingRedactions[etype][eid].tags) {
-			this.pendingRedactions[etype][eid].tags={}
-		}
 		for (const tag of tags) {
-			if (this.pendingRedactions[etype][eid].tags[tag]) continue
-			this.pendingRedactions[etype][eid].tags[tag]=timestamp
+			if (prElement.tags[tag]) continue
+			prElement.tags[tag]=timestamp
 			recordLastChange('create','tag',etype,eid,tag)
 		}
 	}
 	unredactElement(etype,eid) {
 		if (!this.pendingRedactions[etype][eid]) return
+		const prElement=this.pendingRedactions[etype][eid]
 		this.pendingRedactions.last=[]
-		for (const ev in this.pendingRedactions[etype][eid]) {
-			if (Number(ev)) this.pendingRedactions.last.push(['delete','version',etype,eid,ev])
+		for (const ev in this.pendingRedactions[etype][eid].versions) {
+			this.pendingRedactions.last.push(['delete','version',etype,eid,Number(ev)])
 		}
-		if (this.pendingRedactions[etype][eid].tags) {
-			for (const tag of Object.keys(this.pendingRedactions[etype][eid].tags)) {
-				this.pendingRedactions.last.push(['delete','tag',etype,eid,tag])
-			}
+		for (const tag in this.pendingRedactions[etype][eid].tags) {
+			this.pendingRedactions.last.push(['delete','tag',etype,eid,tag])
 		}
 		delete this.pendingRedactions[etype][eid]
 	}
 	getElementPendingRedactions(etype,eid) {
-		return this.pendingRedactions[etype][eid]??{}
+		return this.pendingRedactions[etype][eid]??{versions:{},tags:{}}
+	}
+	/** @yields {[attribute:string, etype:string, eid:number, evtag:(number|string), timestamp:number]} */
+	*listPendingRedactions() {
+		for (const etype of ['node','way','relation']) {
+			for (const [eid,prElement] of Object.entries(this.pendingRedactions[etype])) {
+				for (const [ev,timestamp] of Object.entries(prElement.versions)) {
+					yield ['version',etype,Number(eid),Number(ev),timestamp]
+				}
+				for (const [etag,timestamp] of Object.entries(prElement.tags)) {
+					yield ['tag',etype,Number(eid),etag,timestamp]
+				}
+			}
+		}
 	}
 	marshallPendingRedactions() {
 		let result=''
 		for (const etype of ['node','way','relation']) {
-			for (const [eid,evs] of Object.entries(this.pendingRedactions[etype])) {
-				for (const ev in evs) {
+			for (const [eid,prElement] of Object.entries(this.pendingRedactions[etype])) {
+				for (const ev in prElement.versions) {
 					if (Number(ev)) result+=`${etype}/${eid}/${ev}\n`
 				}
 			}

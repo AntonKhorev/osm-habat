@@ -334,7 +334,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			return ''
 		})
 		const writeUndoCell=(name,changedVersion,k,v)=>{
-			if (project.getElementPendingRedactions(etype,eid).tags?.[k]) {
+			if (project.getElementPendingRedactions(etype,eid).tags[k]) {
 				response.write(e.h`<td><input type=checkbox name=tag value=${k} checked disabled>edited</label>`)
 			} else if (project.store[etype][eid].top) {
 				response.write(e.h`<td>`+makeRcLink(
@@ -375,7 +375,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			} else if (cstate==IN || cstate==OUT) {
 				let t=''
 				let checked=false
-				if (project.getElementPendingRedactions(etype,eid)[cv]) {
+				if (project.getElementPendingRedactions(etype,eid).versions[cv]) {
 					t+='pending '
 					checked=true
 				}
