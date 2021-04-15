@@ -1,9 +1,11 @@
 import * as osm from './osm.js'
 import {createParentQuery} from './boca-parent.mjs'
+import EndpointSorter from './boca-endpoint-sorter.mjs'
 
 export default class Filter {
 	constructor(query) {
 		this.conditions={}
+		this.order=[]
 		const handleFilterEntry=(ver,key,op,val)=>{
 			if (!this.conditions[ver]) this.conditions[ver]={}
 			let v
@@ -32,6 +34,7 @@ export default class Filter {
 				this.conditions[ver].tag[key]=[op,val]
 			}
 		}
+		const parseOrder=(orderString)=>orderString.split(/[\s,;]+/)
 		this.text=''
 		const addTextLine=(line)=>{
 			if (this.text.length>0) this.text+='\n' // more convenient not to have trailing eol when urlencoding
@@ -56,7 +59,7 @@ export default class Filter {
 				}
 			} else if (match=trline.match(/^order\s*=\s*(.*)$/)) {
 				const [,val]=match
-				this.order=val
+				this.order=parseOrder(val)
 			}
 		}
 		const additionalLines=[]
@@ -74,12 +77,12 @@ export default class Filter {
 		}
 		if (query.order!=null) {
 			addTextLine(`order=${query.order}`)
-			this.order=query.order
+			this.order=parseOrder(query.order)
 		}
 	}
 
 	dropOrder() { // skip ordering for performance reasons
-		this.order=undefined
+		this.order=[]
 		return this
 	}
 
@@ -206,9 +209,9 @@ export default class Filter {
 				yield result
 			}
 		}
-		if (this.order=='name') {
+		function *nameSorter(input) {
 			const resultsWithNames=[]
-			for (const result of iterateFiltered(this.conditions)) {
+			for (const result of input) {
 				const [etype,eid]=result
 				const ekey=etype[0]+eid
 				let eSortName
@@ -233,9 +236,34 @@ export default class Filter {
 			for (const [result] of resultsWithNames) {
 				yield result
 			}
-		} else {
-			yield* iterateFiltered(this.conditions)
 		}
+		function *endsSorter(input) {
+			const sorter=new EndpointSorter()
+			for (const entry of input) {
+				const [etype,eid,evs]=entry
+				if (etype=='way') {
+					let ev
+					if (evs) {
+						ev=evs[evs.length-1]
+					} else {
+						const ekey=etype[0]+eid
+						for (ev of vsEntries.get(ekey));
+					}
+					const nds=project.store.way[eid][ev].nds
+					sorter.add(entry,nds[0],nds[nds.length-1])
+				} else {
+					sorter.add(entry)
+				}
+			}
+			yield *sorter
+		}
+		let result=iterateFiltered(this.conditions)
+		for (let i=this.order.length-1;i>=0;i--) {
+			const order=this.order[i]
+			if (order=='name') result=nameSorter(result)
+			if (order=='ends') result=endsSorter(result)
+		}
+		yield *result
 	}
 
 	static syntaxDescription=`<ul>
@@ -276,7 +304,8 @@ export default class Filter {
 <dt>${term('comparison operator')}
 <dd>One of: <kbd>= == != > >= < <=</kbd>
 <dt>${term('order statement')}
-<dd>Currently only <kbd>order = name</kbd> is supported to sort elements by the value of name tag.
+<dd><kbd>order = name</kbd> to order by name
+<dd><kbd>order = name,ends</kbd> to order by name and endpoints of last selected version
 </dl>
 <p>Examples:</p>
 <dl>

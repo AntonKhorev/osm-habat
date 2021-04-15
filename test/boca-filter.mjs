@@ -7,7 +7,7 @@ import Filter from '../boca-filter.mjs'
 { // empty query
 	const query={}
 	const expectedConditions={}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -21,7 +21,7 @@ import Filter from '../boca-filter.mjs'
 			type:'node',
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -37,7 +37,7 @@ import Filter from '../boca-filter.mjs'
 			version:2,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -55,7 +55,7 @@ import Filter from '../boca-filter.mjs'
 			version:3,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -69,7 +69,7 @@ import Filter from '../boca-filter.mjs'
 			visible:true,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -83,7 +83,7 @@ import Filter from '../boca-filter.mjs'
 			visible:true,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -97,7 +97,7 @@ import Filter from '../boca-filter.mjs'
 			visible:false,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -111,7 +111,7 @@ import Filter from '../boca-filter.mjs'
 			visible:false,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -121,7 +121,7 @@ import Filter from '../boca-filter.mjs'
 		'order':'name',
 	}
 	const expectedConditions={}
-	const expectedOrder='name'
+	const expectedOrder=['name']
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -131,7 +131,7 @@ import Filter from '../boca-filter.mjs'
 		'filter':'',
 	}
 	const expectedConditions={}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -145,7 +145,7 @@ import Filter from '../boca-filter.mjs'
 			type:'relation',
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -162,7 +162,7 @@ import Filter from '../boca-filter.mjs'
 			visible:false,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -181,7 +181,7 @@ import Filter from '../boca-filter.mjs'
 			visible:true,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -195,7 +195,7 @@ import Filter from '../boca-filter.mjs'
 			version:2,
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -209,7 +209,7 @@ import Filter from '../boca-filter.mjs'
 			version:['>=',3],
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -223,7 +223,7 @@ import Filter from '../boca-filter.mjs'
 			version:['<',4],
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -233,7 +233,7 @@ import Filter from '../boca-filter.mjs'
 		'filter':'order=name',
 	}
 	const expectedConditions={}
-	const expectedOrder='name'
+	const expectedOrder=['name']
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -248,7 +248,7 @@ import Filter from '../boca-filter.mjs'
 			type:'way',
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -264,7 +264,7 @@ import Filter from '../boca-filter.mjs'
 			type:'relation',
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -278,7 +278,7 @@ import Filter from '../boca-filter.mjs'
 			type:'node',
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -288,7 +288,7 @@ import Filter from '../boca-filter.mjs'
 		'filter':'order = name',
 	}
 	const expectedConditions={}
-	const expectedOrder='name'
+	const expectedOrder=['name']
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -302,7 +302,7 @@ import Filter from '../boca-filter.mjs'
 			type:'node',
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -312,7 +312,7 @@ import Filter from '../boca-filter.mjs'
 		'filter':'    order=name    ',
 	}
 	const expectedConditions={}
-	const expectedOrder='name'
+	const expectedOrder=['name']
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -328,7 +328,7 @@ import Filter from '../boca-filter.mjs'
 			}
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -344,7 +344,7 @@ import Filter from '../boca-filter.mjs'
 			}
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -360,7 +360,7 @@ import Filter from '../boca-filter.mjs'
 			}
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)
@@ -376,7 +376,7 @@ import Filter from '../boca-filter.mjs'
 			}
 		}
 	}
-	const expectedOrder=undefined
+	const expectedOrder=[]
 	const filter=new Filter(query)
 	assert.deepStrictEqual(filter.conditions,expectedConditions)
 	assert.deepStrictEqual(filter.order,expectedOrder)

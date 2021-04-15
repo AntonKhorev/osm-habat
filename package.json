@@ -11,7 +11,7 @@
   "main": "tool.js",
   "repository": "github:AntonKhorev/osm-habat",
   "scripts": {
-    "test": "node test.mjs"
+    "test": "mocha"
   },
   "dependencies": {
     "glob": "^7.1.6",
@@ -22,5 +22,8 @@
   },
   "engines": {
     "node": ">=14"
+  },
+  "devDependencies": {
+    "mocha": "^8.3.2"
   }
 }
