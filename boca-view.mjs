@@ -503,3 +503,35 @@ export class RedactionsExtraElementsView extends ElementaryView {
 		response.write(e.h`<p>${this.project.pendingRedactions.extra.length} elements in total\n`)
 	}
 }
+
+export class SiblingsView extends ElementaryView {
+	constructor(project,eid,cid) {
+		super(project)
+		this.eid=eid
+		this.cid=cid
+	}
+	getChangesets() {
+		const changes=this.project.store.changeset[this.cid]
+		const parentQuery=createParentQuery(this.project.store,changes)
+		const siblingChanges=[]
+		for (const change of changes) {
+			const [,etype,eid,ev]=change
+			if (etype=='way' && eid!=this.eid && ev==1) {
+				const parent=parentQuery(eid)
+				if (parent) {
+					const [pid]=parent
+					if (pid==this.eid) siblingChanges.push(change)
+				}
+			}
+		}
+		return [[this.cid,siblingChanges]]
+	}
+	getTitle() {
+		return `siblings of way ${this.eid} in cahgeset ${this.cid}`
+	}
+	writeHeading(response) {
+		const wayLink=osmLink.way(this.eid).at(`way #`+this.eid)
+		const csetLink=osmLink.changeset(this.cid).at(`changeset #`+this.cid)
+		response.write(`<h1>Detect siblings of ${wayLink} in ${csetLink}</h1>\n`)
+	}
+}

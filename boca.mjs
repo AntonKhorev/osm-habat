@@ -113,6 +113,34 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Changeset route not defined`)
 			}
+		} else if (match=pathname.match(new RegExp('^/siblings/([1-9]\\d*)/([1-9]\\d*)/([^/]*)$'))) {
+			const [,eid,cid,subpath]=match
+
+			if (!project.store.changeset[cid]) {
+				try {
+					await osm.fetchToStore(project.store,`/api/0.6/changeset/${cid}/download`)
+				} catch (ex) {
+					return respond.fetchError(response,ex,'route prefetch error',e.h`<p>route prefetch failed\n`)
+				}
+				project.saveStore()
+			}
+			if (!project.store.changeset[cid]) {
+				response.writeHead(404)
+				response.end(`Changeset #${cid} not found`)
+				return
+			}
+			if (!project.store.way[eid]) {
+				response.writeHead(404)
+				response.end(`Way #${eid} not found`)
+				return
+			}
+			const view=new views.SiblingsView(project,Number(eid),Number(cid))
+			if (await serveViewRoutes(view,subpath)) {
+				// ok
+			} else {
+				response.writeHead(404)
+				response.end(`Siblings route not defined`)
+			}
 		} else if (pathname=='/redactions/') {
 			serveRedactions(response,project)
 		} else if (pathname=='/redactions/download') {

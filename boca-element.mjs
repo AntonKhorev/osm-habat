@@ -333,6 +333,17 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[0],cdata.nds[0]))
 			response.write(`\n<tr><th>last node`)
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeNodeCell(pdata,pdata?.nds[pdata?.nds.length-1],cdata.nds[cdata.nds.length-1]))
+			response.write(`\n<tr><th>`)
+			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
+				if (cstate!=OUT) return ''
+				if (!pdata?.visible || !cdata.visible) return ''
+				if (
+					cdata.nds[0]==pdata?.nds[0] &&
+					cdata.nds[cdata.nds.length-1]==pdata?.nds[pdata?.nds.length-1]
+				) return ''
+				const href=e.u`/siblings/${eid}/${cdata.changeset}/cpe`
+				return e.h`<a href=${href}>check siblings</a>`
+			})
 		}
 		response.write(`\n<tr><th>tags`)
 		const allTags={}
