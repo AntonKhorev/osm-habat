@@ -1,5 +1,7 @@
-setupListeners(document)
-function setupListeners($element) {
+setupElementListeners(document)
+setupExampleListeners(document)
+
+function setupElementListeners($element) {
 	for (const $rcLink of $element.querySelectorAll('a.rc')) {
 		$rcLink.addEventListener('click',openRcLink)
 		$rcLink.classList.add('js-enabled')
@@ -63,7 +65,7 @@ async function postAndReload(ev) {
 		enableControls()
 		return
 	}
-	setupListeners($reloadable)
+	setupElementListeners($reloadable)
 	if (!$button.classList.contains('redactor')) return
 	const $redactionsStatus=document.querySelector('.redactions-status')
 	try {
@@ -110,3 +112,20 @@ function urlencodeFormData($form) {
 	return data.join('&').replace(/%20/g,'+')
 }
 const escapeHtml=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+
+function setupExampleListeners($element) {
+	const $exampleInput=$element.querySelector('textarea[name=filter]')
+	if (!$exampleInput) return
+	for (const $exampleTitle of $element.querySelectorAll('dl.examples dt')) {
+		const $exampleDefinition=$exampleTitle.nextElementSibling
+		if (!$exampleDefinition) continue
+		const $exampleCode=$exampleDefinition.querySelector('code')
+		if (!$exampleCode) continue
+		const $copyLink=document.createElement('a')
+		$copyLink.innerHTML='[copy to filter input]'
+		$copyLink.addEventListener('click',()=>{
+			$exampleInput.value=$exampleCode.textContent
+		})
+		$exampleTitle.appendChild($copyLink)
+	}
+}

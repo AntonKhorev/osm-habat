@@ -315,7 +315,7 @@ export default class Filter {
 	</dl>
 </dl>
 <p>Examples:</p>
-<dl>
+<dl class=examples>
 <dt>Elements edited more than once in selected csets
 <dd><pre><code>vs.count > 1</code></pre>
 <dt>Highways with name added in selected csets

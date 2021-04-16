@@ -95,6 +95,11 @@ textarea {
 .error.outdated {
 	border-color: #888;
 }
+.examples a {
+	color: LinkText;
+	text-decoration: underline dashed;
+	cursor: pointer;
+}
 </style>
 </head>
 <body>
