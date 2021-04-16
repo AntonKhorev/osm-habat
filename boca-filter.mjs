@@ -304,17 +304,26 @@ export default class Filter {
 <dt>${term('comparison operator')}
 <dd>One of: <kbd>= == != > >= < <=</kbd>
 <dt>${term('order statement')}
-<dd><kbd>order = name</kbd> to order by name
-<dd><kbd>order = name,ends</kbd> to order by name and endpoints of last selected version
+<dd><kbd>order = </kbd>${term('list of order keys')}
+<dt>${term('list of order keys')}
+<dd>Space- or comma-separated list of one or more ${term('order key')}. Each corresponding sorting is applied to the list of elements that passed through filters. Last is applied first to make use of sorting <a href=https://en.wikipedia.org/wiki/Sorting_algorithm#Stability>stability</a>.
+<dt>${term('order key')}
+<dd>One of:
+	<dl>
+	<dt><kbd>name</kbd> <dd>order by name
+	<dt><kbd>ends</kbd> <dd>topological order by trying to output chains of ways that share end nodes; forms a <a href=https://en.wikipedia.org/wiki/Graph_(discrete_mathematics)>graph</a> taking only end nodes into account, outputs a <a href=https://en.wikipedia.org/wiki/Component_(graph_theory)>connected component</a> starting from a <a href=https://en.wikipedia.org/wiki/Leaf_vertex>leaf</a> with a lowest id
+	</dl>
 </dl>
 <p>Examples:</p>
 <dl>
 <dt>Elements edited more than once in selected csets
-<dd><pre><code>vs.count>1</code></pre>
+<dd><pre><code>vs.count > 1</code></pre>
 <dt>Highways with name added in selected csets
 <dd><pre><code>vs[highway]
 vp[!name]
 vs[name]</code></pre>
+<dt>Sort way segments by name and shared endpoints, useful for highways
+<dd><pre><code>order = name, ends</code></pre>
 </dl>
 `
 // TODO examples
