@@ -351,26 +351,39 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			Object.assign(allTags,cdata.tags)
 			return ''
 		})
-		const writeUndoCell=(tag,tagChangeTracker)=>{
+		const writeUndoCell=(tag,tagChangeTracker,canLoad)=>{
 			if (project.getElementPendingRedactions(etype,eid).tags[tag]) {
 				response.write(e.h`<td><input type=checkbox name=tag value=${tag} checked disabled>edited</label>`)
 			} else if (project.store[etype][eid].top) {
-				const getLink=()=>(tagChangeTracker.action=='hide'
-					? makeRcLink(
-						e.u`load_object?objects=${etype[0]+eid}`,
-						`[${tagChangeTracker.action}]`,
-						{versions:tagChangeTracker.versions}
-					)+`<sub>`+makeNoRcLink(
-						`[${tagChangeTracker.action} w/o load]`,
-						{versions:tagChangeTracker.versions}
-					)+`</sub>`
-					: makeRcLink(
-						e.u`load_object?objects=${etype[0]+eid}&addtags=${tag}=${tagChangeTracker.value}`,
-						`[${tagChangeTracker.action}]`,
-						{versions:tagChangeTracker.versions}
-					)
-				)
-				response.write(e.h`<td>`+getLink()+e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`)
+				const getLinks=()=>{
+					const data={versions:tagChangeTracker.versions}
+					let rcHref=e.u`load_object?objects=${etype[0]+eid}`
+					if (tagChangeTracker.action!='hide') {
+						rcHref+=e.u`&addtags=${tag}=${tagChangeTracker.value}`
+					}
+					if (canLoad) {
+						let links=makeRcLink(
+							rcHref,`[${tagChangeTracker.action}]`,data
+						)
+						if (tagChangeTracker.action=='hide') {
+							links+=`<small>`+makeNoRcLink(
+								`[${tagChangeTracker.action} w/o load]`,data
+							)+`</small>`
+						}
+						return links
+					} else {
+						if (tagChangeTracker.action=='hide') {
+							return makeNoRcLink(
+								`[${tagChangeTracker.action} w/o load]`,data
+							)
+						} else {
+							return `<small>updating tag on deleted element</small> `+makeRcLink(
+								rcHref,`[${tagChangeTracker.action}]`,data
+							)
+						}
+					}
+				}
+				response.write(e.h`<td>`+getLinks()+e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`)
 			} else {
 				response.write(`<td>update to enable ${tagChangeTracker.action}`)
 			}
@@ -378,12 +391,14 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		for (const k in allTags) {
 			const tagChangeTracker=new TagChangeTracker()
 			response.write(e.h`\n<tr><td>${k}`)
+			let haveVersionToLoad=false
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 				tagChangeTracker.trackChange(cstate,cv,cdata?.tags[k],pstate,pv,pdata?.tags[k])
+				haveVersionToLoad=cdata.visible
 				return makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 			})
 			if (tagChangeTracker.action) {
-				writeUndoCell(k,tagChangeTracker)
+				writeUndoCell(k,tagChangeTracker,haveVersionToLoad)
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
