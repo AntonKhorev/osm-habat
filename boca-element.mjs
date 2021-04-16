@@ -356,10 +356,14 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 				response.write(e.h`<td><input type=checkbox name=tag value=${tag} checked disabled>edited</label>`)
 			} else if (project.store[etype][eid].top) {
 				const getLink=()=>(tagChangeTracker.action=='hide'
-					? makeNoRcLink(
+					? makeRcLink(
+						e.u`load_object?objects=${etype[0]+eid}`,
 						`[${tagChangeTracker.action}]`,
 						{versions:tagChangeTracker.versions}
-					)
+					)+`<sub>`+makeNoRcLink(
+						`[${tagChangeTracker.action} w/o load]`,
+						{versions:tagChangeTracker.versions}
+					)+`</sub>`
 					: makeRcLink(
 						e.u`load_object?objects=${etype[0]+eid}&addtags=${tag}=${tagChangeTracker.value}`,
 						`[${tagChangeTracker.action}]`,
