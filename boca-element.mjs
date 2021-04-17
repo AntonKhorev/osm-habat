@@ -389,11 +389,11 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			}
 		}
 		for (const k in allTags) {
-			const tagChangeTracker=new TagChangeTracker()
+			const tagChangeTracker=new TagChangeTracker(k)
 			response.write(e.h`\n<tr><td>${k}`)
 			let haveVersionToLoad=false
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
-				tagChangeTracker.trackChange(cstate,cv,cdata?.tags[k],pstate,pv,pdata?.tags[k])
+				tagChangeTracker.trackChange(cstate,cv,cdata,pstate,pv,pdata)
 				haveVersionToLoad=cdata.visible
 				return makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 			})
@@ -441,15 +441,16 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 }
 
 export class TagChangeTracker {
-	constructor() {
+	constructor(tagKey) {
+		this.tagKey=tagKey
 		this.versions=[]
 		this.cleanValues=new Set()
 		this.dirtyValues=new Set()
 		this.clean=true
 	}
-	trackChange(cstate,cv,cvalue,pstate,pv,pvalue) {
-		cvalue=cvalue??''
-		pvalue=pvalue??''
+	trackChange(cstate,cv,cdata,pstate,pv,pdata) {
+		const cvalue=cdata?.tags[this.tagKey] ?? ''
+		const pvalue=pdata?.tags[this.tagKey] ?? ''
 		if (pstate==NULL) {
 			this.cleanValues.add('')
 		}
@@ -467,7 +468,11 @@ export class TagChangeTracker {
 				this.versions.push(cv)
 			}
 		} else if (cstate==IN && pstate!=UNKNOWN) {
-			if (!this.cleanValues.has(cvalue)) {
+			if (!cdata.visible) {
+				this.cleanValues.add('')
+				this.clean=true
+				if (this.versions.length>0) this.action='hide'
+			} else if (!this.cleanValues.has(cvalue)) {
 				this.dirtyValues.add(cvalue)
 				this.clean=false
 				if (pstate==NULL) {

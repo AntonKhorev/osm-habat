@@ -3,11 +3,22 @@ import * as assert from 'assert'
 import {IN,OUT,PARENT,UNKNOWN,NULL,TagChangeTracker} from '../boca-element.mjs'
 
 const runTracker=(table)=>{
-	const tracker=new TagChangeTracker()
+	const tagKey='x'
+	const adaptTableEntry=([state,version,tagValue,visible])=>{
+		if (state==NULL || state==UNKNOWN) return [state,undefined,undefined]
+		const data={
+			visible:true,
+			tags:{},
+		}
+		if (visible!=null) data.visible=visible
+		if (tagValue) data.tags[tagKey]=tagValue
+		return [state,version,data]
+	}
+	const tracker=new TagChangeTracker(tagKey)
 	for (let i=1;i<table.length;i++) {
 		tracker.trackChange(
-			table[i][0],table[i][1],table[i][2],
-			table[i-1][0],table[i-1][1],table[i-1][2]
+			...adaptTableEntry(table[i]),
+			...adaptTableEntry(table[i-1])
 		)
 	}
 	return tracker
@@ -141,5 +152,23 @@ describe("TagChangeTracker",()=>{
 		assert.equal(tracker.action,'undo')
 		assert.strictEqual(tracker.value,'foo')
 		assert.deepStrictEqual(tracker.versions,[2,4,5,6])
+	})
+	it("provides no action for a deletion in an in-version",()=>{
+		const tracker=runTracker([
+			[UNKNOWN],
+			[OUT,5,'hush'],
+			[IN,6,,false],
+		])
+		assert.equal(tracker.action,null)
+	})
+	it("provides hide for a change followed by a deletion in an in-version",()=>{
+		const tracker=runTracker([
+			[UNKNOWN],
+			[OUT,5,'hush'],
+			[IN,6,'push'],
+			[IN,7,,false],
+		])
+		assert.equal(tracker.action,'hide')
+		assert.deepStrictEqual(tracker.versions,[6])
 	})
 })
