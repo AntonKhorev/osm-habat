@@ -13,133 +13,133 @@ const runTracker=(table)=>{
 	return tracker
 }
 
-{ // no in-version
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1],
-	])
-	assert.equal(tracker.action,null)
-}
-{ // tag not added for new element
-	const tracker=runTracker([
-		[NULL],
-		[IN,1],
-	])
-	assert.equal(tracker.action,null)
-}
-{ // tag added for new element
-	const tracker=runTracker([
-		[NULL],
-		[IN,1,'foo'],
-	])
-	assert.equal(tracker.action,'delete')
-	assert.strictEqual(tracker.value,'')
-	assert.deepStrictEqual(tracker.versions,[1])
-}
-{ // can't do anything b/c previous state is unknown
-	const tracker=runTracker([
-		[UNKNOWN],
-		[IN,11,'foo'],
-	])
-	assert.equal(tracker.action,null)
-}
-{ // tag not added for modified element
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1],
-		[IN ,2],
-	])
-	assert.equal(tracker.action,null)
-}
-{ // tag added for new element
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1],
-		[IN ,2,'boo!'],
-	])
-	assert.equal(tracker.action,'undo')
-	assert.strictEqual(tracker.value,'')
-	assert.deepStrictEqual(tracker.versions,[2])
-}
-{ // tag not modified
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'foo'],
-	])
-	assert.equal(tracker.action,null)
-}
-{ // tag modified
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'bar'],
-	])
-	assert.equal(tracker.action,'undo')
-	assert.strictEqual(tracker.value,'foo')
-	assert.deepStrictEqual(tracker.versions,[2])
-}
-{ // tag modified and kept in multiple versions
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'bar'],
-		[OUT,3,'bar'],
-		[OUT,4,'bar'],
-	])
-	assert.equal(tracker.action,'undo')
-	assert.strictEqual(tracker.value,'foo')
-	assert.deepStrictEqual(tracker.versions,[2,3,4])
-}
-{ // tag modified, kept in multiple versions then undone
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'bar'],
-		[OUT,3,'bar'],
-		[OUT,4,'foo'],
-	])
-	assert.equal(tracker.action,'hide')
-	assert.deepStrictEqual(tracker.versions,[2,3])
-}
-{ // tag editwar
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'bar'],
-		[OUT,3,'foo'],
-		[IN, 4,'bar'],
-		[OUT,5,'foo'],
-		[IN, 6,'bar'],
-	])
-	assert.equal(tracker.action,'undo')
-	assert.strictEqual(tracker.value,'foo')
-	assert.deepStrictEqual(tracker.versions,[2,4,6])
-}
-{ // multiple tainted versions
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'bar'],
-		[OUT,3,'foo'],
-		[IN, 4,'baz'],
-		[OUT,5,'baz'],
-		[OUT,6,'bar'],
-	])
-	assert.equal(tracker.action,'undo')
-	assert.strictEqual(tracker.value,'foo')
-	assert.deepStrictEqual(tracker.versions,[2,4,5,6])
-}
-{ // changes after tainting
-	const tracker=runTracker([
-		[NULL],
-		[OUT,1,'foo'],
-		[IN, 2,'bar'],
-		[OUT,3,'baz'],
-	])
-	assert.equal(tracker.action,'undo')
-	assert.strictEqual(tracker.value,'foo')
-	assert.deepStrictEqual(tracker.versions,[2,3])
-}
-
-console.log('ran all boca-element tests')
+describe("TagChangeTracker",()=>{
+	it("provides no action if there's no in-version",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1],
+		])
+		assert.equal(tracker.action,null)
+	})
+	it("provides no action if the tag is not added to a new element",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[IN,1],
+		])
+		assert.equal(tracker.action,null)
+	})
+	it("provides delete if the tag added to a new element",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[IN,1,'foo'],
+		])
+		assert.equal(tracker.action,'delete')
+		assert.strictEqual(tracker.value,'')
+		assert.deepStrictEqual(tracker.versions,[1])
+	})
+	it("refrains from providing an action if the previous state is unknown",()=>{
+		const tracker=runTracker([
+			[UNKNOWN],
+			[IN,11,'foo'],
+		])
+		assert.equal(tracker.action,null)
+	})
+	it("provides no action if the tag is not added to an existing element",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1],
+			[IN ,2],
+		])
+		assert.equal(tracker.action,null)
+	})
+	it("provides undo if the tag added to an existing element",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1],
+			[IN ,2,'boo!'],
+		])
+		assert.equal(tracker.action,'undo')
+		assert.strictEqual(tracker.value,'')
+		assert.deepStrictEqual(tracker.versions,[2])
+	})
+	it("provides no action if the tag is not modified on an existing element",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'foo'],
+		])
+		assert.equal(tracker.action,null)
+	})
+	it("provides undo if the tag is modified on an existing element",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+		])
+		assert.equal(tracker.action,'undo')
+		assert.strictEqual(tracker.value,'foo')
+		assert.deepStrictEqual(tracker.versions,[2])
+	})
+	it("provides undo if the tag is modified on an existing element and kept in later out-versions",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+			[OUT,3,'bar'],
+			[OUT,4,'bar'],
+		])
+		assert.equal(tracker.action,'undo')
+		assert.strictEqual(tracker.value,'foo')
+		assert.deepStrictEqual(tracker.versions,[2,3,4])
+	})
+	it("provides hide if the tag change is undone in an out-version",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+			[OUT,3,'bar'],
+			[OUT,4,'foo'],
+		])
+		assert.equal(tracker.action,'hide')
+		assert.deepStrictEqual(tracker.versions,[2,3])
+	})
+	it("provides undo if the in-version change won an edit war",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+			[OUT,3,'foo'],
+			[IN, 4,'bar'],
+			[OUT,5,'foo'],
+			[IN, 6,'bar'],
+		])
+		assert.equal(tracker.action,'undo')
+		assert.strictEqual(tracker.value,'foo')
+		assert.deepStrictEqual(tracker.versions,[2,4,6])
+	})
+	it("provides undo for possibly tainted versions",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+			[OUT,3,'baz'],
+		])
+		assert.equal(tracker.action,'undo')
+		assert.strictEqual(tracker.value,'foo')
+		assert.deepStrictEqual(tracker.versions,[2,3])
+	})
+	it("provides undo for possibly tainted versions but skips untainted ones",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+			[OUT,3,'foo'],
+			[IN, 4,'baz'],
+			[OUT,5,'baz'],
+			[OUT,6,'bar'],
+		])
+		assert.equal(tracker.action,'undo')
+		assert.strictEqual(tracker.value,'foo')
+		assert.deepStrictEqual(tracker.versions,[2,4,5,6])
+	})
+})
