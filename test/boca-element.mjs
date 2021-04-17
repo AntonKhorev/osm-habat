@@ -48,6 +48,16 @@ describe("TagChangeTracker",()=>{
 		assert.strictEqual(tracker.value,'')
 		assert.deepStrictEqual(tracker.versions,[1])
 	})
+	it("provides delete if the tag added to a new element and then other in-version edit is made",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[IN,1,'foo'],
+			[IN,2,'foo'],
+		])
+		assert.equal(tracker.action,'delete')
+		assert.strictEqual(tracker.value,'')
+		assert.deepStrictEqual(tracker.versions,[1,2])
+	})
 	it("refrains from providing an action if the previous state is unknown",()=>{
 		const tracker=runTracker([
 			[UNKNOWN],

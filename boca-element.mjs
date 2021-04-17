@@ -453,37 +453,43 @@ export class TagChangeTracker {
 		const pvalue=pdata?.tags[this.tagKey] ?? ''
 		if (pstate==NULL) {
 			this.cleanValues.add('')
+		} else if (pstate==UNKNOWN) {
+			this.cleanValues.add(cvalue)
 		}
 		if (cstate==OUT) {
-			if (this.cleanValues.has(cvalue)) {
+			if (!cdata.visible) {
+				this.cleanValues.add('')
+				this.dirtyValues.delete('')
 				this.clean=true
-				if (this.versions.length>0) this.action='hide'
+			} else if (this.cleanValues.has(cvalue)) {
+				this.clean=true
 			} else if (this.clean && !this.dirtyValues.has(cvalue)) {
 				this.cleanValues.add(cvalue)
 			} else {
 				this.clean=false
-				if (this.fallbackValue==null) {
-					this.action='delete'
-				}
+				this.dirtyValues.add(cvalue)
 				this.versions.push(cv)
 			}
-		} else if (cstate==IN && pstate!=UNKNOWN) {
+		} else if (cstate==IN) {
 			if (!cdata.visible) {
 				this.cleanValues.add('')
+				this.dirtyValues.delete('')
 				this.clean=true
-				if (this.versions.length>0) this.action='hide'
 			} else if (!this.cleanValues.has(cvalue)) {
-				this.dirtyValues.add(cvalue)
 				this.clean=false
-				if (pstate==NULL) {
-					this.action='delete'
-					this.value=''
-				} else {
-					this.action='undo'
-					this.fallbackValue=this.value=pvalue
+				this.dirtyValues.add(cvalue)
+				if (this.value==null) {
+					this.value=pvalue
+					this.isDelete=pstate==NULL
 				}
 				this.versions.push(cv)
 			}
 		}
+	}
+	get action() {
+		if (this.versions.length==0) return undefined
+		if (this.clean) return 'hide'
+		if (this.isDelete) return 'delete'
+		return 'undo'
 	}
 }
