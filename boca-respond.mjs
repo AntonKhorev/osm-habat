@@ -50,6 +50,9 @@ table td { text-align: right }
 details.element {
 	margin: .5em 0;
 }
+details.element.active {
+	outline: solid .5em red;
+}
 details.element[open] {
 	margin-bottom: 1.5em;
 }

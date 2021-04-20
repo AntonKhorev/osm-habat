@@ -1,16 +1,40 @@
 setupElementListeners(document)
 setupExampleListeners(document)
 
-function setupElementListeners($element) {
-	for (const $rcLink of $element.querySelectorAll('a.rc')) {
+function setupElementListeners($elementContainer) {
+	for (const $element of $elementContainer.querySelectorAll('.element')) {
+		$element.addEventListener('focusin',()=>{
+			$element.classList.add('active')
+		})
+		$element.addEventListener('focusout',()=>{
+			$element.classList.remove('active')
+		})
+		$element.addEventListener('click',()=>{
+			if (!$element.classList.contains('active')) {
+				const $summary=$element.querySelector('summary')
+				if ($summary) $summary.focus()
+			}
+		})
+		$element.addEventListener('keydown',(ev)=>{
+			if (ev.key=='w') {
+				const $prevElementSummary=$element.parentElement.previousElementSibling?.querySelector('.element summary')
+				if ($prevElementSummary) $prevElementSummary.focus()
+			}
+			if (ev.key=='s') {
+				const $prevElementSummary=$element.parentElement.nextElementSibling?.querySelector('.element summary')
+				if ($prevElementSummary) $prevElementSummary.focus()
+			}
+		})
+	}
+	for (const $rcLink of $elementContainer.querySelectorAll('a.rc')) {
 		$rcLink.addEventListener('click',openRcLink)
 		$rcLink.classList.add('js-enabled')
 	}
-	for (const $noRcLink of $element.querySelectorAll('a.norc')) {
+	for (const $noRcLink of $elementContainer.querySelectorAll('a.norc')) {
 		$noRcLink.addEventListener('click',openNoRcLink)
 		$noRcLink.classList.add('js-enabled')
 	}
-	for (const $reloaderButton of $element.querySelectorAll('.reloadable button.reloader')) {
+	for (const $reloaderButton of $elementContainer.querySelectorAll('.reloadable button.reloader')) {
 		$reloaderButton.addEventListener('click',postAndReload)
 		$reloaderButton.classList.add('js-enabled')
 	}
