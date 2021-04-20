@@ -23,50 +23,90 @@ function setupElementListeners($elementContainer) {
 				navigate($element.parentElement.previousElementSibling?.querySelector('.element'))
 			} else if (ev.key=='s') {
 				navigate($element.parentElement.nextElementSibling?.querySelector('.element'))
+			} else if (ev.key=='e') {
+				$element.querySelector('tr.visible td.act a')?.click()
+			} else if (ev.key=='d') {
+				targetTagsAct($element)
 			}
 		})
 	}
 	for (const $rcLink of $elementContainer.querySelectorAll('a.rc')) {
-		$rcLink.addEventListener('click',openRcLink)
+		$rcLink.addEventListener('click',actionLinkClickListener)
 		$rcLink.classList.add('js-enabled')
 	}
 	for (const $noRcLink of $elementContainer.querySelectorAll('a.norc')) {
-		$noRcLink.addEventListener('click',openNoRcLink)
+		$noRcLink.addEventListener('click',actionLinkClickListener)
 		$noRcLink.classList.add('js-enabled')
 	}
 	for (const $reloaderButton of $elementContainer.querySelectorAll('.reloadable button.reloader')) {
-		$reloaderButton.addEventListener('click',postAndReload)
+		$reloaderButton.addEventListener('click',reloaderButtonClickListener)
 		$reloaderButton.classList.add('js-enabled')
 	}
 }
-async function openRcLink(ev) {
+function actionLinkClickListener(ev) {
 	ev.preventDefault()
+	actionLinkAct(this)
+}
+function reloaderButtonClickListener(ev) {
+	ev.preventDefault()
+	postAndReload(this)
+}
+
+async function targetTagsAct($element) {
+	const $elementContainer=$element.parentElement
+	for (let i=0;;i++) {
+		const $targetTagRow=$element.querySelectorAll('tr.tag.target')[i] // requery because element may get rewritten
+		if (!$targetTagRow) return
+		const $actionLink=$targetTagRow.querySelector('td.act a')
+		if (!$actionLink) continue
+		await actionLinkAct($actionLink)
+		$element=$elementContainer.querySelector('.element') // element was possibly rewritten, find the new one
+		$element?.querySelector('summary')?.focus() // link was possibly removed, focus on something else
+	}
+}
+async function actionLinkAct($link) {
+	if ($link.classList.contains('norc')) {
+		return await checkVersions($link)
+	} else if (!$link.classList.contains('rc')) {
+		return
+	}
 	let $status=document.createElement('span')
 	$status.innerHTML='[INITIATED]'
-	this.after($status)
-	let targetHref=ev.target.href
+	$link.after($status)
+	let targetHref=$link.href
 	const url=new URL(targetHref)
 	if (url.host!='127.0.0.1:8111') {
 		targetHref='http://127.0.0.1:8111/import?new_layer=true'
-		if (this.title) targetHref+='&layer_name='+encodeURIComponent(this.title)
-		if (this.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent(this.dataset.uploadPolicy)
-		targetHref+='&url='+encodeURIComponent(this.href)
+		if ($link.title) targetHref+='&layer_name='+encodeURIComponent($link.title)
+		if ($link.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent($link.dataset.uploadPolicy)
+		targetHref+='&url='+encodeURIComponent($link.href)
 	}
 	try {
 		const response=await fetch(targetHref)
 		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
-		if (response.ok) checkVersions(this)
+		if (response.ok) await checkVersions($link)
 	} catch (ex) {
 		$status.innerHTML='[NETWORK ERROR]'
 	}
 }
-async function openNoRcLink(ev) {
-	ev.preventDefault()
-	checkVersions(this)
+async function checkVersions($link) {
+	if (!$link.dataset.versions) return
+	const versions=new Set($link.dataset.versions.split(','))
+	const $td=$link.closest('td')
+	if ($td) {
+		const $tagCheckbox=$td.querySelector('input[type=checkbox][name=tag]')
+		if ($tagCheckbox) $tagCheckbox.checked=true
+	}
+	const $form=$link.closest('form')
+	if (!$form) return
+	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
+		if (versions.has($checkbox.value)) $checkbox.checked=true
+	}
+	const $redactButton=$form.querySelector('button[formaction=redact]')
+	if (!$redactButton) return
+	await postAndReload($redactButton)
 }
-async function postAndReload(ev) {
-	ev.preventDefault()
-	const $button=this
+async function postAndReload($button) {
 	const $reloadable=$button.closest('.reloadable')
 	for (const $error of $reloadable.querySelectorAll('.error')) {
 		$error.classList.add('outdated')
@@ -110,23 +150,6 @@ async function postAndReload(ev) {
 			$anyButton.disabled=false
 		}
 	}
-}
-function checkVersions($link) {
-	if (!$link.dataset.versions) return
-	const versions=new Set($link.dataset.versions.split(','))
-	const $td=$link.closest('td')
-	if ($td) {
-		const $tagCheckbox=$td.querySelector('input[type=checkbox][name=tag]')
-		if ($tagCheckbox) $tagCheckbox.checked=true
-	}
-	const $form=$link.closest('form')
-	if (!$form) return
-	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
-		if (versions.has($checkbox.value)) $checkbox.checked=true
-	}
-	const $redactButton=$form.querySelector('button[formaction=redact]')
-	if (!$redactButton) return
-	$redactButton.click()
 }
 function urlencodeFormData($form) {
 	const data=[]

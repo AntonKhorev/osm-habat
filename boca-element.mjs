@@ -292,7 +292,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		cstate,cid,cv,cdata,pstate,pid,pv,pdata
 	)=>{
 		const tdClasses=[]
-		if (cstate==IN) tdClasses.push('target')
+		if (cstate==IN) tdClasses.push('selected-version')
 		let output=fn(cstate,cid,cv,cdata,pstate,pid,pv,pdata)
 		if (Array.isArray(output)) {
 			let tdClass
@@ -315,9 +315,9 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		response.write(`\n<tr><th>timestamp`)
 		iterate((cstate,cid,cv,cdata)=>makeTimestampHtml(cdata.timestamp))
 		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid]?.top?.timestamp))
-		response.write(`\n<tr><th>visible`)
+		response.write(`\n<tr class=visible><th>visible`)
 		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
-		response.write(`<td>`+makeRcLink(
+		response.write(`<td class=act>`+makeRcLink(
 			e.u`load_object?objects=${etype[0]+eid}`,
 			`[load]`
 		))
@@ -383,14 +383,16 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 						}
 					}
 				}
-				response.write(e.h`<td>`+getLinks()+e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`)
+				response.write(e.h`<td class=act>`+getLinks()+e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`)
 			} else {
 				response.write(`<td>update to enable ${tagChangeTracker.action}`)
 			}
 		}
 		for (const k in allTags) {
 			const tagChangeTracker=new TagChangeTracker(k)
-			response.write(e.h`\n<tr><td>${k}`)
+			let tagClasses='tag'
+			if (k=='name') tagClasses+=' target' // TODO let configure target tags
+			response.write(e.h`\n<tr class=${tagClasses}><td>${k}`)
 			let haveVersionToLoad=false
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 				tagChangeTracker.trackChange(cstate,cv,cdata,pstate,pv,pdata)

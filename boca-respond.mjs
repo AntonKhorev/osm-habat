@@ -64,15 +64,18 @@ details.element table {
 	border-collapse: collapse;
 	margin-top: .5em;
 }
-details.element td.target {
+details.element td.selected-version {
 	border-left: solid 3px #004;
 	border-right: solid 3px #004;
 }
-details.element tr:first-child td.target {
+details.element tr:first-child td.selected-version {
 	border-top: solid 3px #004;
 }
-details.element tr:last-child td.target {
+details.element tr:last-child td.selected-version {
 	border-bottom: solid 3px #004;
+}
+details.element tr.tag.target {
+	background: #FCF;
 }
 form.real {
 	margin: 1em 0;
