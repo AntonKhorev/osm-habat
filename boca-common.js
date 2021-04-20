@@ -61,12 +61,11 @@ async function targetTagsAct($element) {
 		if (!$actionLink) continue
 		await actionLinkAct($actionLink)
 		$element=$elementContainer.querySelector('.element') // element was possibly rewritten, find the new one
-		$element?.querySelector('summary')?.focus() // link was possibly removed, focus on something else
 	}
 }
 async function actionLinkAct($link) {
 	if ($link.classList.contains('norc')) {
-		return await checkVersions($link)
+		return await checkVersionsAndReloadElement($link)
 	} else if (!$link.classList.contains('rc')) {
 		return
 	}
@@ -84,12 +83,12 @@ async function actionLinkAct($link) {
 	try {
 		const response=await fetch(targetHref)
 		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
-		if (response.ok) await checkVersions($link)
+		if (response.ok) await checkVersionsAndReloadElement($link)
 	} catch (ex) {
 		$status.innerHTML='[NETWORK ERROR]'
 	}
 }
-async function checkVersions($link) {
+async function checkVersionsAndReloadElement($link) {
 	if (!$link.dataset.versions) return
 	const versions=new Set($link.dataset.versions.split(','))
 	const $td=$link.closest('td')
@@ -104,7 +103,9 @@ async function checkVersions($link) {
 	}
 	const $redactButton=$form.querySelector('button[formaction=redact]')
 	if (!$redactButton) return
+	const $elementContainer=$link.closest('.element').parentElement
 	await postAndReload($redactButton)
+	$elementContainer.querySelector('.element')?.querySelector('summary')?.focus() // link is likely gone, refocus on summary
 }
 async function postAndReload($button) {
 	const $reloadable=$button.closest('.reloadable')
