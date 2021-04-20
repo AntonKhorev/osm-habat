@@ -11,18 +11,18 @@ function setupElementListeners($elementContainer) {
 		})
 		$element.addEventListener('click',()=>{
 			if (!$element.classList.contains('active')) {
-				const $summary=$element.querySelector('summary')
-				if ($summary) $summary.focus()
+				$element.querySelector('summary')?.focus()
 			}
 		})
 		$element.addEventListener('keydown',(ev)=>{
-			if (ev.key=='w') {
-				const $prevElementSummary=$element.parentElement.previousElementSibling?.querySelector('.element summary')
-				if ($prevElementSummary) $prevElementSummary.focus()
+			const navigate=($toElement)=>{
+				$toElement?.querySelector('summary')?.focus()
+				$toElement?.scrollIntoView({block:'center'})
 			}
-			if (ev.key=='s') {
-				const $prevElementSummary=$element.parentElement.nextElementSibling?.querySelector('.element summary')
-				if ($prevElementSummary) $prevElementSummary.focus()
+			if (ev.key=='w') {
+				navigate($element.parentElement.previousElementSibling?.querySelector('.element'))
+			} else if (ev.key=='s') {
+				navigate($element.parentElement.nextElementSibling?.querySelector('.element'))
 			}
 		})
 	}
