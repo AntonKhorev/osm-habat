@@ -87,6 +87,9 @@ textarea {
 .js-enabled {
 	outline: solid 1px #F80;
 }
+.js-enabled:focus {
+	outline: dashed 5px #F80;
+}
 .error {
 	border: solid .5em #F00;
 	padding: 1em;
