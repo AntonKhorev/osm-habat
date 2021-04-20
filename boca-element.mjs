@@ -401,6 +401,8 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			})
 			if (tagChangeTracker.action) {
 				writeUndoCell(k,tagChangeTracker,haveVersionToLoad)
+			} else {
+				response.write(`<td>`) // need empty cell to stretch tr background
 			}
 		}
 		response.write(`\n<tr><th>redacted`)
