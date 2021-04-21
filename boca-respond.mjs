@@ -77,6 +77,9 @@ details.element tr:last-child td.selected-version {
 details.element tr.tag.target {
 	background: #FCF;
 }
+details.element tr.tag td.value {
+	word-break: break-all;
+}
 form.real {
 	margin: 1em 0;
 }

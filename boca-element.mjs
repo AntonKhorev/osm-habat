@@ -272,8 +272,8 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		return e.h`<time>${format(new Date(timestamp))}</time>`
 	}
 	const makeChangeCell=(pdata,v1,v2,writer=v=>e.h`${v}`)=>{
-		if (!pdata) return [writer(v2)]
-		return [writer(v2),getChangeTypeString(v1,v2)]
+		if (!pdata) return [writer(v2),[]]
+		return [writer(v2),[getChangeTypeString(v1,v2)]]
 	}
 	const makeRcOrNoRcLink=(mainAttrs,title,data={})=>{
 		let dataAttrs=``
@@ -297,7 +297,11 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		if (Array.isArray(output)) {
 			let tdClass
 			[output,tdClass]=output
-			if (tdClass!=null) tdClasses.push(tdClass)
+			if (Array.isArray(tdClass)) {
+				tdClasses.push(...tdClass)
+			} else if (tdClass!=null) {
+				tdClasses.push(tdClass)
+			}
 		}
 		let tdClassAttr=tdClasses.join(' ')
 		if (tdClassAttr=='') tdClassAttr=null
@@ -397,7 +401,8 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 				tagChangeTracker.trackChange(cstate,cv,cdata,pstate,pv,pdata)
 				haveVersionToLoad=cdata.visible
-				return makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
+				const [tdHtml,tdClasses]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
+				return [tdHtml,[...tdClasses,'value']]
 			})
 			if (tagChangeTracker.action) {
 				writeUndoCell(k,tagChangeTracker,haveVersionToLoad)
