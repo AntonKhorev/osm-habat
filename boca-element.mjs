@@ -108,11 +108,15 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		if (c1==c2) return c1
 		return MODIFY
 	}
-	const getChangeTypeString=(v1,v2)=>({
-		[CREATE]:'create',
-		[MODIFY]:'modify',
-		[DELETE]:'delete',
-	}[getChangeType(v1,v2)])
+	const getChangeTypeStrings=(v1,v2)=>{
+		const changeType=getChangeType(v1,v2)
+		if (changeType==null) return []
+		return [{
+			[CREATE]:'create',
+			[MODIFY]:'modify',
+			[DELETE]:'delete',
+		}[changeType]]
+	}
 	const compareVersions=(
 		etype,
 		cstate,cid,cv,cdata,
@@ -273,7 +277,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 	}
 	const makeChangeCell=(pdata,v1,v2,writer=v=>e.h`${v}`)=>{
 		if (!pdata) return [writer(v2),[]]
-		return [writer(v2),[getChangeTypeString(v1,v2)]]
+		return [writer(v2),getChangeTypeStrings(v1,v2)]
 	}
 	const makeRcOrNoRcLink=(mainAttrs,title,data={})=>{
 		let dataAttrs=``

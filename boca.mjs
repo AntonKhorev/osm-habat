@@ -196,8 +196,10 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Redactions extra elements route not defined`)
 			}
-		} else if (pathname=='/boca-map.js' || pathname=='/boca-common.js') {
-			serveStaticFile(response,pathname,'application/javascript; charset=utf-8')
+		} else if (pathname=='/boca-common.js' || pathname=='/boca-map.js') {
+			serveStaticFile(response,pathname,'text/javascript; charset=utf-8')
+		} else if (pathname=='/boca-common.css') {
+			serveStaticFile(response,pathname,'text/css; charset=utf-8')
 		} else if (pathname=='/favicon.ico') {
 			serveStaticFile(response,pathname,'image/x-icon')
 		} else {

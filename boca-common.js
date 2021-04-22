@@ -28,19 +28,38 @@ function setupElementListeners($elementContainer) {
 			} else if (ev.key=='s') {
 				navigate($element.parentElement.nextElementSibling?.querySelector('.element'))
 			} else if (ev.key=='e') {
-				$element.querySelector('tr.visible td.act a')?.click()
+				$element.querySelector('tr.visible td.act button')?.click()
 			} else if (ev.key=='d') {
 				targetTagsAct($element)
 			}
 		})
 	}
-	for (const $rcLink of $elementContainer.querySelectorAll('a.rc')) {
-		$rcLink.addEventListener('click',actionLinkClickListener)
-		$rcLink.classList.add('js-enabled')
+	for (const $link of $elementContainer.querySelectorAll('.reloadable a.rc, .reloadable a.norc')) {
+		const stripBrackets=(s)=>{
+			if (s[0]=='[' && s[s.length-1]==']') {
+				return s.slice(1,-1)
+			} else {
+				return s
+			}
+		}
+		const $button=document.createElement('button')
+		$button.type='button'
+		$button.innerHTML=stripBrackets($link.innerHTML)
+		Object.assign($button.dataset,$link.dataset)
+		if ($link.classList.contains('norc')) {
+			$button.classList.add('norc')
+		}
+		if ($link.classList.contains('rc')) {
+			$button.classList.add('rc')
+			$button.dataset.href=$link.href
+		}
+		$link.replaceWith($button)
+		$button.addEventListener('click',actionButtonClickListener)
+		$button.classList.add('js-enabled')
 	}
-	for (const $noRcLink of $elementContainer.querySelectorAll('a.norc')) {
-		$noRcLink.addEventListener('click',actionLinkClickListener)
-		$noRcLink.classList.add('js-enabled')
+	for (const $link of $elementContainer.querySelectorAll('a.rc, a.norc')) {
+		$link.addEventListener('click',actionLinkClickListener)
+		$link.classList.add('js-enabled')
 	}
 	for (const $reloaderButton of $elementContainer.querySelectorAll('.reloadable button.reloader')) {
 		$reloaderButton.addEventListener('click',reloaderButtonClickListener)
@@ -50,6 +69,9 @@ function setupElementListeners($elementContainer) {
 function actionLinkClickListener(ev) {
 	ev.preventDefault()
 	actionLinkAct(this)
+}
+function actionButtonClickListener(ev) {
+	actionButtonAct(this)
 }
 function reloaderButtonClickListener(ev) {
 	ev.preventDefault()
@@ -61,9 +83,9 @@ async function targetTagsAct($element) {
 	for (let i=0;;i++) {
 		const $targetTagRow=$element.querySelectorAll('tr.tag.target')[i] // requery because element may get rewritten
 		if (!$targetTagRow) return
-		const $actionLink=$targetTagRow.querySelector('td.act a')
-		if (!$actionLink) continue
-		await actionLinkAct($actionLink)
+		const $actionButton=$targetTagRow.querySelector('td.act button')
+		if (!$actionButton) continue
+		await actionButtonAct($actionButton)
 		$element=$elementContainer.querySelector('.element') // element was possibly rewritten, find the new one
 	}
 }
@@ -76,23 +98,38 @@ async function actionLinkAct($link) {
 	let $status=document.createElement('span')
 	$status.innerHTML='[INITIATED]'
 	$link.after($status)
-	let targetHref=$link.href
-	const url=new URL(targetHref)
-	if (url.host!='127.0.0.1:8111') {
-		targetHref='http://127.0.0.1:8111/import?new_layer=true'
-		if ($link.title) targetHref+='&layer_name='+encodeURIComponent($link.title)
-		if ($link.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent($link.dataset.uploadPolicy)
-		targetHref+='&url='+encodeURIComponent($link.href)
-	}
+	const targetHref=getRcHref($link.href,$link)
+	let response
 	try {
-		const response=await fetch(targetHref)
+		response=await fetch(targetHref)
 		$status.innerHTML=response.ok?'[COMPLETED]':'[FAILED]'
-		if (response.ok) await checkVersionsAndReloadElement($link)
 	} catch (ex) {
 		$status.innerHTML='[NETWORK ERROR]'
 	}
+	if (response?.ok) await checkVersionsAndReloadElement($link)
 }
-async function checkVersionsAndReloadElement($link) {
+async function actionButtonAct($button) {
+	if ($button.classList.contains('norc')) {
+		return await checkVersionsAndReloadElement($button)
+	} else if (!$button.classList.contains('rc')) {
+		return
+	}
+	const $reloadable=$button.closest('.reloadable')
+	const targetHref=getRcHref($button.dataset.href,$button)
+	$button.disabled=true
+	$button.classList.add('wait')
+	let response
+	try {
+		response=await fetch(targetHref)
+		if (!response.ok) $reloadable.insertAdjacentHTML('beforeend',"<div class=error>JOSM remote control request completed with failure</div>")
+	} catch (ex) {
+		$reloadable.insertAdjacentHTML('beforeend',"<div class=error>JOSM remote control request aborted with error</div>")
+	}
+	if (response?.ok) await checkVersionsAndReloadElement($button)
+	$button.classList.remove('wait')
+	$button.disabled=false
+}
+async function checkVersionsAndReloadElement($link) { // TODO $link is <a> or <button>, rename it
 	if (!$link.dataset.versions) return
 	const versions=new Set($link.dataset.versions.split(','))
 	const $td=$link.closest('td')
@@ -155,6 +192,15 @@ async function postAndReload($button) {
 			$anyButton.disabled=false
 		}
 	}
+}
+function getRcHref(href,$control) {
+	const url=new URL(href)
+	if (url.host=='127.0.0.1:8111') return href
+	let targetHref='http://127.0.0.1:8111/import?new_layer=true'
+	if ($control.title) targetHref+='&layer_name='+encodeURIComponent($control.title)
+	if ($control.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent($control.dataset.uploadPolicy)
+	targetHref+='&url='+encodeURIComponent(href)
+	return targetHref
 }
 function urlencodeFormData($form) {
 	const data=[]
