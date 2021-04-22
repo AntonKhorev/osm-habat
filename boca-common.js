@@ -11,7 +11,11 @@ function setupElementListeners($elementContainer) {
 		})
 		$element.addEventListener('click',()=>{
 			if (!$element.classList.contains('active')) {
-				$element.querySelector('summary')?.focus()
+				const selection=document.getSelection()
+				const range=selection.getRangeAt(0)
+				$element.querySelector('summary')?.focus() // resets selecion
+				selection.removeAllRanges()
+				selection.addRange(range)
 			}
 		})
 		$element.addEventListener('keydown',(ev)=>{
