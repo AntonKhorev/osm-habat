@@ -61,7 +61,8 @@ function main(projectDirname) {
 				response.end(`All-downloaded-changesets route not defined`)
 			}
 		} else if (match=pathname.match(new RegExp('^/scope/([^/]*)/([^/]*)$'))) {
-			const [,scope,subpath]=match
+			const [,scopeString,subpath]=match
+			const scope=decodeURIComponent(scopeString)
 			if (!(scope in project.scope)) {
 				response.writeHead(404)
 				response.end(`Scope "${scope}" not found`)
