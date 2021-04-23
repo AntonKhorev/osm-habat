@@ -142,43 +142,6 @@ export default class Project {
 	}
 
 	// pending redactions own methods
-	redactElementVersionsAndTags(etype,eid,evs,tags) {
-		if (!this.pendingRedactions[etype][eid]) {
-			this.pendingRedactions[etype][eid]={versions:{},tags:{}}
-		}
-		const prElement=this.pendingRedactions[etype][eid]
-		const timestamp=Date.now()
-		let changed=false
-		const recordLastChange=(action,attribute,etype,eid,evtag)=>{
-			if (!changed) {
-				changed=true
-				this.pendingRedactions.last=[]
-			}
-			this.pendingRedactions.last.push([action,attribute,etype,eid,evtag])
-		}
-		for (const ev of evs) {
-			if (prElement.versions[ev]) continue
-			prElement.versions[ev]=timestamp
-			recordLastChange('create','version',etype,eid,ev)
-		}
-		for (const tag of tags) {
-			if (prElement.tags[tag]) continue
-			prElement.tags[tag]=timestamp
-			recordLastChange('create','tag',etype,eid,tag)
-		}
-	}
-	unredactElement(etype,eid) {
-		if (!this.pendingRedactions[etype][eid]) return
-		const prElement=this.pendingRedactions[etype][eid]
-		this.pendingRedactions.last=[]
-		for (const ev in this.pendingRedactions[etype][eid].versions) {
-			this.pendingRedactions.last.push(['delete','version',etype,eid,Number(ev)])
-		}
-		for (const tag in this.pendingRedactions[etype][eid].tags) {
-			this.pendingRedactions.last.push(['delete','tag',etype,eid,tag])
-		}
-		delete this.pendingRedactions[etype][eid]
-	}
 	addExtraElementToPendingRedactions(etype,eid) {
 		for (const [etype1,eid1] of this.pendingRedactions.extra) {
 			if (etype1==etype && eid1==eid) return

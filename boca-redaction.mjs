@@ -45,4 +45,43 @@ export default class Redaction {
 	getElement(etype,eid) {
 		return this[etype][eid]??{versions:{},tags:{}}
 	}
+
+	// manipulate elements
+	redactElementVersionsAndTags(etype,eid,evs,tags) {
+		if (!this[etype][eid]) {
+			this[etype][eid]={versions:{},tags:{}}
+		}
+		const element=this[etype][eid]
+		const timestamp=Date.now()
+		let changed=false
+		const recordLastChange=(action,attribute,etype,eid,evtag)=>{
+			if (!changed) {
+				changed=true
+				this.last=[]
+			}
+			this.last.push([action,attribute,etype,eid,evtag])
+		}
+		for (const ev of evs) {
+			if (element.versions[ev]) continue
+			element.versions[ev]=timestamp
+			recordLastChange('create','version',etype,eid,ev)
+		}
+		for (const tag of tags) {
+			if (element.tags[tag]) continue
+			element.tags[tag]=timestamp
+			recordLastChange('create','tag',etype,eid,tag)
+		}
+	}
+	unredactElement(etype,eid) {
+		const element=this[etype][eid]
+		if (!element) return
+		this.last=[]
+		for (const ev in element.versions) {
+			this.last.push(['delete','version',etype,eid,Number(ev)])
+		}
+		for (const tag in element.tags) {
+			this.last.push(['delete','tag',etype,eid,tag])
+		}
+		delete this[etype][eid]
+	}
 }

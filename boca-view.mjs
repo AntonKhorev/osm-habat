@@ -61,11 +61,11 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 				this.project.saveStore()
 			}],
 			['redact',async({type,id,version,tag})=>{
-				this.project.redactElementVersionsAndTags(type,id,getVersions(version),getTags(tag))
+				this.project.pendingRedactions.redactElementVersionsAndTags(type,id,getVersions(version),getTags(tag))
 				this.project.savePendingRedactions()
 			}],
 			['unredact',async({type,id})=>{
-				this.project.unredactElement(type,id)
+				this.project.pendingRedactions.unredactElement(type,id)
 				this.project.savePendingRedactions()
 			}],
 		]
