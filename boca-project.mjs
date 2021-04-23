@@ -3,6 +3,7 @@ import * as path from 'path'
 
 import * as e from './escape.js' // TODO move somewhere else along with getUserLink()
 import * as osm from './osm.js'
+import Redaction from './boca-redaction.mjs'
 
 const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
 
@@ -122,9 +123,9 @@ export default class Project {
 	get pendingRedactionsFilename() { return path.join(this.dirname,'pending-redactions.json') }
 	get pendingRedactionsBackupFilename() { return path.join(this.dirname,'pending-redactions.backup.json') }
 	loadPendingRedactions() {
-		this.clearPendingRedactions()
+		this.pendingRedactions=new Redaction()
 		if (fs.existsSync(this.pendingRedactionsFilename)) {
-			Object.assign( // keeps newly added blank props created by this.clearPendingRedactions()
+			Object.assign( // keeps newly added blank props created by Redaction ctor
 				this.pendingRedactions,
 				JSON.parse(fs.readFileSync(this.pendingRedactionsFilename))
 			)
@@ -137,14 +138,10 @@ export default class Project {
 		if (fs.existsSync(this.pendingRedactionsFilename)) {
 			fs.renameSync(this.pendingRedactionsFilename,this.pendingRedactionsBackupFilename)
 		}
-		this.clearPendingRedactions()
+		this.pendingRedactions.clear()
 	}
-	isEmptyPendingRedactions() {
-		for (const etype of ['node','way','relation']) {
-			if (Object.keys(this.pendingRedactions[etype]).length>0) return false
-		}
-		return this.pendingRedactions.extra.length==0
-	}
+
+	// pending redactions own methods
 	redactElementVersionsAndTags(etype,eid,evs,tags) {
 		if (!this.pendingRedactions[etype][eid]) {
 			this.pendingRedactions[etype][eid]={versions:{},tags:{}}
@@ -181,42 +178,6 @@ export default class Project {
 			this.pendingRedactions.last.push(['delete','tag',etype,eid,tag])
 		}
 		delete this.pendingRedactions[etype][eid]
-	}
-	getElementPendingRedactions(etype,eid) {
-		return this.pendingRedactions[etype][eid]??{versions:{},tags:{}}
-	}
-	/** @yields {[attribute:string, etype:string, eid:number, evtag:(number|string), timestamp:number]} */
-	*listPendingRedactions() {
-		for (const etype of ['node','way','relation']) {
-			for (const [eid,prElement] of Object.entries(this.pendingRedactions[etype])) {
-				for (const [ev,timestamp] of Object.entries(prElement.versions)) {
-					yield ['version',etype,Number(eid),Number(ev),timestamp]
-				}
-				for (const [etag,timestamp] of Object.entries(prElement.tags)) {
-					yield ['tag',etype,Number(eid),etag,timestamp]
-				}
-			}
-		}
-	}
-	marshallPendingRedactions() {
-		let result=''
-		for (const etype of ['node','way','relation']) {
-			for (const [eid,prElement] of Object.entries(this.pendingRedactions[etype])) {
-				for (const ev in prElement.versions) {
-					if (Number(ev)) result+=`${etype}/${eid}/${ev}\n`
-				}
-			}
-		}
-		return result
-	}
-	clearPendingRedactions() {
-		this.pendingRedactions={
-			node:{},
-			way:{},
-			relation:{},
-			last:[],
-			extra:[],
-		}
 	}
 	addExtraElementToPendingRedactions(etype,eid) {
 		for (const [etype1,eid1] of this.pendingRedactions.extra) {

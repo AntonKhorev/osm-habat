@@ -146,7 +146,7 @@ function main(projectDirname) {
 			serveRedactions(response,project)
 		} else if (pathname=='/redactions/download') {
 			response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
-			response.end(project.marshallPendingRedactions())
+			response.end(project.pendingRedactions.marshall())
 		} else if (pathname=='/redactions/clear') {
 			const post=await readPost(request)
 			if (post.confirm) {
@@ -282,14 +282,14 @@ function serveRoot(response,project) {
 function serveRedactions(response,project) {
 	respond.head(response,'redactions')
 	response.write(`<h1>Pending redactions</h1>\n`)
-	response.write(e.h`<textarea readonly>${project.marshallPendingRedactions()}</textarea>\n`)
+	response.write(e.h`<textarea readonly>${project.pendingRedactions.marshall()}</textarea>\n`)
 	response.write(`<div><a href=download>download redactions file</a></div>\n`)
-	if (!project.isEmptyPendingRedactions()) {
+	if (!project.pendingRedactions.isEmpty()) {
 		let minTimestamp=+Infinity
 		let maxTimestamp=-Infinity
 		response.write(`<table>\n`)
 		response.write(`<tr><th>element<th>attribute<th>time\n`)
-		for (const [attribute,etype,eid,evtag,timestamp] of project.listPendingRedactions()) {
+		for (const [attribute,etype,eid,evtag,timestamp] of project.pendingRedactions.list()) {
 			if (timestamp<minTimestamp) minTimestamp=timestamp
 			if (timestamp>maxTimestamp) maxTimestamp=timestamp
 			response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
