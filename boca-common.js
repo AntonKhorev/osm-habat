@@ -69,7 +69,9 @@ async function elementKeydownListener(ev) {
 	} else if (ev.key=='e') {
 		const $button=$element.querySelector('tr.visible td.act button')
 		if ($button) {
-			await actionButtonAct($button)
+			try {
+				await actionButtonAct($button)
+			} catch (ex) {}
 			restoreFocusInElementContainer($elementContainer)
 		}
 	} else if (ev.key=='d') {
@@ -77,13 +79,19 @@ async function elementKeydownListener(ev) {
 		restoreFocusInElementContainer($elementContainer)
 	}
 }
-function actionLinkClickListener(ev) { // not inside element
+async function actionLinkClickListener(ev) { // not inside element
 	ev.preventDefault()
-	actionLinkAct(this)
+	try {
+		await actionLinkAct(this)
+		await checkVersionsAndReloadElement(this) // TODO don't need this b/c not inside element
+	} catch (ex) {}
 }
 async function actionButtonClickListener(ev) {
 	const $reloadable=this.closest('.reloadable')
-	await actionButtonAct(this)
+	try {
+		await actionButtonAct(this)
+		await checkVersionsAndReloadElement(this)
+	} catch (ex) {}
 	restoreFocusInElementContainer($reloadable)
 }
 async function reloaderButtonClickListener(ev) {
@@ -94,22 +102,37 @@ async function reloaderButtonClickListener(ev) {
 }
 
 async function targetTagsAct($element) {
-	const $elementContainer=$element.parentElement
-	for (let i=0;;i++) {
-		const $targetTagRow=$element.querySelectorAll('tr.tag.target')[i] // requery because element may get rewritten
-		if (!$targetTagRow) return
-		const $actionButton=$targetTagRow.querySelector('td.act button')
-		if (!$actionButton) continue
-		await actionButtonAct($actionButton)
-		$element=$elementContainer.querySelector('.element') // element was possibly rewritten, find the new one
+	let accumulatedHref
+	let $accumulatedButtons=[]
+	const actOnAccumulated=async()=>{
+		await accumulatedActionButtonAct(accumulatedHref,$accumulatedButtons)
+		accumulatedHref=undefined
+		for (const $button of $accumulatedButtons) {
+			checkVersions($button)
+		}
+		$accumulatedButtons=[]
 	}
+	try {
+		for (const $targetTagRow of $element.querySelectorAll('tr.tag.target')) {
+			const $button=$targetTagRow.querySelector('td.act button')
+			if (!$button) continue
+			const [updatedAccumulatedHref,doneAccumulation]=accumulateRcHrefs(accumulatedHref,$button.dataset.href)
+			if (doneAccumulation) {
+				accumulatedHref=updatedAccumulatedHref
+			} else {
+				await actOnAccumulated()
+				accumulatedHref=$button.dataset.href
+			}
+			$accumulatedButtons.push($button)
+		}
+		await actOnAccumulated()
+		const $redactButton=$element.querySelector('form button[formaction=redact]')
+		if (!$redactButton) return
+		await postAndReload($redactButton)
+	} catch (ex) {}
 }
 async function actionLinkAct($link) {
-	if ($link.classList.contains('norc')) {
-		return await checkVersionsAndReloadElement($link)
-	} else if (!$link.classList.contains('rc')) {
-		return
-	}
+	if ($link.classList.contains('norc')) return
 	let $status=document.createElement('span')
 	$status.innerHTML='[INITIATED]'
 	$link.after($status)
@@ -121,45 +144,39 @@ async function actionLinkAct($link) {
 	} catch (ex) {
 		$status.innerHTML='[NETWORK ERROR]'
 	}
-	if (response?.ok) await checkVersionsAndReloadElement($link)
+	if (!response?.ok) throw new Error('fetch failed')
 }
 async function actionButtonAct($button) {
-	if ($button.classList.contains('norc')) {
-		return await checkVersionsAndReloadElement($button)
-	} else if (!$button.classList.contains('rc')) {
-		return
+	await accumulatedActionButtonAct($button.dataset.href,[$button])
+}
+async function accumulatedActionButtonAct(href,$buttons) {
+	if (href==null) return
+	const $reloadable=$buttons[0]?.closest('.reloadable') // assumes all buttons are inside one reloadable slot
+	const targetHref=getRcHref(href)
+	for (const $button of $buttons) {
+		$button.disabled=true
+		$button.classList.add('wait')
 	}
-	const $reloadable=$button.closest('.reloadable')
-	const targetHref=getRcHref($button.dataset.href,$button)
-	$button.disabled=true
-	$button.classList.add('wait')
 	let response
 	try {
 		response=await fetch(targetHref)
-		if (!response.ok) $reloadable.insertAdjacentHTML('beforeend',"<div class=error>JOSM remote control request completed with failure</div>")
+		if (!response.ok && $reloadable) $reloadable.insertAdjacentHTML('beforeend',"<div class=error>JOSM remote control request completed with failure</div>")
 	} catch (ex) {
-		$reloadable.insertAdjacentHTML('beforeend',"<div class=error>JOSM remote control request aborted with error</div>")
+		if ($reloadable) $reloadable.insertAdjacentHTML('beforeend',"<div class=error>JOSM remote control request aborted with error</div>")
 	}
-	if (response?.ok) await checkVersionsAndReloadElement($button)
-	$button.classList.remove('wait')
-	$button.disabled=false
+	for (const $button of $buttons) {
+		$button.classList.remove('wait')
+		$button.disabled=false
+	}
+	if (!response?.ok) throw new Error('fetch failed')
 }
-async function checkVersionsAndReloadElement($link) { // TODO $link is <a> or <button>, rename it
-	if (!$link.dataset.versions) return
-	const versions=new Set($link.dataset.versions.split(','))
-	const $td=$link.closest('td')
-	if ($td) {
-		const $tagCheckbox=$td.querySelector('input[type=checkbox][name=tag]')
-		if ($tagCheckbox) $tagCheckbox.checked=true
-	}
-	const $form=$link.closest('form')
+async function checkVersionsAndReloadElement($control) {
+	if (!$control.dataset.versions) return
+	checkVersions($control)
+	const $form=$control.closest('form')
 	if (!$form) return
-	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
-		if (versions.has($checkbox.value)) $checkbox.checked=true
-	}
 	const $redactButton=$form.querySelector('button[formaction=redact]')
 	if (!$redactButton) return
-	const $elementContainer=$link.closest('.element').parentElement
 	await postAndReload($redactButton)
 }
 async function postAndReload($button) {
@@ -207,6 +224,20 @@ async function postAndReload($button) {
 		}
 	}
 }
+function checkVersions($control) {
+	if (!$control.dataset.versions) return
+	const versions=new Set($control.dataset.versions.split(','))
+	const $td=$control.closest('td')
+	if ($td) {
+		const $tagCheckbox=$td.querySelector('input[type=checkbox][name=tag]')
+		if ($tagCheckbox) $tagCheckbox.checked=true
+	}
+	const $form=$control.closest('form')
+	if (!$form) return
+	for (const $checkbox of $form.querySelectorAll('input[type=checkbox][name=version]')) {
+		if (versions.has($checkbox.value)) $checkbox.checked=true
+	}
+}
 function restoreFocusInElementContainer($elementContainer) {
 	$elementContainer.querySelector('.element summary')?.focus()
 }
@@ -214,10 +245,14 @@ function getRcHref(href,$control) {
 	const url=new URL(href)
 	if (url.host=='127.0.0.1:8111') return href
 	let targetHref='http://127.0.0.1:8111/import?new_layer=true'
-	if ($control.title) targetHref+='&layer_name='+encodeURIComponent($control.title)
-	if ($control.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent($control.dataset.uploadPolicy)
+	if ($control?.title) targetHref+='&layer_name='+encodeURIComponent($control.title)
+	if ($control?.dataset.uploadPolicy) targetHref+='&upload_policy='+encodeURIComponent($control.dataset.uploadPolicy)
 	targetHref+='&url='+encodeURIComponent(href)
 	return targetHref
+}
+function accumulateRcHrefs(accumulatedHref,href) {
+	// TODO return [updatedAccumulatedHref,doneAccumulation]
+	return [,false]
 }
 function urlencodeFormData($form) {
 	const data=[]
