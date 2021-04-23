@@ -9,7 +9,7 @@ export default class Filter {
 		const handleFilterEntry=(ver,key,op,val)=>{
 			if (!this.conditions[ver]) this.conditions[ver]={}
 			let v
-			if (key=='visible' || key=='redacted') { // boolean
+			if (key=='redacted' || key=='tagged' || key=='visible') { // boolean
 				const yn=!(val==0 || val=='no' || val=='false')
 				v=yn
 			} else if (key=='version' || key=='uid') { // number
@@ -170,6 +170,9 @@ export default class Filter {
 					filters.redacted
 				)) return false
 			}
+			if (filters.tagged!=null) {
+				if (!element || !compare(Object.keys(element.tags).length>0,filters.tagged)) return false
+			}
 			if (filters.tag!=null) {
 				if (!element) return false
 				for (const [k,vo] of Object.entries(filters.tag)) {
@@ -294,11 +297,12 @@ export default class Filter {
 	<dt><kbd>type</kbd> <dd>the element version is of a given type;
 		since the element type can't change it's better to use this filter with <kbd>vs</kbd>
 	<dt><kbd>version</kbd> <dd>the element version number is equal to a given value
-	<dt><kbd>visible</kbd> <dd>the element visibility (the state of being not deleted) matches a given value;
-		values <kbd>0</kbd>, <kbd>no</kbd> and <kbd>false</kbd> correspond to invisibility, other values correspond to visibility
 	<dt><kbd>uid</kbd> <dd>the element version was created by a user with a given id
-	<dt><kbd>redacted</kbd> <dd>the element version was recorded as redacted;
+	<dt><kbd>redacted</kbd> <dd><strong>boolean value:</strong> the element version was recorded as redacted;
 		this requires putting a redaction file into <code>redactions</code> directory inside a project directory
+	<dt><kbd>tagged</kbd> <dd><strong>boolean value:</strong> the element version has tags
+	<dt><kbd>visible</kbd> <dd><strong>boolean value:</strong> the element visibility (the state of being not deleted) matches a given value;
+		values <kbd>0</kbd>, <kbd>no</kbd> and <kbd>false</kbd> correspond to invisibility, other values correspond to visibility
 	<dt><kbd>count</kbd> <dd><strong>aggregate filter</strong>: the number of versions corresponding to this <em>version descriptor</em> is equal to a given value
 	</dl>
 <dt>${term('comparison operator')}

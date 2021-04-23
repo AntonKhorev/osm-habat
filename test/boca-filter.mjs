@@ -593,6 +593,9 @@ function *gen(changesetsArray) {
 				100003:{
 					7:node({amenity:'bench'}),
 				},
+				100004:{
+					6:node(),
+				}
 			}
 		}
 	}
@@ -626,6 +629,11 @@ function *gen(changesetsArray) {
 	])
 	test('vs[opening_hours]',[
 		['node',100002],
+	])
+	test('vs.tagged=1',[
+		['node',100001],
+		['node',100002],
+		['node',100003],
 	])
 }
 { // tag value test
