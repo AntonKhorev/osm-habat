@@ -9,30 +9,8 @@ function setupElementListeners($elementContainer) {
 		$element.addEventListener('focusout',()=>{
 			$element.classList.remove('active')
 		})
-		$element.addEventListener('click',()=>{
-			if (!$element.classList.contains('active')) {
-				const selection=document.getSelection()
-				const range=selection.getRangeAt(0)
-				$element.querySelector('summary')?.focus() // resets selecion
-				selection.removeAllRanges()
-				selection.addRange(range)
-			}
-		})
-		$element.addEventListener('keydown',(ev)=>{
-			const navigate=($toElement)=>{
-				$toElement?.querySelector('summary')?.focus()
-				$toElement?.scrollIntoView({block:'center'})
-			}
-			if (ev.key=='w') {
-				navigate($element.parentElement.previousElementSibling?.querySelector('.element'))
-			} else if (ev.key=='s') {
-				navigate($element.parentElement.nextElementSibling?.querySelector('.element'))
-			} else if (ev.key=='e') {
-				$element.querySelector('tr.visible td.act button')?.click()
-			} else if (ev.key=='d') {
-				targetTagsAct($element)
-			}
-		})
+		$element.addEventListener('click',elementClickListener)
+		$element.addEventListener('keydown',elementKeydownListener)
 	}
 	for (const $link of $elementContainer.querySelectorAll('.reloadable a.rc, .reloadable a.norc')) {
 		const stripBrackets=(s)=>{
@@ -66,16 +44,53 @@ function setupElementListeners($elementContainer) {
 		$reloaderButton.classList.add('js-enabled')
 	}
 }
-function actionLinkClickListener(ev) {
+// only listeners should fix the focus
+function elementClickListener(ev) {
+	const $element=this
+	if (!$element.classList.contains('active')) {
+		const selection=document.getSelection()
+		const range=selection.getRangeAt(0)
+		$element.querySelector('summary')?.focus() // resets selecion
+		selection.removeAllRanges()
+		selection.addRange(range)
+	}
+}
+async function elementKeydownListener(ev) {
+	const $element=this
+	const $elementContainer=$element.parentElement
+	const navigate=($toElement)=>{
+		$toElement?.querySelector('summary')?.focus()
+		$toElement?.scrollIntoView({block:'center'})
+	}
+	if (ev.key=='w') {
+		navigate($element.parentElement.previousElementSibling?.querySelector('.element'))
+	} else if (ev.key=='s') {
+		navigate($element.parentElement.nextElementSibling?.querySelector('.element'))
+	} else if (ev.key=='e') {
+		const $button=$element.querySelector('tr.visible td.act button')
+		if ($button) {
+			await actionButtonAct($button)
+			restoreFocusInElementContainer($elementContainer)
+		}
+	} else if (ev.key=='d') {
+		await targetTagsAct($element)
+		restoreFocusInElementContainer($elementContainer)
+	}
+}
+function actionLinkClickListener(ev) { // not inside element
 	ev.preventDefault()
 	actionLinkAct(this)
 }
-function actionButtonClickListener(ev) {
-	actionButtonAct(this)
+async function actionButtonClickListener(ev) {
+	const $reloadable=this.closest('.reloadable')
+	await actionButtonAct(this)
+	restoreFocusInElementContainer($reloadable)
 }
-function reloaderButtonClickListener(ev) {
+async function reloaderButtonClickListener(ev) {
 	ev.preventDefault()
-	postAndReload(this)
+	const $reloadable=this.closest('.reloadable')
+	await postAndReload(this)
+	restoreFocusInElementContainer($reloadable)
 }
 
 async function targetTagsAct($element) {
@@ -146,7 +161,6 @@ async function checkVersionsAndReloadElement($link) { // TODO $link is <a> or <b
 	if (!$redactButton) return
 	const $elementContainer=$link.closest('.element').parentElement
 	await postAndReload($redactButton)
-	$elementContainer.querySelector('.element')?.querySelector('summary')?.focus() // link is likely gone, refocus on summary
 }
 async function postAndReload($button) {
 	const $reloadable=$button.closest('.reloadable')
@@ -192,6 +206,9 @@ async function postAndReload($button) {
 			$anyButton.disabled=false
 		}
 	}
+}
+function restoreFocusInElementContainer($elementContainer) {
+	$elementContainer.querySelector('.element summary')?.focus()
 }
 function getRcHref(href,$control) {
 	const url=new URL(href)
