@@ -140,21 +140,4 @@ export default class Project {
 		}
 		this.pendingRedactions.clear()
 	}
-
-	// pending redactions own methods
-	addExtraElementToPendingRedactions(etype,eid) {
-		for (const [etype1,eid1] of this.pendingRedactions.extra) {
-			if (etype1==etype && eid1==eid) return
-		}
-		this.pendingRedactions.extra.push([etype,eid])
-	}
-	removeExtraElementFromPendingRedactions(etype,eid) {
-		for (let i=0;i<this.pendingRedactions.extra.length;i++) {
-			const [etype1,eid1]=this.pendingRedactions.extra[i]
-			if (etype1==etype && eid1==eid) {
-				this.pendingRedactions.extra.splice(i,1)
-				return
-			}
-		}
-	}
 }

@@ -165,7 +165,7 @@ function main(projectDirname) {
 				await osm.fetchToStore(project.store,e.u`/api/0.6/${etype}/${eid}/history`,true)
 				if (!project.store[etype][eid]) throw new Error(`Fetch completed but the element record is empty for ${etype} #${eid}`)
 				project.saveStore()
-				project.addExtraElementToPendingRedactions(etype,eid)
+				project.pendingRedactions.addExtraElement(etype,eid)
 				project.savePendingRedactions()
 				response.writeHead(303,{'Location':'.'})
 				response.end()
@@ -176,7 +176,7 @@ function main(projectDirname) {
 		} else if (pathname=='/redactions/remove-element') {
 			const post=await readPost(request)
 			try {
-				project.removeExtraElementFromPendingRedactions(post.type,post.id)
+				project.pendingRedactions.removeExtraElement(post.type,post.id)
 				project.savePendingRedactions()
 				response.writeHead(303,{'Location':'.'})
 				response.end()

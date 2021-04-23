@@ -84,4 +84,19 @@ export default class Redaction {
 		}
 		delete this[etype][eid]
 	}
+	addExtraElement(etype,eid) {
+		for (const [etype1,eid1] of this.extra) {
+			if (etype1==etype && eid1==eid) return
+		}
+		this.extra.push([etype,eid])
+	}
+	removeExtraElement(etype,eid) {
+		for (let i=0;i<this.extra.length;i++) {
+			const [etype1,eid1]=this.extra[i]
+			if (etype1==etype && eid1==eid) {
+				this.extra.splice(i,1)
+				return
+			}
+		}
+	}
 }
