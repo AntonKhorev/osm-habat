@@ -184,6 +184,22 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Error removing extra element from pending redactions: <code>${ex.message}</code>`)
 			}
+		} else if (pathname=='/redactions/update-target-tags') {
+			const post=await readPost(request)
+			try {
+				if (!post.tags) throw new Error('no tags provided')
+				project.pendingRedactions.targets={}
+				for (const tag of post.tags.split(/\r\n|\r|\n/)) {
+					if (tag=='') continue
+					project.pendingRedactions.targets[tag]=1
+				}
+				project.savePendingRedactions()
+				response.writeHead(303,{'Location':'.'})
+				response.end()
+			} catch (ex) {
+				response.writeHead(404)
+				response.end(`Error updating target tags in pending redactions: <code>${ex.message}</code>`)
+			}
 		} else if (pathname=='/redactions/status') {
 			response.writeHead(200,{'Content-Type':'text/html; charset=utf-8'})
 			views.writeRedactionsStatus(response,project)
@@ -276,12 +292,15 @@ function serveRoot(response,project) {
 	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
+	response.write(`<p><a href=/redactions/>view pending redactions</a></p>\n`)
 	respond.tail(response)
 }
 
 function serveRedactions(response,project) {
 	respond.head(response,'redactions')
 	response.write(`<h1>Pending redactions</h1>\n`)
+	response.write(`<nav><p><a href=/>return to root</a></nav>`)
+	response.write(`<h2>Pending element edits</h2>\n`)
 	response.write(e.h`<textarea readonly>${project.pendingRedactions.marshall()}</textarea>\n`)
 	response.write(`<div><a href=download>download redactions file</a></div>\n`)
 	if (!project.pendingRedactions.isEmpty()) {
@@ -313,6 +332,7 @@ function serveRedactions(response,project) {
 		response.write(e.h`<tr><td colspan=2>latest entry<td>${new Date(maxTimestamp)}\n`)
 		response.write(`</table>\n`)
 	}
+	response.write(`<h2>Extra elements</h2>\n`)
 	response.write(`<form class=real method=post action=add-element>\n`)
 	response.write(`<label>OSM URL of element: <input type=text name=element></label>\n`)
 	response.write(`<button>Add extra element to redaction</button>\n`)
@@ -329,6 +349,15 @@ function serveRedactions(response,project) {
 	}
 	response.write(`</table>\n`)
 	response.write(`<div><a href=extra/cpe>view changes on extra elements</a></div>\n`)
+	response.write(`<h2>Config</h2>\n`)
+	response.write(`<form class=real method=post action=update-target-tags>\n`)
+	response.write(`<div><label>target tags:\n`)
+	response.write(e.h`<textarea name=tags>${
+		Object.keys(project.pendingRedactions.targets).join('\n')
+	}</textarea>\n`)
+	response.write(`</label></div>\n`)
+	response.write(`<div><button>Update target tags</button></div>\n`)
+	response.write(`</form>\n`)
 	response.write(`<form class=real method=post action=clear>\n`)
 	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to clear pending redactions.</label></div>\n`)
 	response.write(`<div><button>Clear pending redactions</button></div>\n`)

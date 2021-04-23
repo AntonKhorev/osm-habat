@@ -20,7 +20,7 @@ export function writeRedactionsStatus(response,project) {
 		response.write(`</ul>\n`)
 	}
 	if (project.pendingRedactions.isEmpty()) {
-		response.write(`<p>no pending redactions\n`)
+		response.write(`<p><a href=/redactions/>no pending redactions</a>\n`)
 	} else {
 		response.write(`<p><a href=/redactions/>view all pending redactions</a>\n`)
 	}

@@ -399,7 +399,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		for (const k in allTags) {
 			const tagChangeTracker=new TagChangeTracker(k)
 			let tagClasses='tag'
-			if (k=='name') tagClasses+=' target' // TODO let configure target tags
+			if (project.pendingRedactions.targets[k]!=null) tagClasses+=' target'
 			response.write(e.h`\n<tr class=${tagClasses}><td>${k}`)
 			let haveVersionToLoad=false
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{

@@ -10,7 +10,8 @@ export default class Redaction {
 		this.way={}
 		this.relation={}
 		this.last=[]
-		this.extra=[]
+		this.extra=[] // extra elements - TODO replace with queue
+		this.targets={} // target tag keys - key: group number
 	}
 	isEmpty() {
 		for (const etype of ['node','way','relation']) {
