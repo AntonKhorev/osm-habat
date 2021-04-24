@@ -63,6 +63,18 @@ details.element tr.tag.target {
 details.element tr.tag td.value {
 	word-break: break-all;
 }
+details.element table tr.tag button {
+	margin: -1px 2px;
+	padding-top: 0;
+	padding-bottom: 0;
+	border: solid 1px;
+}
+details.element table small button {
+	font-size: .8em;
+}
+details.element table tr.tag button:hover {
+	background: #CEF;
+}
 form.real {
 	margin: 1em 0;
 }
@@ -75,9 +87,6 @@ textarea {
 	box-sizing: border-box;
 	width: 100%;
 	height: 20em;
-}
-small button {
-	font-size: .8em;
 }
 button.wait {
 	cursor: wait;
