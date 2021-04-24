@@ -267,12 +267,19 @@ function setupExampleListeners($container) {
 			if (!$exampleDefinition) continue
 			const $exampleCode=$exampleDefinition.querySelector('code')
 			if (!$exampleCode) continue
-			const $copyLink=document.createElement('a')
-			$copyLink.innerHTML='[copy to filter input]'
-			$copyLink.addEventListener('click',()=>{
+			const appendControl=(actionName,listener)=>{
+				const $link=document.createElement('a')
+				$link.innerHTML=`[${actionName} to ${$exampleInput.name} input]`
+				$link.addEventListener('click',listener)
+				$exampleTitle.appendChild($link)
+			}
+			appendControl('copy',()=>{
 				$exampleInput.value=$exampleCode.textContent
 			})
-			$exampleTitle.appendChild($copyLink)
+			appendControl('append',()=>{
+				if ($exampleInput.value!='') $exampleInput.value+='\n'
+				$exampleInput.value+=$exampleCode.textContent
+			})
 		}
 	}
 }
