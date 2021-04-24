@@ -149,7 +149,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		}
 		response.write(`</ul>\n`)
 		if (filter) {
-			response.write(e.h`<form class=filter action=${route}>\n`)
+			response.write(e.h`<form class='filter with-examples' action=${route}>\n`)
 			response.write(`<details><summary>Filter syntax</summary>\n`)
 			response.write(Filter.syntaxDescription)
 			response.write(`</details>\n`)

@@ -46,6 +46,20 @@ export default class Redaction {
 	getElement(etype,eid) {
 		return this[etype][eid]??{versions:{},tags:{}}
 	}
+	isTagKeyInTargets(tagKey) {
+		if (this.targets[tagKey]!=null) return true
+		for (const targetKey in this.targets) {
+			const targetKeyFixedParts=targetKey.split('*')
+			if (targetKeyFixedParts.length<2) continue
+			if (new RegExp(
+				'^'+targetKeyFixedParts.map(escapeRegex).join('.*')+'$'
+			).test(tagKey)) return true
+		}
+		return false
+		function escapeRegex(string) { // https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711
+			return string.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')
+		}
+	}
 
 	// manipulate elements
 	redactElementVersionsAndTags(etype,eid,evs,tags) {
@@ -100,4 +114,24 @@ export default class Redaction {
 			}
 		}
 	}
+
+	// parsing partly done outside
+	static targetsSyntaxDescription=`<ul>
+<li>each line is a ${term('tag descriptor')}
+<li>${term('tag descriptor')} is usually a tag key
+<li>${term('tag descriptor')} can contain <kbd>*</kbd> to match any key substring
+</ul>
+<p>Examples:</p>
+<dl class=examples>
+<dt><code>name</code> and <code>ref</code> tags
+<dd><pre><code>name
+ref</code></pre>
+<dt>address tags
+<dd><pre><code>addr:*</code></pre>
+</dl>
+`
+}
+
+function term(t) {
+	return `<em>&lt;${t}&gt;</em>`
 }

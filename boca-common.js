@@ -258,19 +258,21 @@ function urlencodeFormData($form) {
 	return data.join('&').replace(/%20/g,'+')
 }
 
-function setupExampleListeners($element) {
-	const $exampleInput=$element.querySelector('textarea[name=filter]')
-	if (!$exampleInput) return
-	for (const $exampleTitle of $element.querySelectorAll('dl.examples dt')) {
-		const $exampleDefinition=$exampleTitle.nextElementSibling
-		if (!$exampleDefinition) continue
-		const $exampleCode=$exampleDefinition.querySelector('code')
-		if (!$exampleCode) continue
-		const $copyLink=document.createElement('a')
-		$copyLink.innerHTML='[copy to filter input]'
-		$copyLink.addEventListener('click',()=>{
-			$exampleInput.value=$exampleCode.textContent
-		})
-		$exampleTitle.appendChild($copyLink)
+function setupExampleListeners($container) {
+	for (const $form of $container.querySelectorAll('form.with-examples')) {
+		const $exampleInput=$form.querySelector('textarea')
+		if (!$exampleInput) return
+		for (const $exampleTitle of $form.querySelectorAll('dl.examples dt')) {
+			const $exampleDefinition=$exampleTitle.nextElementSibling
+			if (!$exampleDefinition) continue
+			const $exampleCode=$exampleDefinition.querySelector('code')
+			if (!$exampleCode) continue
+			const $copyLink=document.createElement('a')
+			$copyLink.innerHTML='[copy to filter input]'
+			$copyLink.addEventListener('click',()=>{
+				$exampleInput.value=$exampleCode.textContent
+			})
+			$exampleTitle.appendChild($copyLink)
+		}
 	}
 }

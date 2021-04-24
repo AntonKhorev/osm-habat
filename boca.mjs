@@ -10,6 +10,7 @@ import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
 import Project from './boca-project.mjs'
+import Redaction from './boca-redaction.mjs'
 import * as respond from './boca-respond.mjs'
 import * as views from './boca-view.mjs'
 
@@ -380,7 +381,10 @@ function serveRedactions(response,project) {
 	response.write(`</table>\n`)
 	response.write(`<div><a href=extra/cpe>view changes on extra elements</a></div>\n`)
 	response.write(`<h2>Config</h2>\n`)
-	response.write(`<form class=real method=post action=update-target-tags>\n`)
+	response.write(`<form class='real with-examples' method=post action=update-target-tags>\n`)
+	response.write(`<details><summary>Target tags syntax</summary>\n`)
+	response.write(Redaction.targetsSyntaxDescription)
+	response.write(`</details>\n`)
 	response.write(`<div><label>target tags:\n`)
 	response.write(e.h`<textarea name=tags>${
 		Object.keys(project.pendingRedactions.targets).join('\n')
