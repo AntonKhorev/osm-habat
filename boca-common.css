@@ -110,3 +110,6 @@ button.wait {
 	text-decoration: underline dashed;
 	cursor: pointer;
 }
+.examples .controls {
+	color: GrayText;
+}

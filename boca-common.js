@@ -267,19 +267,25 @@ function setupExampleListeners($container) {
 			if (!$exampleDefinition) continue
 			const $exampleCode=$exampleDefinition.querySelector('code')
 			if (!$exampleCode) continue
+			const $controls=document.createElement('span')
+			$controls.classList.add('controls')
 			const appendControl=(actionName,listener)=>{
 				const $link=document.createElement('a')
-				$link.innerHTML=`[${actionName} to ${$exampleInput.name} input]`
+				$link.innerHTML=actionName
 				$link.addEventListener('click',listener)
-				$exampleTitle.appendChild($link)
+				$controls.appendChild($link)
 			}
+			$controls.insertAdjacentHTML('beforeend',`[`)
 			appendControl('copy',()=>{
 				$exampleInput.value=$exampleCode.textContent
 			})
+			$controls.insertAdjacentHTML('beforeend',` / `)
 			appendControl('append',()=>{
 				if ($exampleInput.value!='') $exampleInput.value+='\n'
 				$exampleInput.value+=$exampleCode.textContent
 			})
+			$controls.insertAdjacentHTML('beforeend',` to ${$exampleInput.name} input]`)
+			$exampleTitle.appendChild($controls)
 		}
 	}
 }
