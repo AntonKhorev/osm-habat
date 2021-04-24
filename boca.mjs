@@ -213,7 +213,9 @@ function main(projectDirname) {
 				response.writeHead(404)
 				response.end(`Redactions extra elements route not defined`)
 			}
-		} else if (pathname=='/boca-common.js' || pathname=='/boca-map.js') {
+		} else if (pathname=='/boca-common.js') {
+			servePatchedJsFile(response,pathname,'/boca-common-patch.mjs')
+		} else if (pathname=='/boca-map.js') {
 			serveStaticFile(response,pathname,'text/javascript; charset=utf-8')
 		} else if (pathname=='/boca-common.css') {
 			serveStaticFile(response,pathname,'text/css; charset=utf-8')
@@ -240,6 +242,34 @@ function serveStaticFile(response,pathname,contentType) {
 			'Cache-Control':'public, max-age=604800, immutable',
 		})
 		response.end(data)
+	})
+}
+
+function servePatchedJsFile(response,pathname,patchPathname) {
+	const contentType='text/javascript; charset=utf-8'
+	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
+		if (err) {
+			response.writeHead(404)
+			response.end()
+			return
+		}
+		fs.readFile(new URL('.'+patchPathname,import.meta.url),(err,patchData)=>{
+			if (err) {
+				response.writeHead(404)
+				response.end()
+				return
+			}
+			response.writeHead(200,{
+				'Content-Type':contentType,
+				'Cache-Control':'public, max-age=604800, immutable',
+			})
+			response.write(data)
+			response.write(`\n// patch from ${patchPathname}\n`)
+			response.write(
+				String(patchData).replace(/^export\s+/gm,'')
+			)
+			response.end()
+		})
 	})
 }
 

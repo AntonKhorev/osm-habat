@@ -116,7 +116,7 @@ async function targetTagsAct($element) {
 		for (const $targetTagRow of $element.querySelectorAll('tr.tag.target')) {
 			const $button=$targetTagRow.querySelector('td.act button')
 			if (!$button) continue
-			const [updatedAccumulatedHref,doneAccumulation]=accumulateRcHrefs(accumulatedHref,$button.dataset.href)
+			const [doneAccumulation,updatedAccumulatedHref]=accumulateRcHrefs(accumulatedHref,$button.dataset.href)
 			if (doneAccumulation) {
 				accumulatedHref=updatedAccumulatedHref
 			} else {
@@ -250,10 +250,6 @@ function getRcHref(href,$control) {
 	targetHref+='&url='+encodeURIComponent(href)
 	return targetHref
 }
-function accumulateRcHrefs(accumulatedHref,href) {
-	// TODO return [updatedAccumulatedHref,doneAccumulation]
-	return [,false]
-}
 function urlencodeFormData($form) {
 	const data=[]
 	for (const [k,v] of new FormData($form).entries()) {
@@ -261,7 +257,6 @@ function urlencodeFormData($form) {
 	}
 	return data.join('&').replace(/%20/g,'+')
 }
-const escapeHtml=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 function setupExampleListeners($element) {
 	const $exampleInput=$element.querySelector('textarea[name=filter]')
