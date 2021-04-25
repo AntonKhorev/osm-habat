@@ -334,6 +334,13 @@ function serveRedactions(response,project) {
 	response.write(`<h2>Pending element edits</h2>\n`)
 	response.write(e.h`<textarea readonly>${project.pendingRedactions.marshall()}</textarea>\n`)
 	response.write(`<div><a href=download>download redactions file</a></div>\n`)
+	let versionCount=0
+	const elementTypeVisited={
+		node:{},
+		way:{},
+		relation:{},
+	}
+	const tagCounts={}
 	if (!project.pendingRedactions.isEmpty()) {
 		let minTimestamp=+Infinity
 		let maxTimestamp=-Infinity
@@ -344,8 +351,12 @@ function serveRedactions(response,project) {
 			if (timestamp>maxTimestamp) maxTimestamp=timestamp
 			response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
 			if (attribute=='version') {
+				versionCount++
+				elementTypeVisited[etype][eid]=true
 				response.write(e.h`v${evtag}`)
 			} else if (attribute=='tag') {
+				if (!tagCounts[evtag]) tagCounts[evtag]=0
+				tagCounts[evtag]++
 				const values=new Set()
 				for (const ev of osm.allVersions(project.store[etype][eid])) {
 					const value=project.store[etype][eid][ev].tags[evtag]
@@ -380,6 +391,27 @@ function serveRedactions(response,project) {
 	}
 	response.write(`</table>\n`)
 	response.write(`<div><a href=extra/cpe>view changes on extra elements</a></div>\n`)
+	response.write(`<h2>Report for <a href="https://wiki.openstreetmap.org/wiki/Data_working_group/Large_Revert_Log">revert log</a></h2>\n`)
+	const pad=n=>n.toString().padStart(2,'0')
+	const formatDate=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`
+	const sum=(a)=>a.reduce((x,y)=>x+y)
+	const totalElementCount=()=>sum(
+		['node','way','relation'].map(
+			etype=>Object.keys(elementTypeVisited[etype]).length
+		)
+	)
+	const reportTags=()=>Object.entries(tagCounts).map(([tag,count])=>`${count} ${tag} tag${count>1?'s':''}`).join(', ')
+	const wikiTableRow=`|-\n`+
+		`| ${formatDate(new Date())}\n`+
+		`| ${versionCount} versions of ${totalElementCount()} elements\n`+
+		`| {region name}\n`+
+		`| `+
+			`Reason: data from incompatible sources. `+
+			`Result: removed or reverted changes to ${reportTags()} (numbers are approximate, other changes are possible). `+
+			`Area: {copy from changeset}\n`+
+		`| {ticket number}\n`+
+		`| {name}\n`
+	response.write(e.h`<textarea disabled>${wikiTableRow}</textarea>\n`)
 	response.write(`<h2>Config</h2>\n`)
 	response.write(`<form class='real with-examples' method=post action=update-target-tags>\n`)
 	response.write(`<details><summary>Target tags syntax</summary>\n`)
