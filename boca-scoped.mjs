@@ -341,11 +341,18 @@ export function analyzeNonatomicChangesets(response,project,changesets) {
 export function analyzeChangesPerElement(response,project,changesets,filter) {
 	response.write(`<h2>Changes per element</h2>\n`)
 	let first=true
+	let etype0,eid0
 	for (const [etype,eid,evs,,parent] of filter.filterElements(project,changesets,5)) {
-		if (first) first=false
+		if (first) {
+			first=false
+		} else {
+			writeConnector(etype0,eid0,etype,eid)
+		}
 		response.write(`<div class=reloadable>\n`)
 		elementWriter(response,project,etype,eid,evs,parent)
 		response.write(`</div>\n`)
+		etype0=etype
+		eid0=eid
 	}
 	if (first) {
 		response.write(`<p>none found\n`)
@@ -358,6 +365,24 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
 		response.write(`<button>Fetch a batch of subsequent versions from OSM that are necessary for reactions</button>\n`)
 		response.write(`</form>\n`)
+	}
+	function writeConnector(etype1,eid1,etype2,eid2) {
+		if (etype1!='way' || etype2!='way') return
+		const estore1=project.store[etype1][eid1]
+		const estore2=project.store[etype2][eid2]
+		const nds1=estore1[osm.topVersion(estore1)].nds
+		const nds2=estore2[osm.topVersion(estore2)].nds
+		if (nds1.length<2 || nds2.length<2) return
+		const [n11,n12]=[nds1[0],nds1[nds1.length-1]]
+		const [n21,n22]=[nds2[0],nds2[nds2.length-1]]
+		if (n11==n21 || n11==n22) {
+			writeWayConnector(n11)
+		} else if (n12==n21 || n12==n22) {
+			writeWayConnector(n12)
+		}
+	}
+	function writeWayConnector(nodeId) {
+		response.write(`<div class=connector><span class=message>Ways connected through ${osmLink.node(nodeId).at('node #'+nodeId)}</span></div>\n`)
 	}
 }
 

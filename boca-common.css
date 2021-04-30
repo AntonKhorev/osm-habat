@@ -75,6 +75,29 @@ details.element table small button {
 details.element table tr.tag button:hover {
 	background: #CEF;
 }
+.connector {
+	display: block;
+	position: absolute;
+	right: 0;
+	margin-top: -1.5em;
+	width: 3em;
+	height: 3em;
+	background: url("${svgConnector}");
+}
+.connector .message {
+	display: none;
+}
+.connector:hover .message {
+	display: block;
+	position: absolute;
+	background: white;
+	line-height: 1.5em;
+	width: auto;
+	white-space: nowrap;
+	bottom: -1.5em;
+	right: 0;
+	padding: 0 .5em;
+}
 form.real {
 	margin: 1em 0;
 }

@@ -14,6 +14,8 @@ import Redaction from './boca-redaction.mjs'
 import * as respond from './boca-respond.mjs'
 import * as views from './boca-view.mjs'
 
+import * as bocaCommonCssPatch from './boca-common-css-patch.mjs'
+
 if (process.argv[2]===undefined) {
 	console.log('need to supply project directory')
 	process.exit(1)
@@ -219,7 +221,7 @@ function main(projectDirname) {
 		} else if (pathname=='/boca-map.js') {
 			serveStaticFile(response,pathname,'text/javascript; charset=utf-8')
 		} else if (pathname=='/boca-common.css') {
-			serveStaticFile(response,pathname,'text/css; charset=utf-8')
+			servePatchedCssFile(response,pathname,bocaCommonCssPatch)
 		} else if (pathname=='/favicon.ico') {
 			serveStaticFile(response,pathname,'image/x-icon')
 		} else {
@@ -233,11 +235,6 @@ function main(projectDirname) {
 
 function serveStaticFile(response,pathname,contentType) {
 	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
-		if (err) {
-			response.writeHead(404)
-			response.end()
-			return
-		}
 		response.writeHead(200,{
 			'Content-Type':contentType,
 			'Cache-Control':'public, max-age=604800, immutable',
@@ -249,17 +246,7 @@ function serveStaticFile(response,pathname,contentType) {
 function servePatchedJsFile(response,pathname,patchPathname) {
 	const contentType='text/javascript; charset=utf-8'
 	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
-		if (err) {
-			response.writeHead(404)
-			response.end()
-			return
-		}
 		fs.readFile(new URL('.'+patchPathname,import.meta.url),(err,patchData)=>{
-			if (err) {
-				response.writeHead(404)
-				response.end()
-				return
-			}
 			response.writeHead(200,{
 				'Content-Type':contentType,
 				'Cache-Control':'public, max-age=604800, immutable',
@@ -271,6 +258,19 @@ function servePatchedJsFile(response,pathname,patchPathname) {
 			)
 			response.end()
 		})
+	})
+}
+
+function servePatchedCssFile(response,pathname,patchModule) {
+	const contentType='text/css; charset=utf-8'
+	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
+		response.writeHead(200,{
+			'Content-Type':contentType,
+			'Cache-Control':'public, max-age=604800, immutable',
+		})
+		response.end(
+			String(data).replace(/\${(.*?)}/g,(_,s)=>patchModule[s])
+		)
 	})
 }
 
