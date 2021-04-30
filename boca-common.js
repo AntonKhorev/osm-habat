@@ -5,10 +5,11 @@ setupExampleListeners(document)
 function setupElementContainerSequence($containerContainer) {
 	const elementContainerSequence=new Map()
 	let entry,$prevElementContainer
+	let elementNumber=0
 	for (const $elementContainer of $containerContainer.querySelectorAll('.reloadable')) {
 		if (!$elementContainer.firstElementChild.classList.contains('element')) continue
 		if (entry) entry.push($elementContainer)
-		entry=[$prevElementContainer]
+		entry=[++elementNumber,$prevElementContainer]
 		elementContainerSequence.set($elementContainer,entry)
 		$prevElementContainer=$elementContainer
 	}
@@ -17,12 +18,8 @@ function setupElementContainerSequence($containerContainer) {
 
 function setupElementListeners($container) {
 	for (const $element of $container.querySelectorAll('.element')) {
-		$element.addEventListener('focusin',()=>{
-			$element.classList.add('active')
-		})
-		$element.addEventListener('focusout',()=>{
-			$element.classList.remove('active')
-		})
+		$element.addEventListener('focusin',elementFocusinListener)
+		$element.addEventListener('focusout',elementFocusoutListener)
 		$element.addEventListener('click',elementClickListener)
 		$element.addEventListener('keydown',elementKeydownListener)
 	}
@@ -59,6 +56,20 @@ function setupElementListeners($container) {
 	}
 }
 // only listeners should fix the focus
+function elementFocusinListener(ev) {
+	const $element=this
+	$element.classList.add('active')
+	//const $countMeter=document.querySelector('.status .elements .meter')
+	//const $elementContainer=$element.parentElement
+	//const [elementNumber]=elementContainerSequence.get($elementContainer)
+	//$countMeter.innerText=elementNumber+'/'+elementContainerSequence.size
+}
+function elementFocusoutListener(ev) {
+	const $element=this
+	$element.classList.remove('active')
+	//const $countMeter=document.querySelector('.status .elements .meter')
+	//$countMeter.innerText=elementContainerSequence.size
+}
 function elementClickListener(ev) {
 	const $element=this
 	if (!$element.classList.contains('active')) {
@@ -77,10 +88,10 @@ async function elementKeydownListener(ev) {
 		$toElement?.scrollIntoView({block:'center'})
 	}
 	if (ev.key=='w') {
-		const [$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
+		const [,$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
 		navigate($prevElementContainer?.firstElementChild)
 	} else if (ev.key=='s') {
-		const [$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
+		const [,$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
 		navigate($nextElementContainer?.firstElementChild)
 	} else if (ev.key=='e') {
 		const $button=$element.querySelector('tr.visible td.act button')
