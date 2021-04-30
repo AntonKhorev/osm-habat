@@ -342,7 +342,9 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 	response.write(`<h2>Changes per element</h2>\n`)
 	let first=true
 	let etype0,eid0
+	let ecount=0
 	for (const [etype,eid,evs,,parent] of filter.filterElements(project,changesets,5)) {
+		ecount++
 		if (first) {
 			first=false
 		} else {
@@ -366,6 +368,7 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 		response.write(`<button>Fetch a batch of subsequent versions from OSM that are necessary for reactions</button>\n`)
 		response.write(`</form>\n`)
 	}
+	return ecount
 	function writeConnector(etype1,eid1,etype2,eid2) {
 		if (etype1!='way' || etype2!='way') return
 		const estore1=project.store[etype1][eid1]

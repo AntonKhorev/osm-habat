@@ -128,8 +128,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 	serveByElement(response,route,query,insides) {
 		const filter=new Filter(query)
 		this.writeHead(response,route,filter)
-		insides(response,this.project,this.getChangesets(),filter)
-		this.writeTail(response)
+		const ecount=insides(response,this.project,this.getChangesets(),filter)
+		this.writeTail(response,ecount)
 	}
 	writeHead(response,route,filter) {
 		respond.head(response,this.getTitle())
@@ -161,11 +161,18 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		}
 		response.write(`</nav>\n`)
 	}
-	writeTail(response) {
+	writeTail(response,ecount) {
 		response.write(`</main>\n`)
 		response.write(`<footer>\n`)
-		response.write(`<div class=redactions-status>\n`)
+		response.write(`<div class=status>\n`)
+		response.write(`<div class=redactions>\n`)
 		writeRedactionsStatus(response,this.project)
+		response.write(`</div>\n`)
+		if (ecount!=null) {
+			response.write(`<div class=elements>\n`)
+			response.write(e.h`<span class=meter><span class=total>${ecount}</span></span> <span class=units>elements</span>\n`)
+			response.write(`</div>\n`)
+		}
 		response.write(`</div>\n`)
 		response.write(`<form method=post>`)
 		this.writeFooterButtons(response)

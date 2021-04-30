@@ -23,6 +23,23 @@ footer {
 	background: Canvas;
 	box-shadow: 0 0 .5em;
 }
+footer .status {
+	display: flex;
+}
+footer .status .redactions {
+	flex: 5 1 auto;
+}
+footer .status .elements {
+	flex: 1 1 auto;
+	text-align: center;
+}
+footer .status .elements .meter {
+	display: block;
+	font-size: 2em;
+}
+footer .status .elements .units {
+	display: block;
+}
 footer p, footer ul {
 	margin: 0 0 .5em 0;
 }

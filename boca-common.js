@@ -1,8 +1,22 @@
+const elementContainerSequence=setupElementContainerSequence(document)
 setupElementListeners(document)
 setupExampleListeners(document)
 
-function setupElementListeners($elementContainer) {
-	for (const $element of $elementContainer.querySelectorAll('.element')) {
+function setupElementContainerSequence($containerContainer) {
+	const elementContainerSequence=new Map()
+	let entry,$prevElementContainer
+	for (const $elementContainer of $containerContainer.querySelectorAll('.reloadable')) {
+		if (!$elementContainer.firstElementChild.classList.contains('element')) continue
+		if (entry) entry.push($elementContainer)
+		entry=[$prevElementContainer]
+		elementContainerSequence.set($elementContainer,entry)
+		$prevElementContainer=$elementContainer
+	}
+	return elementContainerSequence
+}
+
+function setupElementListeners($container) {
+	for (const $element of $container.querySelectorAll('.element')) {
 		$element.addEventListener('focusin',()=>{
 			$element.classList.add('active')
 		})
@@ -12,7 +26,7 @@ function setupElementListeners($elementContainer) {
 		$element.addEventListener('click',elementClickListener)
 		$element.addEventListener('keydown',elementKeydownListener)
 	}
-	for (const $link of $elementContainer.querySelectorAll('.reloadable a.rc, .reloadable a.norc')) {
+	for (const $link of $container.querySelectorAll('.reloadable a.rc, .reloadable a.norc')) {
 		const stripBrackets=(s)=>{
 			if (s[0]=='[' && s[s.length-1]==']') {
 				return s.slice(1,-1)
@@ -35,11 +49,11 @@ function setupElementListeners($elementContainer) {
 		$button.addEventListener('click',actionButtonClickListener)
 		$button.classList.add('js-enabled')
 	}
-	for (const $link of $elementContainer.querySelectorAll('a.rc, a.norc')) {
+	for (const $link of $container.querySelectorAll('a.rc, a.norc')) {
 		$link.addEventListener('click',actionLinkClickListener)
 		$link.classList.add('js-enabled')
 	}
-	for (const $reloaderButton of $elementContainer.querySelectorAll('.reloadable button.reloader')) {
+	for (const $reloaderButton of $container.querySelectorAll('.reloadable button.reloader')) {
 		$reloaderButton.addEventListener('click',reloaderButtonClickListener)
 		$reloaderButton.classList.add('js-enabled')
 	}
@@ -63,9 +77,11 @@ async function elementKeydownListener(ev) {
 		$toElement?.scrollIntoView({block:'center'})
 	}
 	if (ev.key=='w') {
-		navigate($element.parentElement.previousElementSibling?.querySelector('.element'))
+		const [$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
+		navigate($prevElementContainer?.firstElementChild)
 	} else if (ev.key=='s') {
-		navigate($element.parentElement.nextElementSibling?.querySelector('.element'))
+		const [$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
+		navigate($nextElementContainer?.firstElementChild)
 	} else if (ev.key=='e') {
 		const $button=$element.querySelector('tr.visible td.act button')
 		if ($button) {
@@ -204,7 +220,7 @@ async function postAndReload($button) {
 	}
 	setupElementListeners($reloadable)
 	if (!$button.classList.contains('redactor')) return
-	const $redactionsStatus=document.querySelector('.redactions-status')
+	const $redactionsStatus=document.querySelector('.status .redactions')
 	try {
 		const response=await fetch('/redactions/status')
 		if (!response.ok) throw new Error('status fetch error')
