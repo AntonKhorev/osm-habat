@@ -170,7 +170,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		response.write(`</div>\n`)
 		if (ecount!=null) {
 			response.write(`<div class=elements>\n`)
-			response.write(e.h`<span class=meter>${ecount}</span> <span class=units>elements</span>\n`)
+			response.write(e.h`<span class=meter><span class=total>${ecount}</span></span> <span class=units>elements</span>\n`)
 			response.write(`</div>\n`)
 		}
 		response.write(`</div>\n`)

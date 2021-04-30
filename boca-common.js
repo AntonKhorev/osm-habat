@@ -1,4 +1,4 @@
-const elementContainerSequence=setupElementContainerSequence(document)
+const [elementContainerSequence,$positionInput]=setupElementContainerSequence(document)
 setupElementListeners(document)
 setupExampleListeners(document)
 
@@ -13,7 +13,14 @@ function setupElementContainerSequence($containerContainer) {
 		elementContainerSequence.set($elementContainer,entry)
 		$prevElementContainer=$elementContainer
 	}
-	return elementContainerSequence
+	const $elementCountMeter=document.querySelector('.status .elements .meter')
+	if (!$elementCountMeter) return [elementContainerSequence]
+	const $positionInput=document.createElement('input')
+	$positionInput.disabled=true
+	$positionInput.style.width=$elementCountMeter.innerText.length+'ch'
+	$elementCountMeter.prepend('/')
+	$elementCountMeter.prepend($positionInput)
+	return [elementContainerSequence,$positionInput]
 }
 
 function setupElementListeners($container) {
@@ -59,16 +66,14 @@ function setupElementListeners($container) {
 function elementFocusinListener(ev) {
 	const $element=this
 	$element.classList.add('active')
-	//const $countMeter=document.querySelector('.status .elements .meter')
-	//const $elementContainer=$element.parentElement
-	//const [elementNumber]=elementContainerSequence.get($elementContainer)
-	//$countMeter.innerText=elementNumber+'/'+elementContainerSequence.size
+	if (!$positionInput) return
+	const $elementContainer=$element.parentElement
+	const [elementNumber]=elementContainerSequence.get($elementContainer)
+	$positionInput.value=elementNumber
 }
 function elementFocusoutListener(ev) {
 	const $element=this
 	$element.classList.remove('active')
-	//const $countMeter=document.querySelector('.status .elements .meter')
-	//$countMeter.innerText=elementContainerSequence.size
 }
 function elementClickListener(ev) {
 	const $element=this
