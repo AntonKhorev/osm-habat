@@ -2,15 +2,52 @@ import * as assert from 'assert'
 
 import {fetchTopVersions} from '../osm-fetcher.mjs'
 
+const makeExternalStoreNodes=(nodeIds)=>{
+	const result={}
+	for (const nodeId of nodeIds) {
+		result[nodeId]=[1,{visible:true}]
+	}
+	return result
+}
+const makeInternalStoreNodes=(nodeIds)=>{
+	const result={}
+	for (const nodeId of nodeIds) {
+		result[nodeId]={
+			1:{visible:true},
+			top:{timestamp:123000000,version:1},
+		}
+	}
+	return result
+}
+const makeExternalStoreWay=(nodeIds)=>[1,{
+	visible:true,
+	nds:nodeIds,
+}]
+const makeInternalStoreWay=(nodeIds)=>({
+	1:{
+		visible:true,
+		nds:nodeIds,
+	},
+	top:{timestamp:123000000,version:1},
+})
+
 describe("fetchTopVersions",()=>{
 	const now=125000000
+	const downloadedWayNodeIds=[1101,1102,1103,1104]
 	const externalStore={
 		node:{
 			1001:[2,{visible:true}],
 			1002:[3,{visible:true}],
 			1003:[4,{visible:false}],
 			1004:[2,{visible:false}],
-		}
+			...makeExternalStoreNodes(downloadedWayNodeIds),
+		},
+		way:{
+			101:makeExternalStoreWay(downloadedWayNodeIds),
+		},
+		relation:{
+			11:[1,{visible:true}],
+		},
 	}
 	let store,multifetchLog
 	beforeEach(()=>{
@@ -36,9 +73,17 @@ describe("fetchTopVersions",()=>{
 					1:{visible:true},
 					2:{visible:false},
 				},
+				...makeInternalStoreNodes(downloadedWayNodeIds)
 			},
-			way:{},
-			relation:{}
+			way:{
+				101:makeInternalStoreWay(downloadedWayNodeIds),
+			},
+			relation:{
+				11:{
+					1:{visible:true},
+					top:{timestamp:124000000,version:1},
+				},
+			}
 		}
 		multifetchLog=[]
 	})
@@ -110,5 +155,27 @@ describe("fetchTopVersions",()=>{
 		assert.deepStrictEqual(multifetchLog,[
 			['node',1004],
 		])
+	})
+	it("returns requested and already fetched relation",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['relation',11],
+		])
+		assert.deepStrictEqual(result,[
+			['relation',11,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[])
+	})
+	it("returns requested and already fetched way",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',101],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1101,1],
+			['node',1102,1],
+			['node',1103,1],
+			['node',1104,1],
+			['way',101,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[])
 	})
 })
