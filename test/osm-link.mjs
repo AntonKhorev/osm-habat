@@ -2,15 +2,13 @@ import * as assert from 'assert'
 
 import * as osmLink from '../osm-link.mjs'
 
-{
-	assert.equal(
+describe("osmLink.username",()=>{
+	it("returns osm profile url",()=>assert.equal(
 		''+osmLink.username('FakeUser'),
 		'https://www.openstreetmap.org/user/FakeUser'
-	)
-	assert.equal(
+	))
+	it("returns osm history url",()=>assert.equal(
 		''+osmLink.username('FakeUser').history,
 		'https://www.openstreetmap.org/user/FakeUser/history'
-	)
-}
-
-console.log('ran all osm-link tests')
+	))
+})
