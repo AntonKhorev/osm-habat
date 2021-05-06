@@ -2,29 +2,34 @@ import * as assert from 'assert'
 
 import {fetchTopVersions} from '../osm-fetcher.mjs'
 
-const makeExternalStoreNodes=(nodeIds)=>{
+const makeExternalStoreNodes=(nodeIds,timestamps=[123000000])=>{
 	const result={}
 	for (const nodeId of nodeIds) {
-		result[nodeId]=[1,{visible:true}]
-	}
-	return result
-}
-const makeInternalStoreNodes=(nodeIds)=>{
-	const result={}
-	for (const nodeId of nodeIds) {
-		result[nodeId]={
-			1:{visible:true},
-			top:{timestamp:123000000,version:1},
+		for (let v0=0;v0<timestamps.length;v0++) {
+			result[nodeId]=[v0+1,{timestamp:timestamps[v0],visible:true}]
 		}
 	}
 	return result
 }
-const makeExternalStoreWay=(nodeIds)=>[1,{
+const makeInternalStoreNodes=(nodeIds,timestamps=[123000000])=>{
+	const result={}
+	for (const nodeId of nodeIds) {
+		result[nodeId]={}
+		for (let v0=0;v0<timestamps.length;v0++) {
+			result[nodeId][v0+1]={timestamp:timestamps[v0],visible:true}
+			result[nodeId].top={timestamp:timestamps[v0],version:v0+1}
+		}
+	}
+	return result
+}
+const makeExternalStoreWay=(nodeIds,timestamp=123000000)=>[1,{
+	timestamp,
 	visible:true,
 	nds:nodeIds,
 }]
-const makeInternalStoreWay=(nodeIds)=>({
+const makeInternalStoreWay=(nodeIds,timestamp=123000000)=>({
 	1:{
+		timestamp,
 		visible:true,
 		nds:nodeIds,
 	},
@@ -33,23 +38,27 @@ const makeInternalStoreWay=(nodeIds)=>({
 
 describe("fetchTopVersions",()=>{
 	const now=125000000
-	const downloadedWayNodeIds=[1101,1102,1103,1104,1105,1106]
 	const externalStore={
 		node:{
-			1001:[2,{visible:true}],
-			1002:[3,{visible:true}],
-			1003:[4,{visible:false}],
-			1004:[2,{visible:false}],
-			...makeExternalStoreNodes(downloadedWayNodeIds),
+			1001:[2,{timestamp:123000000,visible:true}],
+			1002:[3,{timestamp:123000000,visible:true}],
+			1003:[4,{timestamp:123000000,visible:false}],
+			1004:[2,{timestamp:123000000,visible:false}],
+			...makeExternalStoreNodes([1101,1102,1103,1104,1105,1106]),
+			...makeExternalStoreNodes([1111,1112,1113,1114]),
+			...makeExternalStoreNodes([1201,1202,1203],[123000000,124000000]),
 		},
 		way:{
-			101:[2,{visible:false}],
+			101:[2,{timestamp:123000000,visible:false}],
 			102:makeExternalStoreWay([1101,1102,1103,1104]),
 			103:makeExternalStoreWay([1101,1102,1103,1104,1101]),
 			104:makeExternalStoreWay([1105,1103,1106]),
+			111:makeExternalStoreWay([1111,1112]),
+			113:makeExternalStoreWay([1113,1114]),
+			121:makeExternalStoreWay([1201,1202,1203],124000000)
 		},
 		relation:{
-			11:[1,{visible:true}],
+			11:[1,{timestamp:123000000,visible:true}],
 		},
 	}
 	let store,multifetchLog
@@ -57,40 +66,43 @@ describe("fetchTopVersions",()=>{
 		store={
 			node:{
 				1001:{
-					1:{visible:true},
-					2:{visible:true},
+					1:{timestamp:123000000,visible:true},
+					2:{timestamp:123000000,visible:true},
 					top:{timestamp:123000000,version:2},
 				},
 				1002:{
-					1:{visible:true},
-					2:{visible:true},
+					1:{timestamp:123000000,visible:true},
+					2:{timestamp:123000000,visible:true},
 				},
 				1003:{
-					1:{visible:true},
-					2:{visible:true},
-					3:{visible:true},
-					4:{visible:false},
+					1:{timestamp:123000000,visible:true},
+					2:{timestamp:123000000,visible:true},
+					3:{timestamp:123000000,visible:true},
+					4:{timestamp:123000000,visible:false},
 					top:{timestamp:123000000,version:4},
 				},
 				1004:{
-					1:{visible:true},
-					2:{visible:false},
+					1:{timestamp:123000000,visible:true},
+					2:{timestamp:123000000,visible:false},
 				},
-				...makeInternalStoreNodes(downloadedWayNodeIds)
+				...makeInternalStoreNodes([1101,1102,1103,1104,1105,1106]),
+				...makeInternalStoreNodes([1201,1202,1203],[123000000]), // last version not included
 			},
 			way:{
 				101:{
-					1:{visible:true,nds:[1001,1002]},
-					2:{visible:false},
+					1:{timestamp:123000000,visible:true,nds:[1001,1002]},
+					2:{timestamp:123000000,visible:false},
 					top:{timestamp:123000000,version:2},
 				},
 				102:makeInternalStoreWay([1101,1102,1103,1104]),
 				103:makeInternalStoreWay([1101,1102,1103,1104,1101]),
 				104:makeInternalStoreWay([1105,1103,1106]),
+				111:makeInternalStoreWay([1111,1112]),
+				121:makeInternalStoreWay([1201,1202,1203],124000000)
 			},
 			relation:{
 				11:{
-					1:{visible:true},
+					1:{timestamp:123000000,visible:true},
 					top:{timestamp:124000000,version:1},
 				},
 			}
@@ -224,5 +236,50 @@ describe("fetchTopVersions",()=>{
 			['way',104,1],
 		])
 		assert.deepStrictEqual(multifetchLog,[])
+	})
+	it("fetches unfetched way nodes",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',111],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1111,1],
+			['node',1112,1],
+			['way',111,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['node',1111],
+			['node',1112],
+		])
+	})
+	it("fetches unfetched way and its unfetched nodes",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',113],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1113,1],
+			['node',1114,1],
+			['way',113,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['way',113],
+			['node',1113],
+			['node',1114],
+		])
+	})
+	it("fetches outdated way nodes",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',121],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1201,2],
+			['node',1202,2],
+			['node',1203,2],
+			['way',121,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['node',1201],
+			['node',1202],
+			['node',1203],
+		])
 	})
 })

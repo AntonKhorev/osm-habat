@@ -21,7 +21,13 @@ export async function fetchTopVersions(multifetch,store,eTypeVersions) {
 				const edata=updateElement(etype,eid)
 				if (!edata) continue
 				if (edata.visible && etype=='way') {
-					for (const nodeId of edata.nds) updateElement('node',nodeId) // TODO actually wrong, need to compare timestamp with way's
+					for (const nodeId of edata.nds) {
+						const nodeStore=store['node'][nodeId]
+						if (nodeStore && nodeStore.top && nodeStore.top.timestamp>=edata.timestamp) continue
+						if (triedFetch['node'][nodeId]) continue
+						triedFetch['node'][nodeId]=true
+						fetchSet['node'][nodeId]=true
+					}
 				}
 				// maybe TODO download relation members, maybe download only multipolygons
 			}
