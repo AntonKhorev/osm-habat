@@ -33,7 +33,7 @@ const makeInternalStoreWay=(nodeIds)=>({
 
 describe("fetchTopVersions",()=>{
 	const now=125000000
-	const downloadedWayNodeIds=[1101,1102,1103,1104]
+	const downloadedWayNodeIds=[1101,1102,1103,1104,1105,1106]
 	const externalStore={
 		node:{
 			1001:[2,{visible:true}],
@@ -43,7 +43,10 @@ describe("fetchTopVersions",()=>{
 			...makeExternalStoreNodes(downloadedWayNodeIds),
 		},
 		way:{
-			101:makeExternalStoreWay(downloadedWayNodeIds),
+			101:[2,{visible:false}],
+			102:makeExternalStoreWay([1101,1102,1103,1104]),
+			103:makeExternalStoreWay([1101,1102,1103,1104,1101]),
+			104:makeExternalStoreWay([1105,1103,1106]),
 		},
 		relation:{
 			11:[1,{visible:true}],
@@ -76,7 +79,14 @@ describe("fetchTopVersions",()=>{
 				...makeInternalStoreNodes(downloadedWayNodeIds)
 			},
 			way:{
-				101:makeInternalStoreWay(downloadedWayNodeIds),
+				101:{
+					1:{visible:true,nds:[1001,1002]},
+					2:{visible:false},
+					top:{timestamp:123000000,version:2},
+				},
+				102:makeInternalStoreWay([1101,1102,1103,1104]),
+				103:makeInternalStoreWay([1101,1102,1103,1104,1101]),
+				104:makeInternalStoreWay([1105,1103,1106]),
 			},
 			relation:{
 				11:{
@@ -156,7 +166,7 @@ describe("fetchTopVersions",()=>{
 			['node',1004],
 		])
 	})
-	it("returns requested and already fetched relation",async()=>{
+	it("returns already fetched relation",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['relation',11],
 		])
@@ -165,16 +175,53 @@ describe("fetchTopVersions",()=>{
 		])
 		assert.deepStrictEqual(multifetchLog,[])
 	})
-	it("returns requested and already fetched way",async()=>{
+	it("returns nothing b/c requested way is deleted",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',101],
+		])
+		assert.deepStrictEqual(result,[])
+		assert.deepStrictEqual(multifetchLog,[])
+	})
+	it("returns already fetched way",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',102],
 		])
 		assert.deepStrictEqual(result,[
 			['node',1101,1],
 			['node',1102,1],
 			['node',1103,1],
 			['node',1104,1],
-			['way',101,1],
+			['way',102,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[])
+	})
+	it("returns already fetched looped way",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',103],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1101,1],
+			['node',1102,1],
+			['node',1103,1],
+			['node',1104,1],
+			['way',103,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[])
+	})
+	it("returns already fetched intersecting ways",async()=>{
+		const result=await fetchTopVersions(multifetch,store,[
+			['way',102],
+			['way',104],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1101,1],
+			['node',1102,1],
+			['node',1103,1],
+			['node',1104,1],
+			['node',1105,1],
+			['node',1106,1],
+			['way',102,1],
+			['way',104,1],
 		])
 		assert.deepStrictEqual(multifetchLog,[])
 	})
