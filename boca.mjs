@@ -147,7 +147,17 @@ function main(projectDirname) {
 				response.end(`Siblings route not defined`)
 			}
 		} else if (pathname=='/redactions/') {
-			serveRedactions(response,project)
+			let redactionChangeset
+			try {
+				if (queryParams.redaction_changeset!=null) {
+					redactionChangeset=osmRef.changeset(queryParams.redaction_changeset)
+				}
+			} catch (ex) {
+				response.writeHead(404)
+				response.end(`Error providing redaction changeset: <code>${ex.message}</code>`)
+				return
+			}
+			serveRedactions(response,project,redactionChangeset)
 		} else if (pathname=='/redactions/download') {
 			response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
 			response.end(project.pendingRedactions.marshall())
@@ -328,7 +338,7 @@ function serveRoot(response,project) {
 	respond.tail(response)
 }
 
-function serveRedactions(response,project) {
+async function serveRedactions(response,project,redactionChangeset) {
 	respond.head(response,'redactions')
 	response.write(`<h1>Pending redactions</h1>\n`)
 	response.write(`<nav><p><a href=/>return to root</a></nav>`)
@@ -407,17 +417,45 @@ function serveRedactions(response,project) {
 		)
 	)
 	const reportTags=()=>Object.entries(tagCounts).map(([tag,count])=>`${count} ${tag} tag${count>1?'s':''}`).join(', ')
+	if (redactionChangeset!=null && !project.changeset[redactionChangeset]) {
+		try {
+			await osm.fetchChangesetsToStore(project.changeset,e.u`/api/0.6/changeset/${redactionChangeset}`)
+		} catch (ex) {}
+		project.saveChangesets()
+	}
+	const csetMeta=project.changeset[redactionChangeset]
+	const reportTicketNumber=()=>{
+		const comment=csetMeta?.tags?.comment
+		if (comment==null) return '{ticket number}'
+		const match=comment.match(/Ticket#(\d+)/i)
+		if (!match) return '{ticket number}'
+		const [,ticket]=match
+		return ticket
+	}
+	const reportArea=()=>{
+		const result=[]
+		for (const k of ['min_lat','min_lon','max_lat','max_lon']) {
+			const v=csetMeta?.[k]
+			if (v==null) return '{copy from changeset}'
+			result.push(k+'='+v)
+		}
+		return result.join(' ')
+	}
 	const wikiTableRow=`|-\n`+
-		`| ${formatDate(new Date())}\n`+
+		`| ${formatDate(csetMeta ? new Date(csetMeta.closed_at) : new Date())}\n`+
 		`| ${versionCount} versions of ${totalElementCount()} elements\n`+
 		`| {region name}\n`+
 		`| `+
 			`Reason: data from incompatible sources. `+
 			`Result: removed or reverted changes to ${reportTags()} (numbers are approximate, other changes are possible). `+
-			`Area: {copy from changeset}\n`+
-		`| {ticket number}\n`+
-		`| {name}\n`
+			`Area: ${reportArea()}\n`+
+		`| ${reportTicketNumber()}\n`+
+		`| ${csetMeta?.user??'{name}'}\n`
 	response.write(e.h`<textarea disabled>${wikiTableRow}</textarea>\n`)
+	response.write(`<form class=real action=.>\n`)
+	response.write(`<label>Redaction changeset: <input type=text name=redaction_changeset></label>\n`)
+	response.write(`<button>Add details to report from changeset metadata</button>\n`)
+	response.write(`</form>\n`)
 	response.write(`<h2>Config</h2>\n`)
 	response.write(`<form class='real with-examples' method=post action=update-target-tags>\n`)
 	response.write(`<details><summary>Target tags syntax</summary>\n`)

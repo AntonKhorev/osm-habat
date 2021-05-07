@@ -269,7 +269,7 @@ exports.fetchChangesetsToStore=(changesetStore,call)=>new Promise((resolve,rejec
 			changeset={tags:{}}
 			for (const k of ['id','comments_count','changes_count','uid']) changeset[k]=Number(attrs[k])
 			for (const k of ['created_at','closed_at']) changeset[k]=Date.parse(attrs[k])
-			for (const k of ['min_lat','min_lon','max_lat','max_lon']) changeset[k]=attrs[k]
+			for (const k of ['user','min_lat','min_lon','max_lat','max_lon']) changeset[k]=attrs[k]
 			uid=Number(attrs.uid)
 			lastCreatedAt=attrs.created_at
 		} else if (name=='tag') {
