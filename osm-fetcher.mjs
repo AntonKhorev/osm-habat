@@ -1,7 +1,7 @@
 // fetches for josm consumption
 // josm needs all nodes of every way
 
-export async function fetchTopVersions(multifetch,store,eTypeVersions) {
+export async function fetchTopVersions(multifetch,store,eTypeIds) {
 	await downloadNecessaryElements()
 	const elementsToWrite=getElementsToWrite()
 	return listElements(elementsToWrite)
@@ -17,7 +17,7 @@ export async function fetchTopVersions(multifetch,store,eTypeVersions) {
 				triedFetch[etype][eid]=true
 				fetchSet[etype][eid]=true
 			}
-			for (const [etype,eid] of eTypeVersions) {
+			for (const [etype,eid] of eTypeIds) {
 				const edata=updateElement(etype,eid)
 				if (!edata) continue
 				if (edata.visible && etype=='way') {
@@ -41,7 +41,7 @@ export async function fetchTopVersions(multifetch,store,eTypeVersions) {
 	}
 	function getElementsToWrite() {
 		const fetchedAndVisible=initElementSet()
-		for (const [etype,eid] of eTypeVersions) {
+		for (const [etype,eid] of eTypeIds) {
 			const estore=store[etype][eid]
 			if (!estore || !estore.top) throw new Error(`failed to fetch top version of ${etype} #${eid}`)
 			const edata=estore[estore.top.version]

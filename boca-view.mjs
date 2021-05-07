@@ -39,6 +39,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			this.serveByElement(response,route,getQuery,scoped.analyzeChangesPerElement)
 		} else if (route=='nameredos') {
 			this.serveByElement(response,route,getQuery,scoped.analyzeNameRedos)
+		} else if (route=='top.osm') {
+			this.serveFile(response,route,getQuery,scoped.serveTopVersions)
 		} else if (route=='reload-redactions') {
 			this.project.loadRedactions()
 			response.writeHead(303,{'Location':referer??'.'})
@@ -130,6 +132,10 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		this.writeHead(response,route,filter)
 		const ecount=insides(response,this.project,this.getChangesets(),filter)
 		this.writeTail(response,ecount)
+	}
+	serveFile(response,route,query,insides) {
+		const filter=new Filter(query)
+		insides(response,this.project,this.getChangesets(),filter)
 	}
 	writeHead(response,route,filter) {
 		respond.head(response,this.getTitle())

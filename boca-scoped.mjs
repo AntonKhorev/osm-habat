@@ -5,6 +5,8 @@ import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import elementWriter from './boca-element.mjs'
+import {fetchTopVersions} from './osm-fetcher.mjs'
+import writeOsmFile from './osm-writer.mjs'
 
 export function analyzeCounts(response,project,changesets) {
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -367,6 +369,8 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
 		response.write(`<button>Fetch a batch of subsequent versions from OSM that are necessary for reactions</button>\n`)
 		response.write(`</form>\n`)
+		const latestHref=e.u`top.osm?filter=${filter.text}`
+		response.write(e.h`<p><a class=rc href=${latestHref} title='top versions'>josm file with top versions</a>\n`)
 	}
 	return ecount
 	function writeConnector(etype1,eid1,etype2,eid2) {
@@ -476,6 +480,22 @@ export function viewElements(response,project,changesets,filter) {
 		response.write(`<button>Fetch a batch of latest versions from OSM</button>\n`)
 		response.write(`</form>\n`)
 	}
+}
+
+export async function serveTopVersions(response,project,changesets,filter) {
+	let elements
+	try {
+		elements=await fetchTopVersions(
+			osm.multifetchToStore,
+			project.store,
+			[...filter.filterElements(project,changesets,2)]
+		)
+	} catch (ex) {
+		response.writeHead(500)
+		response.end(`top version fetch error:\n${ex.message}`)
+		return
+	}
+	writeOsmFile(response,project.store,elements)
 }
 
 // TODO make fetches report if they hit the limit

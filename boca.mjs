@@ -9,6 +9,7 @@ import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
+import writeOsmFile from './osm-writer.mjs'
 import Project from './boca-project.mjs'
 import Redaction from './boca-redaction.mjs'
 import * as respond from './boca-respond.mjs'
@@ -640,31 +641,10 @@ async function serveUndeleteWay(response,project,wayId) {
 	const wayVv=await getLatestVisibleWayVersion(wayId,wayVz)
 	const nodeVz=await getLatestNodeVersions(wayId,wayVv)
 	const nodeVv=await getLatestVisibleNodeVersions(wayId,wayVv,nodeVz)
-	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
-	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
-	response.write(`<osm version="0.6" generator="osm-habat">\n`)
-	const importantTags=(st,id,vv,vz)=>e.x`id="${id}" version="${vz}" changeset="${st[id][vz].changeset}" uid="${st[id][vz].uid}"`+(vv==vz?'':' action="modify"') // changeset and uid are required by josm to display element history
-	for (const [id,vv] of Object.entries(nodeVv)) {
-		const vz=nodeVz[id]
-		response.write(`  <node `+importantTags(store.node,id,vv,vz)+e.x` lat="${store.node[id][vv].lat}" lon="${store.node[id][vv].lon}"`)
-		let t=Object.entries(store.node[id][vv].tags)
-		if (t.length<=0) {
-			response.write(`/>\n`)
-		} else {
-			response.write(`>\n`)
-			for (const [k,v] of t) response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
-			response.write(`  </node>\n`)
-		}
-	}
-	response.write(`  <way `+importantTags(store.way,wayId,wayVv,wayVz)+`>\n`)
-	for (const id of store.way[wayId][wayVv].nds) {
-		response.write(e.x`    <nd ref="${id}" />\n`)
-	}
-	for (const [k,v] of Object.entries(store.way[wayId][wayVv].tags)) {
-		response.write(e.x`    <tag k="${k}" v="${v}"/>\n`)
-	}
-	response.write(`  </way>\n`)
-	response.end(`</osm>\n`)
+	writeOsmFile(response,project.store,[
+		...Object.keys(nodeVv).map(nodeId=>['node',nodeId,nodeVz[nodeId],nodeVv[nodeId]]),
+		['way',wayId,wayVz,wayVv]
+	])
 	// TODO save store if was modified
 }
 
