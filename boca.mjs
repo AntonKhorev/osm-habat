@@ -345,6 +345,8 @@ function serveRedactions(response,project) {
 	if (!project.pendingRedactions.isEmpty()) {
 		let minTimestamp=+Infinity
 		let maxTimestamp=-Infinity
+		response.write(`<details>\n`)
+		response.write(`<summary>Pending edits with timestamps</summary>\n`)
 		response.write(`<table>\n`)
 		response.write(`<tr><th>element<th>attribute<th>time\n`)
 		for (const [attribute,etype,eid,evtag,timestamp] of project.pendingRedactions.list()) {
@@ -371,8 +373,11 @@ function serveRedactions(response,project) {
 			}
 			response.write(e.h`<td><time>${new Date(timestamp)}</time>\n`)
 		}
-		response.write(e.h`<tr><td colspan=2>earliest entry<td>${new Date(minTimestamp)}\n`)
-		response.write(e.h`<tr><td colspan=2>latest entry<td>${new Date(maxTimestamp)}\n`)
+		response.write(`</table>\n`)
+		response.write(`</details>\n`)
+		response.write(`<table>\n`)
+		response.write(e.h`<tr><th>earliest entry<td>${new Date(minTimestamp)}\n`)
+		response.write(e.h`<tr><th>latest entry<td>${new Date(maxTimestamp)}\n`)
 		response.write(`</table>\n`)
 	}
 	response.write(`<h2>Extra elements</h2>\n`)
