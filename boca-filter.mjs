@@ -34,7 +34,15 @@ export default class Filter {
 				this.conditions[ver].tag[key]=[op,val]
 			}
 		}
-		const parseOrder=(orderString)=>orderString.split(/[\s,;]+/)
+		const parseOrder=(orderString)=>orderString.trim().split(/\s*[,;]\s*/).map(statement=>{
+			const tagMatch=statement.match(/^\[\s*(\S+)\s*\]$/)
+			if (tagMatch) {
+				const [,tagKey]=tagMatch
+				return ['tag',tagKey]
+			} else {
+				return [statement]
+			}
+		})
 		this.text=''
 		const addTextLine=(line)=>{
 			if (this.text.length>0) this.text+='\n' // more convenient not to have trailing eol when urlencoding
@@ -57,7 +65,7 @@ export default class Filter {
 					const [,key,op,val]=match
 					handleTagEntry(ver,key,op,val)
 				}
-			} else if (match=trline.match(/^order\s*=\s*(.*)$/)) {
+			} else if (match=trline.match(/^order\s*=(.*)$/)) {
 				const [,val]=match
 				this.order=parseOrder(val)
 			}
@@ -81,17 +89,21 @@ export default class Filter {
 		}
 	}
 
-	dropOrder() { // skip ordering for performance reasons
+	/**
+	 * Will cause filter to skip ordering step when doing filterElements()
+	 * May be useful for performance reasons when element order is not important.
+	 */
+	dropOrder() {
 		this.order=[]
 		return this
 	}
 
-	/*
-		returns generator of entries:
-		[etype,eid,selectedVersions,previousVersions,parent],
-		 1     2   3                4                5 = detailLevel
-		parent = [pid,pv] or undefined
-	*/
+	/**
+	 * Returns generator of entries:
+	 *     [etype,eid,selectedVersions,previousVersions,parent],
+	 *      1     2   3                4                5 = detailLevel
+	 * parent = [pid,pv] or undefined
+	 */
 	*filterElements(project,changesets,detailLevel=4) {
 		// maps with keys like n12345, r987 b/c need to keep order of all elements
 		const vpEntries=new Map() // previous versions even if they are not in the store
@@ -212,30 +224,27 @@ export default class Filter {
 				yield result
 			}
 		}
-		function *nameSorter(input) {
+		function *tagSorter(input,tagKey) {
 			const resultsWithNames=[]
 			for (const result of input) {
 				const [etype,eid]=result
 				const ekey=etype[0]+eid
-				let eSortName
+				let sortValue
 				for (const ev of vsEntries.get(ekey)??[]) { // first look for last name in selected versions
-					const ename=project.store[etype][eid][ev].tags.name
-					if (ename!=null) eSortName=ename
+					sortValue=project.store[etype][eid][ev].tags[tagKey]
 				}
-				if (eSortName==null) { // then look for last name in previous versions
+				if (sortValue==null) { // then look for last name in previous versions
 					for (const ev of vpEntries.get(ekey)??[]) {
-						const ename=project.store[etype][eid][ev]?.tags.name
-						if (ename!=null) eSortName=ename
+						sortValue=project.store[etype][eid][ev]?.tags[tagKey] ?? sortValue
 					}
 				}
-				if (eSortName==null && etype=='way' && wayParents[eid]) { // then check parent name if it was computed
+				if (sortValue==null && etype=='way' && wayParents[eid]) { // then check parent name if it was computed
 					const [pid,pv]=wayParents[eid]
-					const pname=project.store.way[pid][pv].tags.name
-					if (pname!=null) eSortName=pname
+					sortValue=project.store.way[pid][pv].tags[tagKey] ?? sortValue
 				}
-				resultsWithNames.push([result,eSortName])
+				resultsWithNames.push([result,sortValue])
 			}
-			resultsWithNames.sort(([result1,ename1],[result2,ename2])=>(ename1??'').localeCompare(ename2??''))
+			resultsWithNames.sort(([result1,sortValue1],[result2,sortValue2])=>(sortValue1??'').localeCompare(sortValue2??''))
 			for (const [result] of resultsWithNames) {
 				yield result
 			}
@@ -262,9 +271,9 @@ export default class Filter {
 		}
 		let result=iterateFiltered(this.conditions)
 		for (let i=this.order.length-1;i>=0;i--) {
-			const order=this.order[i]
-			if (order=='name') result=nameSorter(result)
-			if (order=='ends') result=endsSorter(result)
+			const [orderType,orderArg]=this.order[i]
+			if (orderType=='tag') result=tagSorter(result,orderArg)
+			if (orderType=='ends') result=endsSorter(result)
 		}
 		yield *result
 	}
@@ -310,11 +319,14 @@ export default class Filter {
 <dt>${term('order statement')}
 <dd><kbd>order = </kbd>${term('list of order keys')}
 <dt>${term('list of order keys')}
-<dd>Space- or comma-separated list of one or more ${term('order key')}. Each corresponding sorting is applied to the list of elements that passed through filters. Last is applied first to make use of sorting <a href=https://en.wikipedia.org/wiki/Sorting_algorithm#Stability>stability</a>.
+<dd>Comma-separated list of one or more ${term('order key')}.
+	Each corresponding sorting is applied to the list of elements that passed through filters.
+	Last is applied first to make use of sorting <a href=https://en.wikipedia.org/wiki/Sorting_algorithm#Stability>stability</a>.
+	This may still give unexpected results when combining topological and tag orders and is probably going to be reimplemented.
 <dt>${term('order key')}
 <dd>One of:
 	<dl>
-	<dt><kbd>name</kbd> <dd>order by name
+	<dt><kbd>[</kbd>${term('tag key')}<kbd>]</kbd> <dd>order by the specified tag
 	<dt><kbd>ends</kbd> <dd>topological order by trying to output chains of ways that share end nodes; forms a <a href=https://en.wikipedia.org/wiki/Graph_(discrete_mathematics)>graph</a> taking only end nodes into account, outputs a <a href=https://en.wikipedia.org/wiki/Component_(graph_theory)>connected component</a> starting from a <a href=https://en.wikipedia.org/wiki/Leaf_vertex>leaf</a> with a lowest id
 	</dl>
 </dl>
@@ -327,10 +339,9 @@ export default class Filter {
 vp[!name]
 vs[name]</code></pre>
 <dt>Sort way segments by name and shared endpoints, useful for highways
-<dd><pre><code>order = name, ends</code></pre>
+<dd><pre><code>order = [name], ends</code></pre>
 </dl>
 `
-// TODO examples
 }
 
 function term(t) {

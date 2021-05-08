@@ -115,12 +115,42 @@ describe("Filter.constructor",()=>{
 		assert.deepStrictEqual(filter.conditions,expectedConditions)
 		assert.deepStrictEqual(filter.order,expectedOrder)
 	})
-	it("reads order parameter",()=>{
+	it("reads topological order parameter",()=>{
 		const query={
-			'order':'name',
+			'order':'ends',
 		}
 		const expectedConditions={}
-		const expectedOrder=['name']
+		const expectedOrder=[['ends']]
+		const filter=new Filter(query)
+		assert.deepStrictEqual(filter.conditions,expectedConditions)
+		assert.deepStrictEqual(filter.order,expectedOrder)
+	})
+	it("reads tag order parameter",()=>{
+		const query={
+			'order':'[name]',
+		}
+		const expectedConditions={}
+		const expectedOrder=[['tag','name']]
+		const filter=new Filter(query)
+		assert.deepStrictEqual(filter.conditions,expectedConditions)
+		assert.deepStrictEqual(filter.order,expectedOrder)
+	})
+	it("reads comma-separated order parameters",()=>{
+		const query={
+			'order':'[name],ends',
+		}
+		const expectedConditions={}
+		const expectedOrder=[['tag','name'],['ends']]
+		const filter=new Filter(query)
+		assert.deepStrictEqual(filter.conditions,expectedConditions)
+		assert.deepStrictEqual(filter.order,expectedOrder)
+	})
+	it("reads comma-separated order parameters with whitespace",()=>{
+		const query={
+			'order':'   [  name   ] , ends   , [ ref ]',
+		}
+		const expectedConditions={}
+		const expectedOrder=[['tag','name'],['ends'],['tag','ref']]
 		const filter=new Filter(query)
 		assert.deepStrictEqual(filter.conditions,expectedConditions)
 		assert.deepStrictEqual(filter.order,expectedOrder)
@@ -229,10 +259,10 @@ describe("Filter.constructor",()=>{
 	})
 	it("reads order line",()=>{
 		const query={
-			'filter':'order=name',
+			'filter':'order=[name]',
 		}
 		const expectedConditions={}
-		const expectedOrder=['name']
+		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
 		assert.deepStrictEqual(filter.conditions,expectedConditions)
 		assert.deepStrictEqual(filter.order,expectedOrder)
@@ -284,10 +314,10 @@ describe("Filter.constructor",()=>{
 	})
 	it("reads whitespace around order opetator",()=>{
 		const query={
-			'filter':'order = name',
+			'filter':'order = [name]',
 		}
 		const expectedConditions={}
-		const expectedOrder=['name']
+		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
 		assert.deepStrictEqual(filter.conditions,expectedConditions)
 		assert.deepStrictEqual(filter.order,expectedOrder)
@@ -308,10 +338,10 @@ describe("Filter.constructor",()=>{
 	})
 	it("reads whitespace around order statement",()=>{
 		const query={
-			'filter':'    order=name    ',
+			'filter':'    order=[name]    ',
 		}
 		const expectedConditions={}
-		const expectedOrder=['name']
+		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
 		assert.deepStrictEqual(filter.conditions,expectedConditions)
 		assert.deepStrictEqual(filter.order,expectedOrder)
@@ -413,12 +443,12 @@ describe("Filter.text",()=>{
 		const query={
 			'vs.version':'10',
 			'v1.type':'node',
-			'order':'name',
+			'order':'[name]',
 		}
 		const expectedText=
 			'v1.type=node\n'+
 			'vs.version=10\n'+
-			'order=name'
+			'order=[name]'
 		const filter=new Filter(query)
 		assert.strictEqual(filter.text,expectedText)
 	})
@@ -441,14 +471,14 @@ describe("Filter.text",()=>{
 				'asdfgh',
 			'vs.version':'10',
 			'v1.type':'node',
-			'order':'name',
+			'order':'[name]',
 		}
 		const expectedText=
 			'qwerty\n'+
 			'asdfgh\n'+
 			'v1.type=node\n'+
 			'vs.version=10\n'+
-			'order=name'
+			'order=[name]'
 		const filter=new Filter(query)
 		assert.strictEqual(filter.text,expectedText)
 	})
@@ -693,5 +723,53 @@ describe("Filter.filterElements",()=>{
 		test('vs[ref=12]',[
 			['node',100003],
 		])
+	})
+	context("when testing tag order",()=>{
+		const node=(a,b)=>({tags:{a,b}})
+		const project={
+			store:{
+				node:{
+					100001:{
+						1:node('a','b'),
+					},
+					100002:{
+						1:node('b','a'),
+					},
+					100003:{
+						1:node('b','c'),
+					},
+					100004:{
+						1:node('a','a'),
+					}
+				}
+			}
+		}
+		const changesets=[
+			[101,[
+				['create','node',100001,1],
+				['create','node',100002,1],
+				['create','node',100003,1],
+				['create','node',100004,1],
+			]],
+		]
+		const test=(order,expected)=>{
+			const filter=new Filter({order})
+			const result=[...filter.filterElements(
+				project,gen(changesets),2
+			)]
+			assert.deepStrictEqual(result,expected)
+		}
+		it("orders by one tag",()=>test("[a]",[
+			['node',100001],
+			['node',100004],
+			['node',100002],
+			['node',100003],
+		]))
+		it("orders by two tags",()=>test("[a],[b]",[
+			['node',100004],
+			['node',100001],
+			['node',100002],
+			['node',100003],
+		]))
 	})
 })
