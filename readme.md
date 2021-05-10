@@ -1,4 +1,4 @@
-# My tools for OpenStreetMap edit analysis, reverts and redaction.
+# My tools for OpenStreetMap edit analysis, reverts and redaction
 
 Main tool is `boca.mjs`, its previous generation is `tool.js` with `server.js`, others are smaller or unfinished tools.
 

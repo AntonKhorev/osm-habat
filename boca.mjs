@@ -314,14 +314,19 @@ function serveRoot(response,project) {
 	response.write(`<h2>Views</h2>\n`)
 	response.write(`<h3>All</h3>\n`)
 	response.write(`<p><a href=/all/>All completely downloaded changesets.</a></p>\n`)
-	response.write(`<h3>Scopes</h3>\n`)
+	response.write(`<h3 id=section-scopes>Scopes</h3>\n`)
 	response.write(`<ul>\n`)
+	let hasScopes=false
 	for (const scope in project.scope) {
+		hasScopes=true
 		const href=e.u`/scope/${scope}/`
 		response.write(e.h`<li><a href=${href}>${scope}</a>\n`)
 	}
 	response.write(`</ul>\n`)
-	response.write(`<h3>Fetched users</h3>\n`)
+	response.write(`<p>`)
+	if (!hasScopes) response.write(`None defined yet. `)
+	response.write(`Define scopes by creating/editing <kbd>scopes.txt</kbd> file in the project directory.\n`)
+	response.write(`<h3 id=section-users>Fetched users</h3>\n`)
 	response.write(`<ul>\n`)
 	for (const uid in project.user) {
 		const href=e.u`/user/${uid}/`
@@ -335,17 +340,52 @@ function serveRoot(response,project) {
 		response.write(e.h`<a href=${href}>${cid}</a> `)
 	}
 	response.write(`</div>\n`)
-	response.write(`<h2>Actions</h2>\n`)
+	response.write(`<h2>Fetches</h2>\n`)
 	response.write(`<form class=real method=post action=/fetch-user>\n`)
-	response.write(`<label>User to fetch: <input type=text name=user></label>\n`)
+	response.write(`<label>User to fetch: <input id=input-user type=text name=user></label>\n`)
 	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
 	response.write(`<form class=real method=post action=/fetch-changeset>\n`)
 	response.write(`<label>Changeset to fetch: <input type=text name=changeset></label>\n`)
 	response.write(`<button>Fetch from OSM</button>\n`)
 	response.write(`</form>\n`)
+	response.write(`<h2>Redactions</h2>\n`)
+	response.write(`<p><a href=/redactions/>view/configure pending redactions</a></p>\n`)
+	response.write(`<details>
+<summary>How to do a redaction</summary>
+<p>This is a recipe to redact specific tags added or changed by a user when you're ready to process all of the chagesets in one go.
+	If there's too much data, you'll need to group the chagesets into <a href=#section-scopes>scopes</a> before editing.
+<ol>
+<li>Go to the <a href=redactions/>pending redactions page</a>.
+<li>In the <a href=redactions/#section-config>config section</a> specify the tags you want to redact (target tags).
+	You are unlikely to do this correctly without looking at the edits first so actually you'll do this later.
+	You don't have to specify any tags to do redactions, it's just for tag highlighting and keyboard controls.
+	You'll want those if you have to deal with thousands of elements.
+<li>Back on the main page fetch a user by pasting user's OSM profile URL into <a href=#input-user>User to fetch</a> input.
+<li>Go to user page in <a href=#section-users>Views / Fetched users<a> above.
+<li>Press <em>Update user and changesets metadata</em> button to download all changeset metadata (changeset ids, comments, bboxes, editor/imagery tags).
+<li>Press <em>Fetch a batch of changesets data</em> to download some changeset data.
+	You may need to repeat this until you see ☑ after each changeset in the changesets list.
+	This may take a while that's why long downloads are split into several steps.
+	It may be useful to watch the server console to see what's being downloaded at the moment.
+<li>Open <em>changes per element</em> subpage.
+	If there's too much stuff you may want to set up a filter first.
+	You're not able yet to see the changes because downloaded data contains only the user's versions of elements but not what they've been before.
+<li>Scroll to the end of the page and press <em>Fetch a batch of previous versions</em>.
+	After that you'll be able to see the changes on tags.
+	You still don't know if you need to submit any changes to the data because current versions of elements are not downloaded.
+	To do a proper redaction you also need all versions between the user's one and the current one.
+<li>Scroll to the end of the page and press <em>Fetch a batch of subsequent versions</em>.
+	Now you have all of the data to make redactions.
+	However you still don't have the data to see the ways/relations, which we'll ignore for now.
+<li>Look at the changes on elements. Now you probably want to change the target tags.
+<li>TBD actual editing, submit changes to osm
+<li>TBD get redaction file, use osm-revert-scripts (need moderator flag - or send the file to someone who has the flag), save redaction file to redactions subdirectory of project directory
+</ol>
+</details>
+`)
+	response.write(`<h2>Extras</h2>\n`)
 	response.write(`<p><a href=/store>view json store</a></p>\n`)
-	response.write(`<p><a href=/redactions/>view pending redactions</a></p>\n`)
 	respond.tail(response)
 }
 
@@ -488,7 +528,7 @@ async function serveRedactions(response,project,redactionChangeset) {
 	response.write(`<label>Redaction changeset: <input type=text name=redaction_changeset></label>\n`)
 	response.write(`<button>Add details to report from changeset metadata</button>\n`)
 	response.write(`</form>\n`)
-	response.write(`<h2>Config</h2>\n`)
+	response.write(`<h2 id=section-config>Config</h2>\n`)
 	response.write(`<form class='real with-examples' method=post action=update-target-tags>\n`)
 	response.write(`<details><summary>Target tags syntax</summary>\n`)
 	response.write(Redaction.targetsSyntaxDescription)
