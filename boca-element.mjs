@@ -313,6 +313,13 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 	})
 	const writeTable=(etype,eid,versionTable)=>{
 		const iterate=(fn)=>iterateVersionTableWritingTds(etype,versionTable,fn)
+		const getElementRcHref=()=>{
+			if (project.pendingRedactions.loaded[etype][eid]) {
+				return e.u`zoom?left=0&right=0&top=0&bottom=0&select=${etype[0]+eid}` // required bbox args set to fake values
+			} else {
+				return e.u`load_object?objects=${etype[0]+eid}`
+			}
+		}
 		response.write(`<table>`)
 		response.write(`\n<tr><th>element`)
 		iterate((cstate,cid,cv)=>makeElementTableHtml(etype,cid,cv))
@@ -326,8 +333,8 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		response.write(`\n<tr class=visible><th>visible`)
 		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
 		response.write(`<td class=act>`+makeRcLink(
-			e.u`load_object?objects=${etype[0]+eid}`,
-			`[load]`
+			getElementRcHref(),
+			project.pendingRedactions.loaded[etype][eid] ? `[select]` : `[load]`
 		))
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
@@ -365,7 +372,7 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			} else if (project.store[etype][eid].top) {
 				const getLinks=()=>{
 					const data={versions:tagChangeTracker.versions}
-					let rcHref=e.u`load_object?objects=${etype[0]+eid}`
+					let rcHref=getElementRcHref()
 					if (tagChangeTracker.action!='hide') {
 						rcHref+=e.u`&addtags=${tag}=${tagChangeTracker.value}`
 					}
