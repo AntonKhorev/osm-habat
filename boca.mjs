@@ -428,6 +428,17 @@ async function serveRedactions(response,project,redactionChangeset) {
 	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to reset loaded element state.</label></div>\n`)
 	response.write(`<div><button>Reset loaded state</button></div>\n`)
 	response.write(`</form>\n`)
+	response.write(`<h2>Common <a href="https://www.openstreetmap.org/redactions">published redactions</a> and <a href="https://wiki.openstreetmap.org/wiki/Revert_scripts">osm-revert-scripts</a> commands to execute them</h2>\n`)
+	response.write(`<dl>\n`)
+	for (const [id,name] of [
+		[170,'Data copied from unspecified other maps'],
+		[172,'Privacy concerns'],
+	]) {
+		const href=e.u`https://www.openstreetmap.org/redactions/${id}`
+		response.write(e.h`<dt><a href=${href}>${name}</a>\n`)
+		response.write(e.h`<dd><kbd>perl batch_redaction.pl apply </kbd><em>filename</em><kbd> ${id}</kbd>\n`)
+	}
+	response.write(`</dl>\n`)
 	response.write(`<h2>Report for <a href="https://wiki.openstreetmap.org/wiki/Data_working_group/Large_Revert_Log">revert log</a></h2>\n`)
 	const pad=n=>n.toString().padStart(2,'0')
 	const formatDate=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`
