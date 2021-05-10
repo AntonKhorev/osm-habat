@@ -11,6 +11,7 @@ export default class Redaction {
 		this.relation={}
 		this.last=[]
 		this.extra=[] // extra elements - TODO replace with queue
+		this.loaded={node:{},way:{},relation:{}} // loaded in remote-controlled editor (josm)
 		this.targets={} // target tag keys - key: group number
 	}
 	isEmpty() {

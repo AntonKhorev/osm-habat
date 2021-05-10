@@ -161,6 +161,17 @@ function main(projectDirname) {
 		} else if (pathname=='/redactions/download') {
 			response.writeHead(200,{'Content-Type':'text/plain; charset=utf-8'})
 			response.end(project.pendingRedactions.marshall())
+		} else if (pathname=='/redactions/reset-loaded') {
+			const post=await readPost(request)
+			if (post.confirm) {
+				project.pendingRedactions.loaded={node:{},way:{},relation:{}}
+				project.savePendingRedactions()
+				response.writeHead(303,{'Location':'.'})
+				response.end()
+			} else {
+				response.writeHead(404)
+				response.end('Need to confirm redaction clearing')
+			}
 		} else if (pathname=='/redactions/clear') {
 			const post=await readPost(request)
 			if (post.confirm) {
@@ -407,6 +418,16 @@ async function serveRedactions(response,project,redactionChangeset) {
 	}
 	response.write(`</table>\n`)
 	response.write(`<div><a href=extra/cpe>view changes on extra elements</a></div>\n`)
+	response.write(`<h2>Remote control loaded state</h2>\n`)
+	response.write(`<ul>\n`)
+	for (const etype of ['node','way','relation']) {
+		response.write(`<li>${Object.keys(project.pendingRedactions.loaded[etype]).length} ${etype}s are assumed to be loaded\n`)
+	}
+	response.write(`</ul>\n`)
+	response.write(`<form class=real method=post action=reset-loaded>\n`)
+	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to reset loaded element state.</label></div>\n`)
+	response.write(`<div><button>Reset loaded state</button></div>\n`)
+	response.write(`</form>\n`)
 	response.write(`<h2>Report for <a href="https://wiki.openstreetmap.org/wiki/Data_working_group/Large_Revert_Log">revert log</a></h2>\n`)
 	const pad=n=>n.toString().padStart(2,'0')
 	const formatDate=date=>`${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`

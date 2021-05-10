@@ -370,7 +370,11 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 		response.write(`<button>Fetch a batch of subsequent versions from OSM that are necessary for reactions</button>\n`)
 		response.write(`</form>\n`)
 		const latestHref=e.u`top.osm?filter=${filter.text}`
-		response.write(e.h`<p><a class=rc href=${latestHref} title='top versions'>josm file with top versions</a>\n`)
+		response.write(e.h`<p>Get <a class=rc href=${latestHref} title='top versions'>josm file with top versions</a>. After that you may want to press the next button if you'e doing editing.\n`)
+		response.write(`<form method=post action=assume-loaded>\n`)
+		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
+		response.write(`<button>Assume that top versions are loaded into the editor</button>\n`)
+		response.write(`</form>\n`)
 	}
 	return ecount
 	function writeConnector(etype1,eid1,etype2,eid2) {
@@ -560,6 +564,13 @@ export async function fetchSubsequentVersions(response,project,changesets,filter
 		}
 	}
 	await osm.multifetchToStore(project.store,gapMultifetchList)
+}
+
+export async function assumeElementsAreLoaded(response,project,changesets,filter) {
+	for (const [etype,eid] of filter.filterElements(project,changesets,2)) {
+		project.pendingRedactions.loaded[etype][eid]=1
+	}
+	project.savePendingRedactions()
 }
 
 function getLatestMultifetchList(project,changesets,filter,detail) {

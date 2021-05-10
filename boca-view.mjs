@@ -217,48 +217,26 @@ class FullView extends ElementaryView {
 			this.serveByChangeset(response,route,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='nonatomic') {
 			this.serveByChangeset(response,route,scoped.analyzeNonatomicChangesets)
-		} else if (route=='fetch-previous') { // TODO make it work with elementary views
-			const query=await passPostQuery()
-			await this.serveFetchElements(response,
-				scoped.fetchPreviousVersions,
-				query,referer,
-				`<p>cannot fetch previous versions of elements\n`
-			)
-		} else if (route=='fetch-first') {
-			const query=await passPostQuery()
-			await this.serveFetchElements(response,
-				scoped.fetchFirstVersions,
-				query,referer,
-				`<p>cannot fetch first versions of elements\n`
-			)
-		} else if (route=='fetch-latest') {
-			const query=await passPostQuery()
-			await this.serveFetchElements(response,
-				scoped.fetchLatestVersions,
-				query,referer,
-				`<p>cannot fetch latest versions of elements\n`
-			)
-		} else if (route=='fetch-redacted') {
-			await this.serveFetchElements(response,
-				scoped.fetchLatestVersions,
-				{'vt.redacted':true},referer,
-				`<p>cannot fetch latest versions of redacted elements\n`
-			)
-		} else if (route=='fetch-preceding') { // TODO make it work with elementary views
-			const query=await passPostQuery()
-			await this.serveFetchElements(response,
-				scoped.fetchPrecedingVersions,
-				query,referer,
-				`<p>cannot fetch preceding versions of elements\n`
-			)
-		} else if (route=='fetch-subsequent') { // TODO make it work with elementary views
-			const query=await passPostQuery()
-			await this.serveFetchElements(response,
-				scoped.fetchSubsequentVersions,
-				query,referer,
-				`<p>cannot fetch subsequent versions of elements\n`
-			)
 		} else {
+			for (const [targetRoute,action,errorMessage,rewriteQuery] of [
+				['fetch-previous',scoped.fetchPreviousVersions,`<p>cannot fetch previous versions of elements\n`], // TODO make it work with elementary views
+				['fetch-first',scoped.fetchFirstVersions,`<p>cannot fetch first versions of elements\n`],
+				['fetch-latest',scoped.fetchLatestVersions,`<p>cannot fetch latest versions of elements\n`],
+				['fetch-redacted',scoped.fetchLatestVersions,`<p>cannot fetch latest versions of redacted elements\n`,{'vt.redacted':true}],
+				['fetch-preceding',scoped.fetchPrecedingVersions,`<p>cannot fetch preceding versions of elements\n`], // TODO make it work with elementary views
+				['fetch-subsequent',scoped.fetchSubsequentVersions,`<p>cannot fetch subsequent versions of elements\n`], // TODO make it work with elementary views
+				['assume-loaded',scoped.assumeElementsAreLoaded,`<p>cannot assume elements are loaded\n`], // TODO not actually a fetch; make it work with elementary views
+			]) {
+				if (route!=targetRoute) continue
+				let query
+				if (rewriteQuery!=null) {
+					query=rewriteQuery
+				} else {
+					query=await passPostQuery()
+				}
+				await this.serveFetchElements(response,action,query,referer,errorMessage)
+				return true
+			}
 			return false
 		}
 		return true
