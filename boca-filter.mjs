@@ -105,6 +105,18 @@ export default class Filter {
 	 * parent = [pid,pv] or undefined
 	 */
 	*filterElements(project,changesets,detailLevel=4) {
+		for (const entry of this.filterElementsWithSeparators(project,changesets,detailLevel)) {
+			const [etype]=entry
+			if (etype!='separator') yield entry
+		}
+	}
+
+	/**
+	 * Returns generator of entries:
+	 *     [etype,eid,selectedVersions,previousVersions,parent],
+	 *     with possible etype=='separator'
+	 */
+	*filterElementsWithSeparators(project,changesets,detailLevel=4) {
 		// maps with keys like n12345, r987 b/c need to keep order of all elements
 		const vpEntries=new Map() // previous versions even if they are not in the store
 		const vsEntries=new Map() // current versions - expected to be in the store
@@ -225,7 +237,7 @@ export default class Filter {
 			}
 		}
 		function *tagSorter(input,tagKey) {
-			const resultsWithNames=[]
+			const resultsWithSortValues=[]
 			for (const result of input) {
 				const [etype,eid]=result
 				const ekey=etype[0]+eid
@@ -242,11 +254,22 @@ export default class Filter {
 					const [pid,pv]=wayParents[eid]
 					sortValue=project.store.way[pid][pv].tags[tagKey] ?? sortValue
 				}
-				resultsWithNames.push([result,sortValue])
+				resultsWithSortValues.push([result,sortValue])
 			}
-			resultsWithNames.sort(([result1,sortValue1],[result2,sortValue2])=>(sortValue1??'').localeCompare(sortValue2??''))
-			for (const [result] of resultsWithNames) {
+			const cmp=(sortValue1,sortValue2)=>(sortValue1??'').localeCompare(sortValue2??'')
+			resultsWithSortValues.sort(
+				([result1,sortValue1],[result2,sortValue2])=>cmp(sortValue1,sortValue2)
+			)
+			let first=true
+			let prevSortValue
+			for (const [result,sortValue] of resultsWithSortValues) {
+				if (first) {
+					first=false
+				} else {
+					if (cmp(prevSortValue,sortValue)) yield ['separator']
+				}
 				yield result
+				prevSortValue=sortValue
 			}
 		}
 		function *endsSorter(input) {
@@ -267,15 +290,34 @@ export default class Filter {
 					sorter.add(entry)
 				}
 			}
-			yield *sorter
+			yield *sorter // TODO separators between clusters
+		}
+		function *sortSeparately(input,sorterFn,sorterArg) {
+			let buffer=[]
+			for (const entry of input) {
+				const [etype]=entry
+				if (etype!='separator') {
+					buffer.push(entry)
+					continue
+				}
+				yield entry
+				yield* sorterFn(buffer,sorterArg)
+				buffer=[]
+			}
+			yield* sorterFn(buffer,sorterArg)
 		}
 		let result=iterateFiltered(this.conditions)
-		for (let i=this.order.length-1;i>=0;i--) {
-			const [orderType,orderArg]=this.order[i]
-			if (orderType=='tag') result=tagSorter(result,orderArg)
-			if (orderType=='ends') result=endsSorter(result)
+		for (const [orderType,orderArg] of this.order) {
+			for (const [sorterType,sorterFn] of [
+				['tag',tagSorter],
+				['ends',endsSorter],
+			]) {
+				if (orderType==sorterType) {
+					result=sortSeparately(result,sorterFn,orderArg)
+				}
+			}
 		}
-		yield *result
+		yield* result
 	}
 
 	static syntaxDescription=`<ul>
@@ -321,12 +363,12 @@ export default class Filter {
 <dt>${term('list of order keys')}
 <dd>Comma-separated list of one or more ${term('order key')}.
 	Each corresponding sorting is applied to the list of elements that passed through filters.
-	Last is applied first to make use of sorting <a href=https://en.wikipedia.org/wiki/Sorting_algorithm#Stability>stability</a>.
-	This may still give unexpected results when combining topological and tag orders and is probably going to be reimplemented.
+	Sortings are applied sequentially, dividing the result in groups (not yet implemented for topological sort).
+	Next sorting is applied to each of the groups separately, possibly producing more groups.
 <dt>${term('order key')}
 <dd>One of:
 	<dl>
-	<dt><kbd>[</kbd>${term('tag key')}<kbd>]</kbd> <dd>order by the specified tag
+	<dt><kbd>[</kbd>${term('tag key')}<kbd>]</kbd> <dd><a href=https://en.wikipedia.org/wiki/Sorting_algorithm#Stability>stable</a> sort by the specified tag
 	<dt><kbd>ends</kbd> <dd>topological order by trying to output chains of ways that share end nodes; forms a <a href=https://en.wikipedia.org/wiki/Graph_(discrete_mathematics)>graph</a> taking only end nodes into account, outputs a <a href=https://en.wikipedia.org/wiki/Component_(graph_theory)>connected component</a> starting from a <a href=https://en.wikipedia.org/wiki/Leaf_vertex>leaf</a> with a lowest id
 	</dl>
 </dl>

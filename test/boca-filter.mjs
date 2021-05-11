@@ -752,24 +752,194 @@ describe("Filter.filterElements",()=>{
 				['create','node',100004,1],
 			]],
 		]
-		const test=(order,expected)=>{
+		const test=(withSeparators,order,expected)=>{
 			const filter=new Filter({order})
-			const result=[...filter.filterElements(
+			const result=[...filter[withSeparators?'filterElementsWithSeparators':'filterElements'](
 				project,gen(changesets),2
 			)]
 			assert.deepStrictEqual(result,expected)
 		}
-		it("orders by one tag",()=>test("[a]",[
+		it("orders by one tag",()=>test(0,"[a]",[
 			['node',100001],
 			['node',100004],
 			['node',100002],
 			['node',100003],
 		]))
-		it("orders by two tags",()=>test("[a],[b]",[
+		it("orders by one tag with separators",()=>test(1,"[a]",[
+			['node',100001],
+			['node',100004],
+			['separator'],
+			['node',100002],
+			['node',100003],
+		]))
+		it("orders by two tags",()=>test(0,"[a],[b]",[
 			['node',100004],
 			['node',100001],
 			['node',100002],
 			['node',100003],
+		]))
+	})
+	context("when testing combination of two tags and topological order",()=>{
+		const node=()=>({1:{tags:{}}})
+		const way=(a,b,nds)=>({1:{nds,tags:{a:String(a),b:String(b)}}})
+		//    /3\
+		// 1-2   4-5
+		//    \6/
+		const project={
+			store:{
+				node:{
+					100001:node(),
+					100002:node(),
+					100003:node(),
+					100004:node(),
+					100005:node(),
+					100006:node(),
+				},
+				way:{
+					1001:way(1,1,[100001,100002]),
+					1002:way(1,2,[100002,100003]),
+					1003:way(1,2,[100003,100004]),
+					1004:way(1,1,[100004,100005]),
+					1005:way(2,1,[100002,100006]),
+					1006:way(2,1,[100006,100004]),
+				},
+			}
+		}
+		const changesets=[
+			[11,[
+				['create','way',1001,1],
+				['create','way',1002,1],
+				['create','way',1003,1],
+				['create','way',1004,1],
+				['create','way',1005,1],
+				['create','way',1006,1],
+			]],
+		]
+		const test=(withSeparators,text,expected)=>{
+			const filter=new Filter({filter:text})
+			const result=[...filter[withSeparators?'filterElementsWithSeparators':'filterElements'](
+				project,gen(changesets),2
+			)]
+			assert.deepStrictEqual(result,expected)
+		}
+		it("filters path a, orders by way ends",()=>test(0,`vs[a=1]\norder=ends`,[
+			['way',1001],
+			['way',1002],
+			['way',1003],
+			['way',1004],
+		]))
+		it("filters path b, orders by way ends",()=>test(0,`vs[b=1]\norder=ends`,[
+			['way',1001],
+			['way',1005],
+			['way',1006],
+			['way',1004],
+		]))
+		it("orders by way ends",()=>test(0,`order=ends`,[
+			['way',1001],
+			['way',1002],
+			['way',1003],
+			['way',1004],
+			['way',1006],
+			['way',1005],
+		]))
+		it("orders by tag a, then by way ends",()=>test(0,`order=[a],ends`,[
+			['way',1001],
+			['way',1002],
+			['way',1003],
+			['way',1004],
+			['way',1005],
+			['way',1006],
+		]))
+		it("orders by tag b, then by way ends",()=>test(0,`order=[b],ends`,[
+			['way',1001],
+			['way',1005],
+			['way',1006],
+			['way',1004],
+			['way',1002],
+			['way',1003],
+		]))
+	})
+	context("when testing combination of name and topological order",()=>{
+		const node=()=>({1:{tags:{}}})
+		const way=(name,nds)=>({1:{nds,tags:{name}}})
+		//            A.X
+		// (1)----(3)----(6)----(2)
+		//         |      |
+		//     C.1 |      | C.2
+		//         |      |
+		//        (4)----(5)
+		//            C.A
+		const project={
+			store:{
+				node:{
+					1:node(),
+					2:node(),
+					3:node(),
+					4:node(),
+					5:node(),
+					6:node(),
+				},
+				way:{
+					13:way('Avenida X',[1,3]),
+					36:way('Avenida X',[3,6]),
+					62:way('Avenida X',[6,2]),
+					34:way('Calle 1',[3,4]),
+					65:way('Calle 2',[6,5]),
+					45:way('Calle A',[4,5]),
+				},
+			}
+		}
+		const changesets=[
+			[11,[
+				['create','way',13,1],
+				['create','way',62,1],
+				['create','way',36,1],
+				['create','way',34,1],
+				['create','way',45,1],
+				['create','way',65,1],
+			]],
+		]
+		const test=(withSeparators,order,expected)=>{
+			const filter=new Filter({order})
+			const result=[...filter[withSeparators?'filterElementsWithSeparators':'filterElements'](
+				project,gen(changesets),2
+			)]
+			assert.deepStrictEqual(result,expected)
+		}
+		it("orders by name",()=>test(0,`[name]`,[
+			['way',13],
+			['way',62],
+			['way',36],
+			['way',34],
+			['way',65],
+			['way',45],
+		]))
+		it("orders by name with separators",()=>test(1,`[name]`,[
+			['way',13],
+			['way',62],
+			['way',36],
+			['separator'],
+			['way',34],
+			['separator'],
+			['way',65],
+			['separator'],
+			['way',45],
+		]))
+		it("orders by way ends",()=>test(0,`ends`,[
+			['way',13],
+			['way',34],
+			['way',45],
+			['way',65],
+			['way',62],
+			['way',36],
+		]))
+		it("orders by name, then by way ends",()=>test(0,`[name],ends`,[
+			['way',13],
+			['way',36],
+			['way',62],
+			['way',34],
+			['way',65],
+			['way',45],
 		]))
 	})
 })
