@@ -345,7 +345,26 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 	let first=true
 	let etype0,eid0
 	let ecount=0
-	for (const [etype,eid,evs,,parent] of filter.filterElements(project,changesets,5)) {
+	let separatorCount=0
+	const writeNextSeparatorLink=()=>{
+		response.write(`<small><a id=separator-next-${separatorCount} href=#separator-prev-${separatorCount+1}>to next separator</a></small>\n`)
+	}
+	const writePrevSeparatorLink=()=>{
+		response.write(`<small><a id=separator-prev-${separatorCount} href=#separator-next-${separatorCount-1}>to previous separator</a></small>\n`)
+	}
+	response.write(`<div class=separator>\n`)
+	writeNextSeparatorLink()
+	response.write(`</div>\n`)
+	for (const [etype,eid,evs,,parent] of filter.filterElements(project,changesets,5,1)) {
+		if (etype=='separator') {
+			separatorCount++
+			response.write(`<div class=separator>\n`)
+			writePrevSeparatorLink()
+			response.write(`<hr>\n`)
+			writeNextSeparatorLink()
+			response.write(`</div>\n`)
+			continue
+		}
 		ecount++
 		if (first) {
 			first=false
@@ -358,6 +377,10 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 		etype0=etype
 		eid0=eid
 	}
+	separatorCount++
+	response.write(`<div class=separator>\n`)
+	writePrevSeparatorLink()
+	response.write(`</div>\n`)
 	if (first) {
 		response.write(`<p>none found\n`)
 	} else {

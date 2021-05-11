@@ -100,6 +100,15 @@ details.element table small button {
 details.element table tr.tag button:hover {
 	background: #CEF;
 }
+.separator hr {
+	margin: 0;
+}
+.separator small {
+	display: block;
+}
+.separator hr + small {
+	margin-top: -.2em;
+}
 .connector {
 	display: block;
 	position: absolute;
