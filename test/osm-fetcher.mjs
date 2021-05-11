@@ -288,20 +288,44 @@ describe("fetchTopVisibleVersions",()=>{
 	const now=125000000
 	const externalStore={
 		node:{
+			1000:{
+				1:{timestamp:120000000,visible:true},
+				top:1,
+			},
 			1001:{
-				1:{timestamp:123000000,visible:true},
-				2:{timestamp:123000000,visible:true},
+				1:{timestamp:120000000,visible:true},
+				2:{timestamp:121000000,visible:true},
 				top:2,
 			},
 			1002:{
-				1:{timestamp:123000000,visible:true},
-				2:{timestamp:123000000,visible:true},
-				3:{timestamp:123000000,visible:true},
+				1:{timestamp:120000000,visible:true},
+				2:{timestamp:121000000,visible:true},
+				3:{timestamp:122000000,visible:true},
 				4:{timestamp:123000000,visible:false},
 				top:4,
 			},
+			1003:{
+				1:{timestamp:122000000,visible:true},
+				2:{timestamp:123000000,visible:false},
+				top:2,
+			},
 		},
-		way:{},
+		way:{
+			10:{
+				1:{timestamp:121000000,visible:true,nds:[1000,1001]},
+				top:1,
+			},
+			11:{
+				1:{timestamp:121000000,visible:true,nds:[1000,1001]},
+				2:{timestamp:123000000,visible:false},
+				top:2,
+			},
+			12:{
+				1:{timestamp:121000000,visible:true,nds:[1002,1003]},
+				2:{timestamp:123000000,visible:false},
+				top:2,
+			},
+		},
 		relation:{},
 	}
 	let store,multifetchLog
@@ -364,6 +388,55 @@ describe("fetchTopVisibleVersions",()=>{
 		assert.deepStrictEqual(multifetchLog,[
 			['node',1002],
 			['node',1002,3],
+		])
+	})
+	it("fetches a fully visible way",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['way',10],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1000,1],
+			['node',1001,2],
+			['way',10,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['way',10],
+			['node',1000],
+			['node',1001],
+		])
+	})
+	it("fetches a deleted way with visible nodes",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['way',11],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1000,1],
+			['node',1001,2],
+			['way',11,2,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['way',11],
+			['way',11,1],
+			['node',1000],
+			['node',1001],
+		])
+	})
+	it("fetches a deleted way with deleted nodes",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['way',12],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1002,4,3],
+			['node',1003,2,1],
+			['way',12,2,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['way',12],
+			['way',12,1],
+			['node',1002],
+			['node',1003],
+			['node',1002,3],
+			['node',1003,1],
 		])
 	})
 })

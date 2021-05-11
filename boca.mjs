@@ -9,6 +9,7 @@ import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
+import {fetchTopVisibleVersions} from './osm-fetcher.mjs'
 import writeOsmFile from './osm-writer.mjs'
 import Project from './boca-project.mjs'
 import Redaction from './boca-redaction.mjs'
@@ -46,9 +47,12 @@ function main(projectDirname) {
 			serveStore(response,project.store)
 		} else if (pathname=='/uid') {
 			serveUid(response,project,querystring.parse(query).uid)
-		} else if (match=pathname.match(new RegExp('^/undelete/w(\\d+)\\.osm$'))) { // currently for ways - TODO extend
-			const [,id]=match
-			await serveUndeleteWay(response,project,id)
+		} else if (match=pathname.match(new RegExp('^/undelete/([nwr])(\\d+)\\.osm$'))) {
+			const [,nwr,eid]=match
+			const etype={
+				n:'node',w:'way',r:'relation'
+			}[nwr]
+			await serveUndeleteElement(response,project,etype,eid)
 		} else if (pathname=='/fetch-user') {
 			const post=await readPost(request)
 			await serveFetchUser(response,project,post.user,referer)
@@ -685,81 +689,20 @@ async function serveUid(response,project,uid) {
 	response.end()
 }
 
-async function serveUndeleteWay(response,project,wayId) {
-	const store=project.store
-	const getLatestWayVersion=async(wayId)=>{
-		// await osm.fetchToStore(store,`/api/0.6/way/${wayId}`) // deleted elements return 410 w/o version number
-		await osm.multifetchToStore(store,[['way',wayId]])
-		return osm.topVersion(store.way[wayId])
-		// probably easier just to request full history
-	}
-	const getLatestVisibleWayVersion=async(wayId,wayVz)=>{
-		let v=wayVz
-		while (v>0 && !store.way[wayId][v].visible) {
-			v--
-			if (!(v in store.way[wayId])) {
-				await osm.fetchToStore(store,`/api/0.6/way/${wayId}/${v}`)
-				// again probably easier just to request full history
-				// can estimate if such request is going to be heavy
-			}
-		}
-		if (v<=0) throw new Error('visible element version not found')
-		return v
-	}
-	const getLatestNodeVersions=async(wayId,wayVv)=>{
-		const nodeVz={}
-		for (const id of store.way[wayId][wayVv].nds) nodeVz[id]=-1
-		await osm.multifetchToStore(store,
-			Object.keys(nodeVz).map(id=>['node',id])
+async function serveUndeleteElement(response,project,etype,eid) {
+	let elements
+	try {
+		elements=await fetchTopVisibleVersions(
+			osm.multifetchToStore,
+			project.store,
+			[[etype,eid]]
 		)
-		for (const id in nodeVz) {
-			nodeVz[id]=osm.topVersion(store.node[id])
-		}
-		return nodeVz
-	}
-	const getLatestVisibleNodeVersions=async(wayId,wayVv,nodeVz)=>{
-		const versionToCheck=(id,v)=>{
-			let vc=v
-			for (;vc>0;vc--) {
-				if (!(vc in store.node[id])) break
-				if (store.node[id][vc].visible) break
-			}
-			return vc
-		}
-		const nodeVv={}
-		for (const [id,v] of Object.entries(nodeVz)) nodeVv[id]=v
-		while (true) {
-			const fetchList=[]
-			for (const [id,v] of Object.entries(nodeVv)) {
-				const vc=versionToCheck(id,v)
-				nodeVv[id]=vc
-				if (((vc in store.node[id]) && store.node[id][vc].visible) || vc<=0) continue
-				fetchList.push(['node',id,vc])
-			}
-			if (fetchList.length==0) break
-			await osm.multifetchToStore(store,fetchList)
-		}
-		for (const [id,v] of Object.entries(nodeVv)) {
-			if (v<=0) throw new Error(`visible version of node ${id} not found`)
-		}
-		return nodeVv
-	}
-	const wayVz=await getLatestWayVersion(wayId)
-	if (store.way[wayId][wayVz].visible) {
-		response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
-		response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
-		response.write(`<osm version="0.6" generator="osm-habat">\n`)
-		// do nothing
-		response.end(`</osm>\n`)
+	} catch (ex) {
+		response.writeHead(500)
+		response.end(`undelete fetch error:\n${ex.message}`)
 		return
 	}
-	const wayVv=await getLatestVisibleWayVersion(wayId,wayVz)
-	const nodeVz=await getLatestNodeVersions(wayId,wayVv)
-	const nodeVv=await getLatestVisibleNodeVersions(wayId,wayVv,nodeVz)
-	writeOsmFile(response,project.store,[
-		...Object.keys(nodeVv).map(nodeId=>['node',nodeId,nodeVz[nodeId],nodeVv[nodeId]]),
-		['way',wayId,wayVz,wayVv]
-	])
+	writeOsmFile(response,project.store,elements)
 	// TODO save store if was modified
 }
 
