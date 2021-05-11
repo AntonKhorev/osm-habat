@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 
-import {fetchTopVersions} from '../osm-fetcher.mjs'
+import {fetchTopVersions,fetchTopVisibleVersions} from '../osm-fetcher.mjs'
 
 const makeExternalStoreNodes=(nodeIds,timestamps=[123000000])=>{
 	const result={}
@@ -280,6 +280,90 @@ describe("fetchTopVersions",()=>{
 			['node',1201],
 			['node',1202],
 			['node',1203],
+		])
+	})
+})
+
+describe("fetchTopVisibleVersions",()=>{
+	const now=125000000
+	const externalStore={
+		node:{
+			1001:{
+				1:{timestamp:123000000,visible:true},
+				2:{timestamp:123000000,visible:true},
+				top:2,
+			},
+			1002:{
+				1:{timestamp:123000000,visible:true},
+				2:{timestamp:123000000,visible:true},
+				3:{timestamp:123000000,visible:true},
+				4:{timestamp:123000000,visible:false},
+				top:4,
+			},
+		},
+		way:{},
+		relation:{},
+	}
+	let store,multifetchLog
+	beforeEach(()=>{
+		store={
+			node:{},
+			way:{},
+			relation:{},
+		}
+		multifetchLog=[]
+	})
+	afterEach(()=>{
+		store=undefined
+		multifetchLog=undefined
+	})
+	const multifetch=async(store,multifetchList,lenient=false)=>{
+		if (lenient) throw new Error("called multifetch in lenient mode")
+		let topMode=false
+		let versionedMode=false
+		for (const [etype,eid,ev] of multifetchList) {
+			if (ev==null) {
+				topMode=true
+				if (versionedMode) throw new Error("called multifetch with both top and versioned args")
+				multifetchLog.push([etype,eid])
+				const topVersion=externalStore[etype][eid].top
+				const topData=externalStore[etype][eid][topVersion]
+				if (store[etype][eid]==null) store[etype][eid]={}
+				store[etype][eid][topVersion]=topData
+				store[etype][eid].top={timestamp:now,version:topVersion}
+			} else if (externalStore[etype][eid][ev]) {
+				versionedMode=true
+				if (topMode) throw new Error("called multifetch with both top and versioned args")
+				multifetchLog.push([etype,eid,ev])
+				if (store[etype][eid]==null) store[etype][eid]={}
+				store[etype][eid][ev]=externalStore[etype][eid][ev]
+			} else {
+				throw new Error("called multifetch to get a version that doesn't exist")
+			}
+
+		}
+	}
+	it("fetches a visible node",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['node',1001],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1001,2],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['node',1001],
+		])
+	})
+	it("fetches an invisible node",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['node',1002],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1002,4,3],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['node',1002],
+			['node',1002,3],
 		])
 	})
 })
