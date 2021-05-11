@@ -309,6 +309,17 @@ describe("fetchTopVisibleVersions",()=>{
 				2:{timestamp:123000000,visible:false},
 				top:2,
 			},
+			1010:{
+				1:{timestamp:122000000,visible:true},
+				2:{timestamp:123000000,visible:false},
+				top:2,
+			},
+			1020:{
+				1:{timestamp:122000000,visible:true},
+				2:{timestamp:123000000,visible:false},
+				3:{timestamp:123500000,visible:false},
+				top:3,
+			}
 		},
 		way:{
 			10:{
@@ -331,7 +342,13 @@ describe("fetchTopVisibleVersions",()=>{
 	let store,multifetchLog
 	beforeEach(()=>{
 		store={
-			node:{},
+			node:{
+				1010:{
+					1:{timestamp:122000000,visible:true},
+					2:{timestamp:123000000,visible:false},
+					top:{timestamp:124000000,version:2},
+				}
+			},
 			way:{},
 			relation:{},
 		}
@@ -437,6 +454,28 @@ describe("fetchTopVisibleVersions",()=>{
 			['node',1003],
 			['node',1002,3],
 			['node',1003,1],
+		])
+	})
+	it("returns deleted but already fetched node",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['node',1010],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1010,2,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[])
+	})
+	it("fetches a doubly-deleted node",async()=>{
+		const result=await fetchTopVisibleVersions(multifetch,store,[
+			['node',1020],
+		])
+		assert.deepStrictEqual(result,[
+			['node',1020,3,1],
+		])
+		assert.deepStrictEqual(multifetchLog,[
+			['node',1020],
+			['node',1020,2],
+			['node',1020,1],
 		])
 	})
 })

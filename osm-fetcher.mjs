@@ -36,22 +36,18 @@ async function downloadNecessaryElements(multifetch,store,eTypeIds,undeleteMode=
 			if (!undeleteMode) {
 				return estore[estore.top.version]
 			}
-			if (estore[estore.top.version].visible) {
-				return estore[estore.top.version]
-			}
-			if (!triedVersionFetch[etype][eid]) {
-				const tryVersion=estore.top.version-1
-				if (tryVersion<=0) return
-				versionFetchSet[etype][eid]=tryVersion
-				return
-			}
-			if (estore[triedVersionFetch[etype][eid]].visible) {
-				return estore[triedVersionFetch[etype][eid]]
-			} else {
-				const tryVersion=triedVersionFetch[etype][eid]-1
-				if (tryVersion<=0) return
-				versionFetchSet[etype][eid]=tryVersion
-				return
+			const startVersion=(triedVersionFetch[etype][eid]
+				? triedVersionFetch[etype][eid]
+				: estore.top.version
+			)
+			for (let ev=startVersion;ev>0;ev--) {
+				if (!estore[ev]) {
+					if (!triedVersionFetch[etype][eid] || triedVersionFetch[etype][eid]>ev) {
+						versionFetchSet[etype][eid]=ev
+					}
+					return
+				}
+				if (estore[ev].visible) return estore[ev]
 			}
 		}
 		for (const [etype,eid] of eTypeIds) {
@@ -73,7 +69,7 @@ async function downloadNecessaryElements(multifetch,store,eTypeIds,undeleteMode=
 				}
 			}
 			await multifetch(store,fetchList)
-			return fetchList.length
+			return fetchList.length==0
 		}
 		const isEmptyTopSet=await runFetch(topFetchSet,triedTopFetch,(etype,eid)=>[etype,eid])
 		const isEmptyVersionSet=await runFetch(versionFetchSet,triedVersionFetch,(etype,eid,ev)=>[etype,eid,ev])
