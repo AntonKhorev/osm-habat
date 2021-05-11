@@ -103,11 +103,13 @@ export default class Filter {
 	 *     [etype,eid,selectedVersions,previousVersions,parent],
 	 *      1     2   3                4                5 = detailLevel
 	 * parent = [pid,pv] or undefined
+	 *
+	 * @param {number} maxSeparatorLevel - Output sorting separators up to this level.
 	 */
-	*filterElements(project,changesets,detailLevel=4) {
+	*filterElements(project,changesets,detailLevel=4,maxSeparatorLevel=0) {
 		for (const entry of this.filterElementsWithSeparators(project,changesets,detailLevel)) {
-			const [etype]=entry
-			if (etype!='separator') yield entry
+			const [etype,elevel]=entry
+			if (etype!='separator' || elevel<=maxSeparatorLevel) yield entry
 		}
 	}
 
@@ -236,7 +238,7 @@ export default class Filter {
 				yield result
 			}
 		}
-		function *tagSorter(input,tagKey) {
+		function *tagSorter(input,separator,tagKey) {
 			const resultsWithSortValues=[]
 			for (const result of input) {
 				const [etype,eid]=result
@@ -266,13 +268,13 @@ export default class Filter {
 				if (first) {
 					first=false
 				} else {
-					if (cmp(prevSortValue,sortValue)) yield ['separator']
+					if (cmp(prevSortValue,sortValue)) yield separator
 				}
 				yield result
 				prevSortValue=sortValue
 			}
 		}
-		function *endsSorter(input) {
+		function *endsSorter(input,separator) {
 			const sorter=new EndpointSorter()
 			for (const entry of input) {
 				const [etype,eid,evs]=entry
@@ -292,7 +294,8 @@ export default class Filter {
 			}
 			yield *sorter // TODO separators between clusters
 		}
-		function *sortSeparately(input,sorterFn,sorterArg) {
+		function *sortSeparately(input,separatorLevel,sorterFn,sorterArg) {
+			const separator=['separator',separatorLevel]
 			let buffer=[]
 			for (const entry of input) {
 				const [etype]=entry
@@ -300,20 +303,21 @@ export default class Filter {
 					buffer.push(entry)
 					continue
 				}
+				yield* sorterFn(buffer,separator,sorterArg)
 				yield entry
-				yield* sorterFn(buffer,sorterArg)
 				buffer=[]
 			}
-			yield* sorterFn(buffer,sorterArg)
+			yield* sorterFn(buffer,separator,sorterArg)
 		}
 		let result=iterateFiltered(this.conditions)
-		for (const [orderType,orderArg] of this.order) {
+		for (let i=0;i<this.order.length;i++) {
+			const [orderType,orderArg]=this.order[i]
 			for (const [sorterType,sorterFn] of [
 				['tag',tagSorter],
 				['ends',endsSorter],
 			]) {
 				if (orderType==sorterType) {
-					result=sortSeparately(result,sorterFn,orderArg)
+					result=sortSeparately(result,i+1,sorterFn,orderArg)
 				}
 			}
 		}

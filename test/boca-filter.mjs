@@ -725,22 +725,15 @@ describe("Filter.filterElements",()=>{
 		])
 	})
 	context("when testing tag order",()=>{
-		const node=(a,b)=>({tags:{a,b}})
+		const node=(a,b)=>({1:{tags:{a,b}}})
 		const project={
 			store:{
 				node:{
-					100001:{
-						1:node('a','b'),
-					},
-					100002:{
-						1:node('b','a'),
-					},
-					100003:{
-						1:node('b','c'),
-					},
-					100004:{
-						1:node('a','a'),
-					}
+					100001:node('a','b'),
+					100002:node('b','a'),
+					100003:node('b','c'),
+					100004:node('a','a'),
+					100005:node('b','a'),
 				}
 			}
 		}
@@ -750,12 +743,13 @@ describe("Filter.filterElements",()=>{
 				['create','node',100002,1],
 				['create','node',100003,1],
 				['create','node',100004,1],
+				['create','node',100005,1],
 			]],
 		]
-		const test=(withSeparators,order,expected)=>{
+		const test=(maxSeparatorLevel,order,expected)=>{
 			const filter=new Filter({order})
-			const result=[...filter[withSeparators?'filterElementsWithSeparators':'filterElements'](
-				project,gen(changesets),2
+			const result=[...filter.filterElements(
+				project,gen(changesets),2,maxSeparatorLevel
 			)]
 			assert.deepStrictEqual(result,expected)
 		}
@@ -764,18 +758,39 @@ describe("Filter.filterElements",()=>{
 			['node',100004],
 			['node',100002],
 			['node',100003],
+			['node',100005],
 		]))
 		it("orders by one tag with separators",()=>test(1,"[a]",[
 			['node',100001],
 			['node',100004],
-			['separator'],
+			['separator',1],
 			['node',100002],
 			['node',100003],
+			['node',100005],
 		]))
 		it("orders by two tags",()=>test(0,"[a],[b]",[
 			['node',100004],
 			['node',100001],
 			['node',100002],
+			['node',100005],
+			['node',100003],
+		]))
+		it("orders by two tags with separators up to level 1",()=>test(1,"[a],[b]",[
+			['node',100004],
+			['node',100001],
+			['separator',1],
+			['node',100002],
+			['node',100005],
+			['node',100003],
+		]))
+		it("orders by two tags with separators up to level 2",()=>test(2,"[a],[b]",[
+			['node',100004],
+			['separator',2],
+			['node',100001],
+			['separator',1],
+			['node',100002],
+			['node',100005],
+			['separator',2],
 			['node',100003],
 		]))
 	})
@@ -815,10 +830,10 @@ describe("Filter.filterElements",()=>{
 				['create','way',1006,1],
 			]],
 		]
-		const test=(withSeparators,text,expected)=>{
+		const test=(maxSeparatorLevel,text,expected)=>{
 			const filter=new Filter({filter:text})
-			const result=[...filter[withSeparators?'filterElementsWithSeparators':'filterElements'](
-				project,gen(changesets),2
+			const result=[...filter.filterElements(
+				project,gen(changesets),2,maxSeparatorLevel
 			)]
 			assert.deepStrictEqual(result,expected)
 		}
@@ -899,10 +914,10 @@ describe("Filter.filterElements",()=>{
 				['create','way',65,1],
 			]],
 		]
-		const test=(withSeparators,order,expected)=>{
+		const test=(maxSeparatorLevel,order,expected)=>{
 			const filter=new Filter({order})
-			const result=[...filter[withSeparators?'filterElementsWithSeparators':'filterElements'](
-				project,gen(changesets),2
+			const result=[...filter.filterElements(
+				project,gen(changesets),2,maxSeparatorLevel
 			)]
 			assert.deepStrictEqual(result,expected)
 		}
@@ -918,11 +933,11 @@ describe("Filter.filterElements",()=>{
 			['way',13],
 			['way',62],
 			['way',36],
-			['separator'],
+			['separator',1],
 			['way',34],
-			['separator'],
+			['separator',1],
 			['way',65],
-			['separator'],
+			['separator',1],
 			['way',45],
 		]))
 		it("orders by way ends",()=>test(0,`ends`,[
