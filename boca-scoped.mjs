@@ -591,7 +591,10 @@ export async function fetchSubsequentVersions(response,project,changesets,filter
 
 export async function assumeElementsAreLoaded(response,project,changesets,filter) {
 	for (const [etype,eid] of filter.filterElements(project,changesets,2)) {
-		project.pendingRedactions.loaded[etype][eid]=1
+		const estore=project.store[etype][eid]
+		if (estore.top && estore[estore.top.version].visible) {
+			project.pendingRedactions.loaded[etype][eid]=1
+		}
 	}
 	project.savePendingRedactions()
 }
