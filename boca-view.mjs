@@ -41,6 +41,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			this.serveByElement(response,route,getQuery,scoped.analyzeNameRedos)
 		} else if (route=='top.osm') {
 			this.serveFile(response,route,getQuery,scoped.serveTopVersions)
+		} else if (route=='deleted.osm') {
+			this.serveFile(response,route,{...getQuery,'vt.visible':0},scoped.serveTopVisibleVersions)
 		} else if (route=='reload-redactions') {
 			this.project.loadRedactions()
 			response.writeHead(303,{'Location':referer??'.'})

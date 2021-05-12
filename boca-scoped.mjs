@@ -6,7 +6,7 @@ import * as osmLink from './osm-link.mjs'
 import writeOsmFile from './osm-writer.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import elementWriter from './boca-element.mjs'
-import {fetchTopVersions} from './boca-fetcher.mjs'
+import {fetchTopVersions,fetchTopVisibleVersions} from './boca-fetcher.mjs'
 
 export function analyzeCounts(response,project,changesets) {
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -398,6 +398,8 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
 		response.write(`<button>Assume that top versions are loaded into the editor</button>\n`)
 		response.write(`</form>\n`)
+		const deletedHref=e.u`deleted.osm?filter=${filter.text}`
+		response.write(e.h`<p>Get <a class=rc href=${deletedHref} data-upload-policy=false title='versions before deletes'>josm file with latest visible versions of deleted elements</a>. This is only for visualization, don't upload it. The main purpose is to see if some new element appeared in place of a deleted one, and if so, compare their tags manually.\n`)
 	}
 	return ecount
 	function writeConnector(etype1,eid1,etype2,eid2) {
@@ -518,6 +520,20 @@ export async function serveTopVersions(response,project,changesets,filter) {
 	} catch (ex) {
 		response.writeHead(500)
 		response.end(`top version fetch error:\n${ex.message}`)
+		return
+	}
+	writeOsmFile(response,project.store,elements)
+}
+
+export async function serveTopVisibleVersions(response,project,changesets,filter) {
+	let elements
+	try {
+		elements=await fetchTopVisibleVersions(project,
+			filter.filterElements(project,changesets,2)
+		)
+	} catch (ex) {
+		response.writeHead(500)
+		response.end(`top visible version fetch error:\n${ex.message}`)
 		return
 	}
 	writeOsmFile(response,project.store,elements)
