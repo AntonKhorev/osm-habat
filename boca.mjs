@@ -9,12 +9,12 @@ import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
-import {fetchTopVisibleVersions} from './osm-fetcher.mjs'
 import writeOsmFile from './osm-writer.mjs'
 import Project from './boca-project.mjs'
 import Redaction from './boca-redaction.mjs'
 import * as respond from './boca-respond.mjs'
 import * as views from './boca-view.mjs'
+import {fetchTopVisibleVersions} from './boca-fetcher.mjs'
 
 import * as bocaCommonCssPatch from './boca-common-css-patch.mjs'
 
@@ -692,18 +692,13 @@ async function serveUid(response,project,uid) {
 async function serveUndeleteElement(response,project,etype,eid) {
 	let elements
 	try {
-		elements=await fetchTopVisibleVersions(
-			osm.multifetchToStore,
-			project.store,
-			[[etype,eid]]
-		)
+		elements=await fetchTopVisibleVersions(project,[[etype,eid]])
 	} catch (ex) {
 		response.writeHead(500)
 		response.end(`undelete fetch error:\n${ex.message}`)
 		return
 	}
 	writeOsmFile(response,project.store,elements)
-	// TODO save store if was modified
 }
 
 async function serveFetchChangeset(response,project,cidString,referer) {

@@ -3,10 +3,10 @@
 import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
+import writeOsmFile from './osm-writer.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import elementWriter from './boca-element.mjs'
-import {fetchTopVersions} from './osm-fetcher.mjs'
-import writeOsmFile from './osm-writer.mjs'
+import {fetchTopVersions} from './boca-fetcher.mjs'
 
 export function analyzeCounts(response,project,changesets) {
 	response.write(`<h2>Changeset element counts</h2>\n`)
@@ -512,10 +512,8 @@ export function viewElements(response,project,changesets,filter) {
 export async function serveTopVersions(response,project,changesets,filter) {
 	let elements
 	try {
-		elements=await fetchTopVersions(
-			osm.multifetchToStore,
-			project.store,
-			[...filter.filterElements(project,changesets,2)]
+		elements=await fetchTopVersions(project,
+			filter.filterElements(project,changesets,2)
 		)
 	} catch (ex) {
 		response.writeHead(500)

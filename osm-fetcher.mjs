@@ -68,7 +68,7 @@ async function downloadNecessaryElements(multifetch,store,eTypeIds,undeleteMode=
 					fetchList.push(makeFetchListEntry(etype,eid,ev))
 				}
 			}
-			await multifetch(store,fetchList)
+			if (fetchList.length>0) await multifetch(store,fetchList)
 			return fetchList.length==0
 		}
 		const isEmptyTopSet=await runFetch(topFetchSet,triedTopFetch,(etype,eid)=>[etype,eid])

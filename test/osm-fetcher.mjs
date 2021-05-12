@@ -36,6 +36,17 @@ const makeInternalStoreWay=(nodeIds,timestamp=123000000)=>({
 	top:{timestamp:123000000,version:1},
 })
 
+describe("osm fetcher common code",()=>{
+	it("doesn't call multifetch if there's nothing to fetch",async()=>{
+		const store={node:{},way:{},relation:{}}
+		const multifetch=async(store,multifetchList,lenient=false)=>{
+			throw new Error("called multifetch when not supposed to")
+		}
+		const result=await fetchTopVersions(multifetch,store,[])
+		assert.deepStrictEqual(result,[])
+	})
+})
+
 describe("fetchTopVersions",()=>{
 	const now=125000000
 	const externalStore={
