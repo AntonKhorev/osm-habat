@@ -332,10 +332,20 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 		response.write(`<td>`+makeTimestampHtml(project.store[etype][eid]?.top?.timestamp))
 		response.write(`\n<tr class=visible><th>visible`)
 		iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>makeChangeCell(pdata,pdata?.visible,cdata.visible,v=>(v?'yes':'no')))
-		response.write(`<td class=act>`+makeRcLink(
-			getElementRcHref(),
-			project.pendingRedactions.loaded[etype][eid] ? `[select]` : `[load]`
-		))
+		response.write(`<td class=act>`)
+		if (
+			project.store[etype][eid].top &&
+			!project.store[etype][eid][project.store[etype][eid].top.version].visible
+		) {
+			const href=e.u`/undelete/${etype[0]}${eid}.osm`
+			const layerName=`deleted ${etype} #${eid}`
+			response.write(e.h`<a class=rc href=${href} data-upload-policy=false title=${layerName}>[view deleted]</a>`)
+		} else {
+			response.write(makeRcLink(
+				getElementRcHref(),
+				project.pendingRedactions.loaded[etype][eid] ? `[select]` : `[load]`
+			))
+		}
 		if (etype=='way') {
 			const makeNodeCell=(pdata,pnid,cnid)=>makeChangeCell(pdata,pnid,cnid,nid=>{
 				if (nid) {

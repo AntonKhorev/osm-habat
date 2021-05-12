@@ -41,6 +41,7 @@ function setupElementListeners($container) {
 		const $button=document.createElement('button')
 		$button.type='button'
 		$button.innerHTML=stripBrackets($link.innerHTML)
+		$button.title=$link.title
 		Object.assign($button.dataset,$link.dataset)
 		if ($link.classList.contains('norc')) {
 			$button.classList.add('norc')
@@ -184,7 +185,11 @@ async function actionButtonAct($button) {
 async function accumulatedActionButtonAct(href,$buttons) {
 	if (href==null) return
 	const $reloadable=$buttons[0]?.closest('.reloadable') // assumes all buttons are inside one reloadable slot
-	const targetHref=getRcHref(href)
+	const getTargetHref=()=>{
+		if ($buttons.length==1) return getRcHref(href,$buttons[0])
+		return getRcHref(href)
+	}
+	const targetHref=getTargetHref()
 	for (const $button of $buttons) {
 		$button.disabled=true
 		$button.classList.add('wait')
