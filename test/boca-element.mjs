@@ -2,7 +2,7 @@ import * as assert from 'assert'
 
 import {IN,OUT,PARENT,UNKNOWN,NULL,TagChangeTracker} from '../boca-element.mjs'
 
-const runTracker=(table)=>{
+const runTracker=(table,exactMode=false)=>{
 	const tagKey='x'
 	const adaptTableEntry=([state,version,tagValue,visible])=>{
 		if (state==NULL || state==UNKNOWN) return [state,undefined,undefined]
@@ -14,7 +14,7 @@ const runTracker=(table)=>{
 		if (tagValue) data.tags[tagKey]=tagValue
 		return [state,version,data]
 	}
-	const tracker=new TagChangeTracker(tagKey)
+	const tracker=new TagChangeTracker(tagKey,exactMode)
 	for (let i=1;i<table.length;i++) {
 		tracker.trackChange(
 			...adaptTableEntry(table[i]),
@@ -180,5 +180,18 @@ describe("TagChangeTracker",()=>{
 		])
 		assert.equal(tracker.action,'hide')
 		assert.deepStrictEqual(tracker.versions,[6])
+	})
+	it("provides hide in exact mode",()=>{
+		const tracker=runTracker([
+			[NULL],
+			[OUT,1,'foo'],
+			[IN, 2,'bar'],
+			[OUT,3,'burr'],
+			[IN, 4,'bar'],
+			[OUT,5,'burr'],
+			[IN, 6,'burr'],
+		],true)
+		assert.equal(tracker.action,'hide')
+		assert.deepStrictEqual(tracker.versions,[2,4])
 	})
 })

@@ -376,57 +376,65 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 			Object.assign(allTags,cdata.tags)
 			return ''
 		})
-		const writeUndoCell=(tag,tagChangeTracker,canLoad)=>{
+		const writeUndoCell=(tag,tagChangeTracker,exactTagChangeTracker,canLoad)=>{
 			if (project.pendingRedactions.getElement(etype,eid).tags[tag]) {
 				response.write(e.h`<td><input type=checkbox name=tag value=${tag} checked disabled>edited</label>`)
 			} else if (project.store[etype][eid].top) {
-				const getLinks=()=>{
-					const data={versions:tagChangeTracker.versions}
+				const getLinks=(tracker,titlePrefix='')=>{
+					const title=titlePrefix+tracker.action
+					const data={versions:tracker.versions}
 					let rcHref=getElementRcHref()
-					if (tagChangeTracker.action!='hide') {
-						rcHref+=e.u`&addtags=${tag}=${tagChangeTracker.value}`
+					if (tracker.action!='hide') {
+						rcHref+=e.u`&addtags=${tag}=${tracker.value}`
 					}
 					if (canLoad) {
 						let links=makeRcLink(
-							rcHref,`[${tagChangeTracker.action}]`,data
+							rcHref,`[${title}]`,data
 						)
-						if (tagChangeTracker.action=='hide') {
+						if (tracker.action=='hide') {
 							links+=`<small>`+makeNoRcLink(
-								`[${tagChangeTracker.action} w/o load]`,data
+								`[${title} w/o load]`,data
 							)+`</small>`
 						}
 						return links
 					} else {
-						if (tagChangeTracker.action=='hide') {
+						if (tracker.action=='hide') {
 							return makeNoRcLink(
-								`[${tagChangeTracker.action} w/o load]`,data
+								`[${title} w/o load]`,data
 							)
 						} else {
 							return `<small>updating tag on deleted element</small> `+makeRcLink(
-								rcHref,`[${tagChangeTracker.action}]`,data
+								rcHref,`[${title}]`,data
 							)
 						}
 					}
 				}
-				response.write(e.h`<td class=act>`+getLinks()+e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`)
+				response.write(
+					e.h`<td class=act>`+
+					getLinks(tagChangeTracker)+
+					getLinks(exactTagChangeTracker,'exact ')+
+					e.h` - <label><input type=checkbox name=tag value=${tag}>edited</label>`
+				)
 			} else {
 				response.write(`<td>update to enable ${tagChangeTracker.action}`)
 			}
 		}
 		for (const k in allTags) {
 			const tagChangeTracker=new TagChangeTracker(k)
+			const exactTagChangeTracker=new TagChangeTracker(k,true)
 			let tagClasses='tag'
 			if (project.pendingRedactions.isTagKeyInTargets(k)) tagClasses+=' target'
 			response.write(e.h`\n<tr class=${tagClasses}><td>${k}`)
 			let haveVersionToLoad=false
 			iterate((cstate,cid,cv,cdata,pstate,pid,pv,pdata)=>{
 				tagChangeTracker.trackChange(cstate,cv,cdata,pstate,pv,pdata)
+				exactTagChangeTracker.trackChange(cstate,cv,cdata,pstate,pv,pdata)
 				haveVersionToLoad=cdata.visible
 				const [tdHtml,tdClasses]=makeChangeCell(pdata,pdata?.tags[k],cdata.tags[k])
 				return [tdHtml,[...tdClasses,'value']]
 			})
 			if (tagChangeTracker.action) {
-				writeUndoCell(k,tagChangeTracker,haveVersionToLoad)
+				writeUndoCell(k,tagChangeTracker,exactTagChangeTracker,haveVersionToLoad)
 			} else {
 				response.write(`<td>`) // need empty cell to stretch tr background
 			}
@@ -471,8 +479,13 @@ export default function writeElementChanges(response,project,etype,eid,evs,paren
 }
 
 export class TagChangeTracker {
-	constructor(tagKey) {
+	/**
+	 * @param {string} tagKey - tag to track changes on
+	 * @param {boolean} exactMode - only count exact matches to values introduced in in-versions as dirty
+	 */
+	constructor(tagKey,exactMode=false) {
 		this.tagKey=tagKey
+		this.exactMode=exactMode
 		this.versions=[]
 		this.cleanValues=new Set()
 		this.dirtyValues=new Set()
@@ -493,7 +506,8 @@ export class TagChangeTracker {
 				this.clean=true
 			} else if (this.cleanValues.has(cvalue)) {
 				this.clean=true
-			} else if (this.clean && !this.dirtyValues.has(cvalue)) {
+			} else if (!this.dirtyValues.has(cvalue) && (this.clean || this.exactMode)) {
+				this.clean=true
 				this.cleanValues.add(cvalue)
 			} else {
 				this.clean=false
