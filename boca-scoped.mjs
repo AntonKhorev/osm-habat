@@ -15,7 +15,9 @@ export function analyzeCounts(response,project,changesets) {
 	response.write(`<tr><th>C<th>M<th>D<th>C<th>M<th>D<th>C<th>M<th>D\n`)
 	const cc=()=>({create:0,modify:0,delete:0})
 	const globalChanges={node:{},way:{},relation:{}}
+	let nChangesets=0
 	for (const [changesetId,changesetChanges] of changesets) {
+		nChangesets++
 		const count={node:cc(),way:cc(),relation:cc()}
 		for (const [changeType,elementType,elementId] of changesetChanges) {
 			count[elementType][changeType]++
@@ -34,7 +36,7 @@ export function analyzeCounts(response,project,changesets) {
 		}
 		response.write(`\n`)
 	}
-	response.write(e.h`<tr><td>total`)
+	response.write(e.h`<tr><td>total in ${nChangesets} csets`)
 	for (const elementType of ['node','way','relation']) {
 		const c=cc()
 		for (const changeType of Object.values(globalChanges[elementType])) {
