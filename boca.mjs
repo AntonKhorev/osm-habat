@@ -420,7 +420,8 @@ async function serveRedactions(response,project,redactionChangeset) {
 			response.write(`<tr><td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`)+`<td>`)
 			if (attribute=='version') {
 				versionCount++
-				elementTypeVisited[etype][eid]=true
+				if (!elementTypeVisited[etype][eid]) elementTypeVisited[etype][eid]=1
+				if (evtag==project.store[etype][eid].top.version) elementTypeVisited[etype][eid]=2
 				response.write(e.h`v${evtag}`)
 			} else if (attribute=='tag') {
 				if (!tagCounts[evtag]) tagCounts[evtag]=0
@@ -472,6 +473,17 @@ async function serveRedactions(response,project,redactionChangeset) {
 	response.write(`<div><label><input type=checkbox name=confirm> Yes, I want to reset loaded element state.</label></div>\n`)
 	response.write(`<div><button>Reset loaded state</button></div>\n`)
 	response.write(`</form>\n`)
+	const getNonTopEids=()=>{
+		let result=''
+		for (const etype of ['node','way','relation']) {
+			for (const [eid,v] of Object.entries(elementTypeVisited[etype])) {
+				if (v==1) result+=','+etype[0]+eid
+			}
+		}
+		return result
+	}
+	const hiddenHref=e.u`http://127.0.0.1:8111/zoom?left=0&right=0&top=0&bottom=0&select=currentselection${getNonTopEids()}`
+	response.write(`<div><a class=rc href=${hiddenHref}>rc add to selection redacted elements w/o top version redaction</a> - because you can't see them with josm <kbd>modified</kbd> search</div>\n`)
 	response.write(`<h2>Common <a href="https://www.openstreetmap.org/redactions">published redactions</a> and <a href="https://wiki.openstreetmap.org/wiki/Revert_scripts">osm-revert-scripts</a> commands to execute them</h2>\n`)
 	response.write(`<dl>\n`)
 	for (const [id,name] of [
