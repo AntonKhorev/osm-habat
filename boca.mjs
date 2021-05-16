@@ -319,17 +319,32 @@ function serveRoot(response,project) {
 	response.write(`<h3>All</h3>\n`)
 	response.write(`<p><a href=/all/>All completely downloaded changesets.</a></p>\n`)
 	response.write(`<h3 id=section-scopes>Scopes</h3>\n`)
-	response.write(`<ul>\n`)
 	let hasScopes=false
 	for (const scope in project.scope) {
-		hasScopes=true
+		if (!hasScopes) {
+			hasScopes=true
+			response.write(`<table>\n`)
+			response.write(`<tr><th>name<th>status\n`)
+		}
 		const href=e.u`/scope/${scope}/`
-		response.write(e.h`<li><a href=${href}>${scope}</a>\n`)
+		response.write(e.h`<tr><td><a href=${href}>${scope}</a><td>${project.getScopeStatus(scope)}\n`)
 	}
-	response.write(`</ul>\n`)
-	response.write(`<p>`)
-	if (!hasScopes) response.write(`None defined yet. `)
+	if (hasScopes) {
+		response.write(`</table>\n`)
+		response.write(`<p>`)
+	} else {
+		response.write(`<p>`)
+		response.write(`None defined yet. `)
+	}
 	response.write(`Define scopes by creating/editing <kbd>scopes.txt</kbd> file in the project directory.\n`)
+	response.write(`<details>\n`)
+	response.write(`<summary>scopes.txt syntax</summary>\n`)
+	response.write(`<p>Markdown-like syntax with file read line-by line. Line starting with <kbd>#</kbd> followed by a scope name starts a scope section. Lines inside a section can be:\n`)
+	response.write(`<ul>\n`)
+	response.write(`<li><kbd>*</kbd> followed by a status indicator (currently any string) - used to mark which scopes were processed\n`)
+	response.write(`<li>changeset url - to include this changeset in the scope\n`)
+	response.write(`</ul>\n`)
+	response.write(`</details>\n`)
 	response.write(`<h3 id=section-users>Fetched users</h3>\n`)
 	response.write(`<ul>\n`)
 	for (const uid in project.user) {

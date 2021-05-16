@@ -113,6 +113,16 @@ export default class Project {
 			if (cid in this.store.changeset) yield [cid,this.store.changeset[cid]]
 		}
 	}
+	getScopeStatus(scope) {
+		for (const line of this.scope[scope]) {
+			let match
+			if (match=line.match(/^\*(.*)$/)) {
+				const [,statusString]=match
+				const status=statusString.trim()
+				return status
+			}
+		}
+	}
 	*getChangesFromChangesets(changesets) {
 		for (const [,changesetChanges] of changesets) {
 			yield* changesetChanges
