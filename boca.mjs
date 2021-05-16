@@ -336,7 +336,7 @@ function serveRoot(response,project) {
 		response.write(`<p>`)
 		response.write(`None defined yet. `)
 	}
-	response.write(`Define scopes by creating/editing <kbd>scopes.txt</kbd> file in the project directory.\n`)
+	response.write(`Define scopes by creating/editing <kbd>scopes.txt</kbd> file in the project directory. Reload this page to see the changes.\n`)
 	response.write(`<details>\n`)
 	response.write(`<summary>scopes.txt syntax</summary>\n`)
 	response.write(`<p>Markdown-like syntax with file read line-by line. Line starting with <kbd>#</kbd> followed by a scope name starts a scope section. Lines inside a section can be:\n`)

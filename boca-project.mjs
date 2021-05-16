@@ -22,6 +22,7 @@ export default class Project {
 		this.changeset={}
 		if (fs.existsSync(this.changesetsFilename)) this.changeset=JSON.parse(fs.readFileSync(this.changesetsFilename))
 		this.loadScopes()
+		this.watchScopes()
 		this.loadRedactions()
 		this.loadPendingRedactions()
 	}
@@ -115,6 +116,11 @@ export default class Project {
 				} catch {}
 			}
 		}
+	}
+	watchScopes() {
+		fs.watch(this.scopesFilename,()=>{
+			this.loadScopes()
+		})
 	}
 	saveScopes() {
 		// TODO
