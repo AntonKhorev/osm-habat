@@ -21,19 +21,7 @@ export default class Project {
 		if (fs.existsSync(this.usersFilename)) this.user=JSON.parse(fs.readFileSync(this.usersFilename))
 		this.changeset={}
 		if (fs.existsSync(this.changesetsFilename)) this.changeset=JSON.parse(fs.readFileSync(this.changesetsFilename))
-		this.scope={}
-		if (fs.existsSync(this.scopesFilename)) {
-			let scope
-			for (const line of getFileLines(this.scopesFilename)) {
-				let match
-				if (match=line.match(/^#+\s*(.*\S)\s*$/)) {
-					[,scope]=match
-					if (!(scope in this.scope)) this.scope[scope]=[]
-				} else {
-					this.scope[scope]?.push(line)
-				}
-			}
-		}
+		this.loadScopes()
 		this.loadRedactions()
 		this.loadPendingRedactions()
 	}
@@ -61,14 +49,10 @@ export default class Project {
 	saveChangesets() {
 		fs.writeFileSync(this.changesetsFilename,JSON.stringify(this.changeset))
 	}
-	saveScopes() {
-		// TODO
-	}
 
 	get storeFilename() { return path.join(this.dirname,'store.json') }
 	get usersFilename() { return path.join(this.dirname,'users.json') }
 	get changesetsFilename() { return path.join(this.dirname,'changesets.json') }
-	get scopesFilename() { return path.join(this.dirname,'scopes.txt') }
 	get redactionsDirname() { return path.join(this.dirname,'redactions') }
 	getUserLink(uid) { // TODO move somewhere else + use osmLinks module
 		if (uid in this.user) {
@@ -91,41 +75,59 @@ export default class Project {
 			}
 		}
 	}
+	*getChangesFromChangesets(changesets) {
+		for (const [,changesetChanges] of changesets) {
+			yield* changesetChanges
+		}
+	}
+
+	// scopes
+	get scopesFilename() { return path.join(this.dirname,'scopes.txt') }
+	loadScopes() {
+		this.scope={}
+		this.scopeStatus={} // private
+		this.scopeChangesets={} // private
+		if (fs.existsSync(this.scopesFilename)) {
+			let scope
+			for (const line of getFileLines(this.scopesFilename)) {
+				let match
+				if (match=line.match(/^#+\s*(.*\S)\s*$/)) {
+					[,scope]=match
+					if (!(scope in this.scope)) this.scope[scope]=[]
+				} else {
+					this.scope[scope]?.push(line)
+				}
+			}
+		}
+		for (const [scope,lines] of Object.entries(this.scope)) {
+			this.scopeChangesets[scope]=new Set() // TODO modify to also contain uids
+			for (const line of lines) {
+				let match
+				if (match=line.match(/^\*(.*)$/)) {
+					const [,statusString]=match
+					this.scopeStatus[scope]=statusString.trim()
+					continue
+				}
+				try {
+					const cid=osmRef.changeset(line)
+					this.scopeChangesets[scope].add(cid)
+					continue
+				} catch {}
+			}
+		}
+	}
+	saveScopes() {
+		// TODO
+	}
 	*getScopeChangesets(scope) {
-		const cids=new Set()
-		/*
-		for (const [scopeElementType,scopeElementId] of this.data.scope) {
-			if (scopeElementType!="changeset") continue // TODO user
-			cids[scopeElementId]=true
-		}
-		*/
-		for (const line of this.scope[scope]) {
-			try {
-				const cid=osmRef.changeset(line)
-				cids.add(cid)
-				continue
-			} catch {}
-		}
-		const sortedCids=[...cids]
+		const sortedCids=[...this.scopeChangesets[scope]]
 		sortedCids.sort((x,y)=>(x-y))
 		for (const cid of sortedCids) {
 			if (cid in this.store.changeset) yield [cid,this.store.changeset[cid]]
 		}
 	}
 	getScopeStatus(scope) {
-		for (const line of this.scope[scope]) {
-			let match
-			if (match=line.match(/^\*(.*)$/)) {
-				const [,statusString]=match
-				const status=statusString.trim()
-				return status
-			}
-		}
-	}
-	*getChangesFromChangesets(changesets) {
-		for (const [,changesetChanges] of changesets) {
-			yield* changesetChanges
-		}
+		return this.scopeStatus[scope]
 	}
 
 	// pending redactions
