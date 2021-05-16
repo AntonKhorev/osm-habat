@@ -3,6 +3,7 @@ import * as path from 'path'
 
 import * as e from './escape.js' // TODO move somewhere else along with getUserLink()
 import * as osm from './osm.js'
+import * as osmRef from './osm-ref.mjs'
 import Redaction from './boca-redaction.mjs'
 
 const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
@@ -99,13 +100,11 @@ export default class Project {
 		}
 		*/
 		for (const line of this.scope[scope]) {
-			let match
-			if (line.match(/^[1-9]\d*$/)) {
-				cids.add(line)
-			} else if (match=line.match(/changeset\/([1-9]\d*)$/)) {
-				const [,cid]=match
-				cids.add(Number(cid))
-			}
+			try {
+				const cid=osmRef.changeset(line)
+				cids.add(cid)
+				continue
+			} catch {}
 		}
 		const sortedCids=[...cids]
 		sortedCids.sort((x,y)=>(x-y))

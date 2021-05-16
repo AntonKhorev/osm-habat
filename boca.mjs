@@ -342,7 +342,7 @@ function serveRoot(response,project) {
 	response.write(`<p>Markdown-like syntax with file read line-by line. Line starting with <kbd>#</kbd> followed by a scope name starts a scope section. Lines inside a section can be:\n`)
 	response.write(`<ul>\n`)
 	response.write(`<li><kbd>*</kbd> followed by a status indicator (currently any string) - used to mark which scopes were processed\n`)
-	response.write(`<li>changeset url - to include this changeset in the scope\n`)
+	response.write(`<li>changeset id or url - to include this changeset in the scope\n`)
 	response.write(`</ul>\n`)
 	response.write(`</details>\n`)
 	response.write(`<h3 id=section-users>Fetched users</h3>\n`)
