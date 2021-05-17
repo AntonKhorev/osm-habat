@@ -24,3 +24,32 @@ export function changeset(s) {
 	}
 	throw new Error(`Invalid changeset reference "${s}"`)
 }
+
+export function user(s) {
+	const n=Number(s)
+	if (Number.isInteger(n)) return ["id",n]
+	let match
+	if (match=s.match(/(['"])(.*)\1/)) {
+		const [,,username]=match
+		return ["name",username]
+	}
+	try {
+		const url=new URL(s)
+		if (url.host=='www.openstreetmap.org') {
+			const [,userPathDir,userPathEnd]=url.pathname.split('/')
+			if (userPathDir=='user') {
+				const username=decodeURIComponent(userPathEnd)
+				return ["name",username]
+			}
+		} else if (url.host=='hdyc.neis-one.org') {
+			if (url.search.length>1) {
+				const username=decodeURIComponent(url.search).substr(1)
+				return ["name",username]
+			}
+		} else if (url.host=='resultmaps.neis-one.org') {
+			const uid=Number(url.searchParams.get('uid'))
+			return ["id",uid]
+		}
+	} catch {}
+	throw new Error(`Invalid user reference "${s}"`)
+}

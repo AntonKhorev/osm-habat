@@ -80,3 +80,41 @@ describe("osmRef.changeset",()=>{
 		1234567
 	))
 })
+
+describe("osmRef.user",()=>{
+	it("throws on hdyc url with no user",()=>assert.throws(()=>{
+		osmRef.user('http://hdyc.neis-one.org/')
+	}))
+	it("parses osm url",()=>assert.deepStrictEqual(
+		osmRef.user("https://www.openstreetmap.org/user/testing%20testing"),
+		["name","testing testing"]
+	))
+	it("parses osm url with extras",()=>assert.deepStrictEqual(
+		osmRef.user("https://www.openstreetmap.org/user/blabla/history#map=3/33.55/-18.30"),
+		["name","blabla"]
+	))
+	it("parses https hdyc url",()=>assert.deepStrictEqual(
+		osmRef.user("https://hdyc.neis-one.org/?Another%20user"),
+		["name","Another user"]
+	))
+	it("parses double-quoted username",()=>assert.deepStrictEqual(
+		osmRef.user('"hello world"'),
+		["name","hello world"]
+	))
+	it("parses double-quoted username with quote inside",()=>assert.deepStrictEqual(
+		osmRef.user('"oops " hehe"'),
+		["name",'oops " hehe']
+	))
+	it("parses single-quoted username",()=>assert.deepStrictEqual(
+		osmRef.user("'h e l l o'"),
+		["name","h e l l o"]
+	))
+	it("parses id",()=>assert.deepStrictEqual(
+		osmRef.user("937929348"),
+		["id",937929348]
+	))
+	it("parses resultmaps uid comments url",()=>assert.deepStrictEqual(
+		osmRef.user("https://resultmaps.neis-one.org/osm-discussion-comments?uid=892374972"),
+		["id",892374972],
+	))
+})
