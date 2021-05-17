@@ -1,6 +1,8 @@
 // this is pending redactions
 // completed redactions are handled by Project class
 
+import * as e from './escape.js'
+
 export default class Redaction {
 	constructor() {
 		this.clear()
@@ -53,13 +55,10 @@ export default class Redaction {
 			const targetKeyFixedParts=targetKey.split('*')
 			if (targetKeyFixedParts.length<2) continue
 			if (new RegExp(
-				'^'+targetKeyFixedParts.map(escapeRegex).join('.*')+'$'
+				'^'+targetKeyFixedParts.map(e.escapeRegex).join('.*')+'$'
 			).test(tagKey)) return true
 		}
 		return false
-		function escapeRegex(string) { // https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711
-			return string.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')
-		}
 	}
 
 	// manipulate elements

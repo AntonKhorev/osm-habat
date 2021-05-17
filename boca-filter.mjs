@@ -1,3 +1,4 @@
+import * as e from './escape.js'
 import * as osm from './osm.js'
 import {createParentQuery} from './boca-parent.mjs'
 import EndpointSorter from './boca-endpoint-sorter.mjs'
@@ -58,10 +59,10 @@ export default class Filter {
 			} else if (match=trline.match(/^(v[1pst])\[(.*)\]$/)) {
 				const [,ver,tagStatement]=match
 				const trTagStatement=tagStatement.trim()
-				if (match=trTagStatement.match(/^(!?)\s*([^=><!]+)$/)) {
+				if (match=trTagStatement.match(/^(!?)\s*([^=><!~]+)$/)) {
 					const [,not,key]=match
 					handleTagEntry(ver,key,not?'!=*':'=*')
-				} else if (match=trTagStatement.match(/^([^=><!]+?)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
+				} else if (match=trTagStatement.match(/^([^=><!~]+?)\s*(==|=|~=|!=|>=|>|<=|<)\s*(.*)$/)) {
 					const [,key,op,val]=match
 					handleTagEntry(ver,key,op,val)
 				}
@@ -159,7 +160,9 @@ export default class Filter {
 				return actual==expected
 			}
 			const [operator,value]=expected
-			if (operator=='!=') {
+			if (operator=='~=') {
+				return !!(actual??'').match(new RegExp(e.escapeRegex(value),'i'))
+			} else if (operator=='!=') {
 				return actual!=value
 			} else if (operator=='>') {
 				return  actual>value
@@ -361,7 +364,8 @@ export default class Filter {
 	<dt><kbd>count</kbd> <dd><strong>aggregate filter</strong>: the number of versions corresponding to this <em>version descriptor</em> is equal to a given value
 	</dl>
 <dt>${term('comparison operator')}
-<dd>One of: <kbd>= == != > >= < <=</kbd>
+<dd>One of: <kbd>= == ~= != > >= < <=</kbd>
+<dd><kbd>~=</kbd> is case-insensitive substring match, works only for tag values
 <dt>${term('order statement')}
 <dd><kbd>order = </kbd>${term('list of order keys')}
 <dt>${term('list of order keys')}

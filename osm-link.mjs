@@ -1,6 +1,6 @@
 import * as e from './escape.js'
 
-export const osmchaFilterTag=e.independentValuesEscape(value=>{
+export const osmchaFilterTag=e.makeTag(value=>{
 	if (!Array.isArray(value)) value=[value]
 	return '['+value.map(singleValue=>{
 		const cEscapedValue=String(singleValue).replace(/\\/g,'\\\\').replace(/"/g,'\\"')

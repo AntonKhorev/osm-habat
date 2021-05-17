@@ -32,7 +32,7 @@ exports.h=(strings,...values)=>{
 	})
 }
 
-function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
+function escapeXml(text) { // https://github.com/Inist-CNRS/node-xml-writer
 	return String(text)
 		.replace(/&/g,'&amp;')
 		.replace(/</g,'&lt;')
@@ -41,15 +41,21 @@ function xmlEscape(text) { // https://github.com/Inist-CNRS/node-xml-writer
 		.replace(/\n/g,'&#xA;')
 		.replace(/\r/g,'&#xD;')
 }
+exports.escapeXml=escapeXml
 
-const independentValuesEscape=escapeFn=>(strings,...values)=>{
+function escapeRegex(string) { // https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript/3561711
+	return string.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&')
+}
+exports.escapeRegex=escapeRegex
+
+const makeTag=escapeFn=>(strings,...values)=>{
 	let result=strings[0]
 	for (let i=0;i<values.length;i++) {
 		result+=escapeFn(values[i])+strings[i+1]
 	}
 	return result
 }
-exports.independentValuesEscape=independentValuesEscape
+exports.makeTag=makeTag
 
-exports.x=independentValuesEscape(xmlEscape)
-exports.u=independentValuesEscape(encodeURIComponent)
+exports.x=makeTag(escapeXml)
+exports.u=makeTag(encodeURIComponent)

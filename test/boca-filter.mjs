@@ -668,7 +668,7 @@ describe("Filter.filterElements",()=>{
 			['node',100003],
 		])
 	})
-	it("tests tag value",()=>{
+	it("tests tag value with inequality operators",()=>{
 		const node=(ref)=>({tags:{ref}})
 		const project={
 			store:{
@@ -723,6 +723,45 @@ describe("Filter.filterElements",()=>{
 		test('vs[ref=12]',[
 			['node',100003],
 		])
+	})
+	context("when testing string compares",()=>{
+		const node=(name)=>({1:{tags:{name}}})
+		const project={
+			store:{
+				node:{
+					100001:node('google'),
+					100002:node('Google'),
+					100003:node('Google maps'),
+					100004:node('copied from google maps'),
+				}
+			}
+		}
+		const changesets=[
+			[101,[
+				['create','node',100001,1],
+				['create','node',100002,1],
+				['create','node',100003,1],
+				['create','node',100004,1],
+			]],
+		]
+		const test=(text,expected)=>{
+			const filter=new Filter({filter:text})
+			const result=[...filter.filterElements(
+				project,gen(changesets),2
+			)]
+			assert.deepStrictEqual(result,expected)
+		}
+		it("finds exact match",()=>test("vs[name=google]",[
+			['node',100001],
+		]))
+		it("finds inexact substring match",()=>test("vs[name~=google]",[
+			['node',100001],
+			['node',100002],
+			['node',100003],
+			['node',100004],
+		]))
+		it("doesn't find inexact substring match b/c the tag is missing",()=>test("vs[source~=google]",[
+		]))
 	})
 	context("when testing tag order",()=>{
 		const node=(a,b)=>({1:{tags:{a,b}}})
