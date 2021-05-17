@@ -44,6 +44,12 @@ footer .status .elements .meter input {
 	font-family: sans-serif;
 	border: 0;
 	background: transparent;
+	-moz-appearance: textfield;
+}
+footer .status .elements .meter input::-webkit-outer-spin-button,
+footer .status .elements .meter input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
 }
 footer .status .elements .units {
 	display: block;

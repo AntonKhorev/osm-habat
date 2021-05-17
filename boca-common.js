@@ -1,26 +1,36 @@
-const [elementContainerSequence,$positionInput]=setupElementContainerSequence(document)
+const [elementContainerMap,elementContainerArray,$positionInput]=setupElementContainerSequence(document)
 setupElementListeners(document)
 setupExampleListeners(document)
 
 function setupElementContainerSequence($containerContainer) {
-	const elementContainerSequence=new Map()
+	const elementContainerMap=new Map()
+	const elementContainerArray=[]
 	let entry,$prevElementContainer
 	let elementNumber=0
 	for (const $elementContainer of $containerContainer.querySelectorAll('.reloadable')) {
 		if (!$elementContainer.firstElementChild.classList.contains('element')) continue
+		elementContainerArray.push($elementContainer)
 		if (entry) entry.push($elementContainer)
 		entry=[++elementNumber,$prevElementContainer]
-		elementContainerSequence.set($elementContainer,entry)
+		elementContainerMap.set($elementContainer,entry)
 		$prevElementContainer=$elementContainer
 	}
-	const $elementCountMeter=document.querySelector('.status .elements .meter')
-	if (!$elementCountMeter) return [elementContainerSequence]
-	const $positionInput=document.createElement('input')
-	$positionInput.disabled=true
-	$positionInput.style.width=$elementCountMeter.innerText.length+'ch'
-	$elementCountMeter.prepend('/')
-	$elementCountMeter.prepend($positionInput)
-	return [elementContainerSequence,$positionInput]
+	const makePositionInput=()=>{
+		const $elementCountMeter=document.querySelector('.status .elements .meter')
+		if (!$elementCountMeter) return
+		const $positionInput=document.createElement('input')
+		const maxDigits=$elementCountMeter.innerText.length
+		$positionInput.type='number'
+		$positionInput.min=1
+		$positionInput.max=elementNumber
+		$positionInput.style.width=maxDigits+'ch'
+		$positionInput.addEventListener('input',positionInputListener)
+		$positionInput.addEventListener('keypress',positionKeypressListener)
+		$elementCountMeter.prepend('/')
+		$elementCountMeter.prepend($positionInput)
+		return $positionInput
+	}
+	return [elementContainerMap,elementContainerArray,makePositionInput()]
 }
 
 function setupElementListeners($container) {
@@ -64,12 +74,23 @@ function setupElementListeners($container) {
 	}
 }
 // only listeners should fix the focus
+function positionInputListener(ev) {
+	const position=Number(this.value)
+	if (!Number.isInteger(position)) return
+	elementContainerArray[position-1]?.querySelector('.element')?.scrollIntoView({block:'center'})
+}
+function positionKeypressListener(ev) {
+	if (ev.keyCode!=13) return
+	const position=Number(this.value)
+	if (!Number.isInteger(position)) return
+	elementContainerArray[position-1]?.querySelector('summary')?.focus()
+}
 function elementFocusinListener(ev) {
 	const $element=this
 	$element.classList.add('active')
 	if (!$positionInput) return
 	const $elementContainer=$element.parentElement
-	const [elementNumber]=elementContainerSequence.get($elementContainer)
+	const [elementNumber]=elementContainerMap.get($elementContainer)
 	$positionInput.value=elementNumber
 }
 function elementFocusoutListener(ev) {
@@ -94,10 +115,10 @@ async function elementKeydownListener(ev) {
 		$toElement?.scrollIntoView({block:'center'})
 	}
 	if (ev.key=='w') {
-		const [,$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
+		const [,$prevElementContainer,$nextElementContainer]=elementContainerMap.get($elementContainer)
 		navigate($prevElementContainer?.firstElementChild)
 	} else if (ev.key=='s') {
-		const [,$prevElementContainer,$nextElementContainer]=elementContainerSequence.get($elementContainer)
+		const [,$prevElementContainer,$nextElementContainer]=elementContainerMap.get($elementContainer)
 		navigate($nextElementContainer?.firstElementChild)
 	} else if (ev.key=='e') {
 		const $button=$element.querySelector('tr.visible td.act button')
