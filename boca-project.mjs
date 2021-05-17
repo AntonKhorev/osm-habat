@@ -118,7 +118,7 @@ export default class Project {
 		}
 	}
 	watchScopes() {
-		fs.watch(this.scopesFilename,()=>{
+		fs.watchFile(this.scopesFilename,()=>{
 			this.loadScopes()
 		})
 	}
