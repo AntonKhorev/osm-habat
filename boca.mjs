@@ -11,6 +11,7 @@ import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
 import writeOsmFile from './osm-writer.mjs'
 import Project from './boca-project.mjs'
+import Scope from './boca-scope.mjs'
 import Redaction from './boca-redaction.mjs'
 import * as respond from './boca-respond.mjs'
 import * as views from './boca-view.mjs'
@@ -70,10 +71,11 @@ function main(projectDirname) {
 			}
 		} else if (match=pathname.match(new RegExp('^/scope/([^/]*)/([^/]*)$'))) {
 			const [,scopeString,subpath]=match
-			const scope=decodeURIComponent(scopeString)
-			if (!(scope in project.scope)) {
+			const scopeName=decodeURIComponent(scopeString)
+			const scope=project.scope.get(scopeName)
+			if (!scope) {
 				response.writeHead(404)
-				response.end(`Scope "${scope}" not found`)
+				response.end(`Scope "${scopeName}" not found`)
 				return
 			}
 			const view=new views.ScopeView(project,scope)
@@ -85,12 +87,12 @@ function main(projectDirname) {
 			}
 		} else if (match=pathname.match(new RegExp('^/user/([1-9]\\d*)/([^/]*)$'))) {
 			const [,uid,subpath]=match
-			if (!(uid in project.user)) {
+			const user=project.user[uid]
+			if (!user) {
 				response.writeHead(404)
 				response.end(`User #${uid} not found`)
 				return
 			}
-			const user=project.user[uid]
 			const view=new views.UserView(project,user)
 			if (await serveViewRoutes(view,subpath)) {
 				// ok
@@ -320,14 +322,14 @@ function serveRoot(response,project) {
 	response.write(`<p><a href=/all/>All completely downloaded changesets.</a></p>\n`)
 	response.write(`<h3 id=section-scopes>Scopes</h3>\n`)
 	let hasScopes=false
-	for (const scope in project.scope) {
+	for (const [scopeName,scope] of project.scope) {
 		if (!hasScopes) {
 			hasScopes=true
 			response.write(`<table>\n`)
 			response.write(`<tr><th>name<th>status\n`)
 		}
-		const href=e.u`/scope/${scope}/`
-		response.write(e.h`<tr><td><a href=${href}>${scope}</a><td>${project.getScopeStatus(scope)}\n`)
+		const href=e.u`/scope/${scopeName}/`
+		response.write(e.h`<tr><td><a href=${href}>${scope.name}</a><td>${scope.status}\n`)
 	}
 	if (hasScopes) {
 		response.write(`</table>\n`)
@@ -337,13 +339,8 @@ function serveRoot(response,project) {
 		response.write(`None defined yet. `)
 	}
 	response.write(`Define scopes by creating/editing <kbd>scopes.txt</kbd> file in the project directory. Reload this page to see the changes.\n`)
-	response.write(`<details>\n`)
-	response.write(`<summary>scopes.txt syntax</summary>\n`)
-	response.write(`<p>Markdown-like syntax with file read line-by line. Line starting with <kbd>#</kbd> followed by a scope name starts a scope section. Lines inside a section can be:\n`)
-	response.write(`<ul>\n`)
-	response.write(`<li><kbd>*</kbd> followed by a status indicator (currently any string) - used to mark which scopes were processed\n`)
-	response.write(`<li>changeset id or url - to include this changeset in the scope\n`)
-	response.write(`</ul>\n`)
+	response.write(`<details><summary>scopes.txt syntax</summary>\n`)
+	response.write(Scope.fileSyntaxDescription)
 	response.write(`</details>\n`)
 	response.write(`<h3 id=section-users>Fetched users</h3>\n`)
 	response.write(`<ul>\n`)
@@ -587,8 +584,8 @@ function serveBbox(response,project,user,noscope=false) {
 	response.write(`<osm version="0.6" generator="osm-habat" download="never" upload="never">\n`)
 	const skipCids=new Set()
 	if (noscope) {
-		for (const scope in project.scope) {
-			for (const [cid] of project.getScopeChangesets(scope)) {
+		for (const scope of project.scope.values()) {
+			for (const [cid] of scope.getChangesets(project.store,project.user)) {
 				skipCids.add(cid)
 			}
 		}

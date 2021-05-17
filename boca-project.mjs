@@ -3,8 +3,8 @@ import * as path from 'path'
 
 import * as e from './escape.js' // TODO move somewhere else along with getUserLink()
 import * as osm from './osm.js'
-import * as osmRef from './osm-ref.mjs'
 import Redaction from './boca-redaction.mjs'
+import Scope from './boca-scope.mjs'
 
 const getFileLines=(filename)=>String(fs.readFileSync(filename)).split(/\r\n|\r|\n/)
 
@@ -85,35 +85,11 @@ export default class Project {
 	// scopes
 	get scopesFilename() { return path.join(this.dirname,'scopes.txt') }
 	loadScopes() {
-		this.scope={}
-		this.scopeStatus={} // private
-		this.scopeChangesets={} // private
+		this.scope=new Map()
 		if (fs.existsSync(this.scopesFilename)) {
-			let scope
-			for (const line of getFileLines(this.scopesFilename)) {
-				let match
-				if (match=line.match(/^#+\s*(.*\S)\s*$/)) {
-					[,scope]=match
-					if (!(scope in this.scope)) this.scope[scope]=[]
-				} else {
-					this.scope[scope]?.push(line)
-				}
-			}
-		}
-		for (const [scope,lines] of Object.entries(this.scope)) {
-			this.scopeChangesets[scope]=new Set() // TODO modify to also contain uids
-			for (const line of lines) {
-				let match
-				if (match=line.match(/^\*(.*)$/)) {
-					const [,statusString]=match
-					this.scopeStatus[scope]=statusString.trim()
-					continue
-				}
-				try {
-					const cid=osmRef.changeset(line)
-					this.scopeChangesets[scope].add(cid)
-					continue
-				} catch {}
+			const scopeLines=Scope.collectLinesByScopes(getFileLines(this.scopesFilename))
+			for (const [name,lines] of scopeLines) {
+				this.scope.set(name,new Scope(name,lines))
 			}
 		}
 	}
@@ -124,16 +100,6 @@ export default class Project {
 	}
 	saveScopes() {
 		// TODO
-	}
-	*getScopeChangesets(scope) {
-		const sortedCids=[...this.scopeChangesets[scope]]
-		sortedCids.sort((x,y)=>(x-y))
-		for (const cid of sortedCids) {
-			if (cid in this.store.changeset) yield [cid,this.store.changeset[cid]]
-		}
-	}
-	getScopeStatus(scope) {
-		return this.scopeStatus[scope]
 	}
 
 	// pending redactions

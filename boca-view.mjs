@@ -299,13 +299,13 @@ export class ScopeView extends FullView {
 		this.scope=scope
 	}
 	getChangesets() {
-		return this.project.getScopeChangesets(this.scope)
+		return this.scope.getChangesets(this.project.store,this.project.user)
 	}
 	getTitle() {
-		return 'scope "'+this.scope+'"'
+		return 'scope "'+this.scope.name+'"'
 	}
 	writeHeading(response) {
-		response.write(e.h`<h1>Scope "${this.scope}"</h1>\n`)
+		response.write(e.h`<h1>Scope "${this.scope.name}"</h1>\n`)
 	}
 	writeMain(response) {
 		const cids=[]
@@ -314,7 +314,7 @@ export class ScopeView extends FullView {
 		response.write(`<li>external tools: `+osmLink.changesets(cids).osmcha.at('osmcha')+`\n`)
 		response.write(`</ul>\n`)
 		response.write(`<textarea>\n`)
-		for (const line of this.project.scope[this.scope]) {
+		for (const line of this.scope.lines) {
 			response.write(e.h`${line}\n`)
 		}
 		response.write(`</textarea>`)

@@ -1,6 +1,6 @@
 export function element(s) {
 	let match
-	if (match=s.match(/(node|way|relation)[/:]?\s*(\d+)/i)) {
+	if (match=plaintextMatch(s,'(node|way|relation)')) {
 		const [,etype,eidString]=match
 		return [etype.toLowerCase(),Number(eidString)]
 	} else if (match=s.match(/([nwr])(\d+)/)) {
@@ -18,7 +18,7 @@ export function changeset(s) {
 	const n=Number(s)
 	if (Number.isInteger(n)) return n
 	let match
-	if (match=s.match(/changeset[/:]?\s*(\d+)/i)) {
+	if (match=plaintextMatch(s,'c(?:hange)?set')) {
 		const [,cidString]=match
 		return Number(cidString)
 	}
@@ -32,6 +32,9 @@ export function user(s) {
 	if (match=s.match(/(['"])(.*)\1/)) {
 		const [,,username]=match
 		return ["name",username]
+	} else if (match=plaintextMatch(s,'(?:user|uid)')) {
+		const [,uidString]=match
+		return ["id",Number(uidString)]
 	}
 	try {
 		const url=new URL(s)
@@ -52,4 +55,8 @@ export function user(s) {
 		}
 	} catch {}
 	throw new Error(`Invalid user reference "${s}"`)
+}
+
+function plaintextMatch(s,regExpStart) {
+	return s.match(new RegExp(regExpStart+'[/:]?\\s*#?(\\d+)','i'))
 }
