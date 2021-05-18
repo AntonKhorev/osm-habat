@@ -1,6 +1,5 @@
 // bunch-of-changesets analyser
 
-import * as fs from 'fs'
 import * as http from 'http'
 import * as querystring from 'querystring'
 import open from 'open'
@@ -10,6 +9,7 @@ import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
 import writeOsmFile from './osm-writer.mjs'
+import * as bocaFile from './boca-file.mjs'
 import Project from './boca-project.mjs'
 import Scope from './boca-scope.mjs'
 import Redaction from './boca-redaction.mjs'
@@ -126,7 +126,6 @@ function main(projectDirname) {
 			}
 		} else if (match=pathname.match(new RegExp('^/siblings/([1-9]\\d*)/([1-9]\\d*)/([^/]*)$'))) {
 			const [,eid,cid,subpath]=match
-
 			if (!project.store.changeset[cid]) {
 				try {
 					await osm.fetchToStore(project.store,`/api/0.6/changeset/${cid}/download`)
@@ -245,60 +244,19 @@ function main(projectDirname) {
 				response.end(`Redactions extra elements route not defined`)
 			}
 		} else if (pathname=='/boca-common.js') {
-			servePatchedJsFile(response,pathname,'/boca-common-patch.mjs')
+			bocaFile.servePatchedJsFile(response,pathname,'/boca-common-patch.mjs')
 		} else if (pathname=='/boca-map.js') {
-			serveStaticFile(response,pathname,'text/javascript; charset=utf-8')
+			bocaFile.serveStaticFile(response,pathname,'text/javascript; charset=utf-8')
 		} else if (pathname=='/boca-common.css') {
-			servePatchedCssFile(response,pathname,bocaCommonCssPatch)
+			bocaFile.servePatchedCssFile(response,pathname,bocaCommonCssPatch)
 		} else if (pathname=='/favicon.ico') {
-			serveStaticFile(response,pathname,'image/x-icon')
+			bocaFile.serveStaticFile(response,pathname,'image/x-icon')
 		} else {
 			response.writeHead(404)
 			response.end('Route not defined')
 		}
 	}).listen(process.env.PORT||0).on('listening',()=>{
 		if (!process.env.PORT) open('http://localhost:'+server.address().port)
-	})
-}
-
-function serveStaticFile(response,pathname,contentType) {
-	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
-		response.writeHead(200,{
-			'Content-Type':contentType,
-			'Cache-Control':'public, max-age=604800, immutable',
-		})
-		response.end(data)
-	})
-}
-
-function servePatchedJsFile(response,pathname,patchPathname) {
-	const contentType='text/javascript; charset=utf-8'
-	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
-		fs.readFile(new URL('.'+patchPathname,import.meta.url),(err,patchData)=>{
-			response.writeHead(200,{
-				'Content-Type':contentType,
-				'Cache-Control':'public, max-age=604800, immutable',
-			})
-			response.write(data)
-			response.write(`\n// patch from ${patchPathname}\n`)
-			response.write(
-				String(patchData).replace(/^export\s+/gm,'')
-			)
-			response.end()
-		})
-	})
-}
-
-function servePatchedCssFile(response,pathname,patchModule) {
-	const contentType='text/css; charset=utf-8'
-	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
-		response.writeHead(200,{
-			'Content-Type':contentType,
-			'Cache-Control':'public, max-age=604800, immutable',
-		})
-		response.end(
-			String(data).replace(/\${(.*?)}/g,(_,s)=>patchModule[s])
-		)
 	})
 }
 
