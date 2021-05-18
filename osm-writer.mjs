@@ -12,13 +12,24 @@ import * as e from './escape.js'
  *     [etype,eid,ev,ev2] - for writing modifications from version ev to version ev2
  */
 export default function writeOsmFile(write,store,elements) {
+	const getDataForEdit=(estore,ev,edit)=>{
+		if (edit==null) {
+			return [estore[ev],false]
+		} else if (Number.isInteger(edit)) {
+			const ev2=edit
+			return [estore[ev2],true]
+		} else {
+			const tags=edit
+			return [{...estore[ev],tags},true]
+		}
+	}
 	write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	write(`<osm version="0.6" generator="osm-habat">\n`)
-	for (const [etype,eid,ev,ev2] of elements) {
+	for (const [etype,eid,ev,edit] of elements) {
 		const emeta=store[etype][eid][ev]
-		const edata=store[etype][eid][ev2??ev]
+		const [edata,isModified]=getDataForEdit(store[etype][eid],ev,edit)
 		let importantAttrs=e.x`id="${eid}" version="${ev}" changeset="${emeta.changeset}" uid="${emeta.uid}"` // changeset and uid are required by josm to display element history
-		if (ev2!=null && ev!=ev2) importantAttrs+=' action="modify"'
+		if (isModified) importantAttrs+=' action="modify"'
 		if (etype=='node') {
 			write(`  <node `+importantAttrs+e.x` lat="${edata.lat}" lon="${edata.lon}"`)
 			let t=Object.entries(edata.tags)
