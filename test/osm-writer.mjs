@@ -3,10 +3,9 @@ import expat from 'node-expat'
 
 import writeOsmFile from '../osm-writer.mjs'
 
-const expectNodes=(writer,expectedNodes)=>{
+const expectNodes=(writer,expectedNodeActions)=>{
 	let inOsm=0
 	let metOsms=0
-	let metNodes=0
 	const parser=new expat.Parser().on('startElement',(name,attrs)=>{
 		if (name=='osm') {
 			metOsms++
@@ -15,7 +14,9 @@ const expectNodes=(writer,expectedNodes)=>{
 			throw new Error("met unexpected element")
 		} else if (name=='node') {
 			if (!inOsm) throw new Error("met node outside of root")
-			metNodes++
+			if (expectedNodeActions.length==0) throw new Error("too many nodes")
+			const expectedAction=expectedNodeActions.shift()
+			assert.equal(attrs.action,expectedAction)
 		}
 	}).on('endElement',(name)=>{
 		if (name=='osm') {
@@ -27,17 +28,17 @@ const expectNodes=(writer,expectedNodes)=>{
 	writer((s)=>parser.write(s))
 	parser.end()
 	assert(metOsms,"no osm root")
-	assert.equal(metNodes,expectedNodes,"unexpected number of nodes")
+	if (expectedNodeActions.length!=0) throw new Error("not enough nodes")
 }
 
 describe("writeOsmFile test functions",()=>{
 	it("throws on rubbish xml",()=>assert.throws(()=>{
 		const rubbishWriter=(write)=>write("junk<<")
-		expectNodes(rubbishWriter,0)
+		expectNodes(rubbishWriter,[])
 	}))
 	it("throws on wrong root",()=>assert.throws(()=>{
 		const rubbishWriter=(write)=>write(`<?xml version="1.0" encoding="UTF-8"?><lol></lol>`)
-		expectNodes(rubbishWriter,0)
+		expectNodes(rubbishWriter,[])
 	}))
 })
 
@@ -70,11 +71,20 @@ describe("writeOsmFile",()=>{
 	}
 	it("writes empty file",()=>expectNodes(
 		write=>writeOsmFile(write,store,[
-		]),0
+		]),[]
 	))
 	it("writes single node",()=>expectNodes(
 		write=>writeOsmFile(write,store,[
 			['node',101,2]
-		]),1
+		]),[
+			undefined
+		]
+	))
+	it("writes single node with mod to earlier version",()=>expectNodes(
+		write=>writeOsmFile(write,store,[
+			['node',101,2,1]
+		]),[
+			'modify'
+		]
 	))
 })
