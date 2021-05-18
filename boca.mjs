@@ -8,7 +8,6 @@ import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
 import * as osmRef from './osm-ref.mjs'
-import writeOsmFile from './osm-writer.mjs'
 import * as bocaFile from './boca-file.mjs'
 import Project from './boca-project.mjs'
 import Scope from './boca-scope.mjs'
@@ -664,7 +663,7 @@ async function serveUndeleteElement(response,project,etype,eid) {
 		response.end(`undelete fetch error:\n${ex.message}`)
 		return
 	}
-	writeOsmFile(response,project.store,elements)
+	bocaFile.serveOsmFile(response,project.store,elements)
 }
 
 async function serveFetchChangeset(response,project,cidString,referer) {

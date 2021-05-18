@@ -3,7 +3,7 @@
 import * as e from './escape.js'
 import * as osm from './osm.js'
 import * as osmLink from './osm-link.mjs'
-import writeOsmFile from './osm-writer.mjs'
+import * as bocaFile from './boca-file.mjs'
 import {createParentQuery} from './boca-parent.mjs'
 import elementWriter from './boca-element.mjs'
 import {fetchTopVersions,fetchTopVisibleVersions} from './boca-fetcher.mjs'
@@ -524,7 +524,7 @@ export async function serveTopVersions(response,project,changesets,filter) {
 		response.end(`top version fetch error:\n${ex.message}`)
 		return
 	}
-	writeOsmFile(response,project.store,elements)
+	bocaFile.serveOsmFile(response,project.store,elements)
 }
 
 export async function serveTopVisibleVersions(response,project,changesets,filter) {
@@ -538,7 +538,7 @@ export async function serveTopVisibleVersions(response,project,changesets,filter
 		response.end(`top visible version fetch error:\n${ex.message}`)
 		return
 	}
-	writeOsmFile(response,project.store,elements)
+	bocaFile.serveOsmFile(response,project.store,elements)
 }
 
 // TODO make fetches report if they hit the limit

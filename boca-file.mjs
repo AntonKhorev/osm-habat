@@ -1,5 +1,7 @@
 import * as fs from 'fs'
 
+import writeOsmFile from './osm-writer.mjs'
+
 export function serveStaticFile(response,pathname,contentType) {
 	fs.readFile(new URL('.'+pathname,import.meta.url),(err,data)=>{
 		response.writeHead(200,{
@@ -39,4 +41,10 @@ export function servePatchedCssFile(response,pathname,patchModule) {
 			String(data).replace(/\${(.*?)}/g,(_,s)=>patchModule[s])
 		)
 	})
+}
+
+export function serveOsmFile(response,store,elements) {
+	response.writeHead(200,{'Content-Type':'application/xml; charset=utf-8'})
+	writeOsmFile(s=>response.write(s),store,elements)
+	response.end()
 }
