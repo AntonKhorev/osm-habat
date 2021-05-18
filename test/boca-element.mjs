@@ -1,4 +1,4 @@
-import assert from 'assert'
+import {strict as assert} from 'assert'
 
 import {IN,OUT,PARENT,UNKNOWN,NULL,TagChangeTracker} from '../boca-element.mjs'
 
@@ -45,8 +45,8 @@ describe("TagChangeTracker",()=>{
 			[IN,1,'foo'],
 		])
 		assert.equal(tracker.action,'delete')
-		assert.strictEqual(tracker.value,'')
-		assert.deepStrictEqual(tracker.versions,[1])
+		assert.equal(tracker.value,'')
+		assert.deepEqual(tracker.versions,[1])
 	})
 	it("provides delete if the tag added to a new element and then other in-version edit is made",()=>{
 		const tracker=runTracker([
@@ -55,8 +55,8 @@ describe("TagChangeTracker",()=>{
 			[IN,2,'foo'],
 		])
 		assert.equal(tracker.action,'delete')
-		assert.strictEqual(tracker.value,'')
-		assert.deepStrictEqual(tracker.versions,[1,2])
+		assert.equal(tracker.value,'')
+		assert.deepEqual(tracker.versions,[1,2])
 	})
 	it("refrains from providing an action if the previous state is unknown",()=>{
 		const tracker=runTracker([
@@ -80,8 +80,8 @@ describe("TagChangeTracker",()=>{
 			[IN ,2,'boo!'],
 		])
 		assert.equal(tracker.action,'undo')
-		assert.strictEqual(tracker.value,'')
-		assert.deepStrictEqual(tracker.versions,[2])
+		assert.equal(tracker.value,'')
+		assert.deepEqual(tracker.versions,[2])
 	})
 	it("provides no action if the tag is not modified on an existing element",()=>{
 		const tracker=runTracker([
@@ -98,8 +98,8 @@ describe("TagChangeTracker",()=>{
 			[IN, 2,'bar'],
 		])
 		assert.equal(tracker.action,'undo')
-		assert.strictEqual(tracker.value,'foo')
-		assert.deepStrictEqual(tracker.versions,[2])
+		assert.equal(tracker.value,'foo')
+		assert.deepEqual(tracker.versions,[2])
 	})
 	it("provides undo if the tag is modified on an existing element and kept in later out-versions",()=>{
 		const tracker=runTracker([
@@ -110,8 +110,8 @@ describe("TagChangeTracker",()=>{
 			[OUT,4,'bar'],
 		])
 		assert.equal(tracker.action,'undo')
-		assert.strictEqual(tracker.value,'foo')
-		assert.deepStrictEqual(tracker.versions,[2,3,4])
+		assert.equal(tracker.value,'foo')
+		assert.deepEqual(tracker.versions,[2,3,4])
 	})
 	it("provides hide if the tag change is undone in an out-version",()=>{
 		const tracker=runTracker([
@@ -122,7 +122,7 @@ describe("TagChangeTracker",()=>{
 			[OUT,4,'foo'],
 		])
 		assert.equal(tracker.action,'hide')
-		assert.deepStrictEqual(tracker.versions,[2,3])
+		assert.deepEqual(tracker.versions,[2,3])
 	})
 	it("provides undo if the in-version change won an edit war",()=>{
 		const tracker=runTracker([
@@ -135,8 +135,8 @@ describe("TagChangeTracker",()=>{
 			[IN, 6,'bar'],
 		])
 		assert.equal(tracker.action,'undo')
-		assert.strictEqual(tracker.value,'foo')
-		assert.deepStrictEqual(tracker.versions,[2,4,6])
+		assert.equal(tracker.value,'foo')
+		assert.deepEqual(tracker.versions,[2,4,6])
 	})
 	it("provides undo for possibly tainted versions",()=>{
 		const tracker=runTracker([
@@ -146,8 +146,8 @@ describe("TagChangeTracker",()=>{
 			[OUT,3,'baz'],
 		])
 		assert.equal(tracker.action,'undo')
-		assert.strictEqual(tracker.value,'foo')
-		assert.deepStrictEqual(tracker.versions,[2,3])
+		assert.equal(tracker.value,'foo')
+		assert.deepEqual(tracker.versions,[2,3])
 	})
 	it("provides undo for possibly tainted versions but skips untainted ones",()=>{
 		const tracker=runTracker([
@@ -160,8 +160,8 @@ describe("TagChangeTracker",()=>{
 			[OUT,6,'bar'],
 		])
 		assert.equal(tracker.action,'undo')
-		assert.strictEqual(tracker.value,'foo')
-		assert.deepStrictEqual(tracker.versions,[2,4,5,6])
+		assert.equal(tracker.value,'foo')
+		assert.deepEqual(tracker.versions,[2,4,5,6])
 	})
 	it("provides no action for a deletion in an in-version",()=>{
 		const tracker=runTracker([
@@ -179,7 +179,7 @@ describe("TagChangeTracker",()=>{
 			[IN,7,,false],
 		])
 		assert.equal(tracker.action,'hide')
-		assert.deepStrictEqual(tracker.versions,[6])
+		assert.deepEqual(tracker.versions,[6])
 	})
 	it("provides hide in exact mode",()=>{
 		const tracker=runTracker([
@@ -192,6 +192,6 @@ describe("TagChangeTracker",()=>{
 			[IN, 6,'burr'],
 		],true)
 		assert.equal(tracker.action,'hide')
-		assert.deepStrictEqual(tracker.versions,[2,4])
+		assert.deepEqual(tracker.versions,[2,4])
 	})
 })

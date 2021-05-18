@@ -1,4 +1,4 @@
-import assert from 'assert'
+import {strict as assert} from 'assert'
 
 import Filter from '../boca-filter.mjs'
 
@@ -8,8 +8,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads single filter parameter",()=>{
 		const query={
@@ -22,8 +22,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads two same versiondescriptor filter parameters",()=>{
 		const query={
@@ -38,8 +38,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads two different versiondescriptor filter parameters",()=>{
 		const query={
@@ -56,8 +56,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads boolean true filter parameters",()=>{
 		const query={
@@ -70,8 +70,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads boolean true (1) filter parameters",()=>{
 		const query={
@@ -84,8 +84,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads boolean false filter parameters",()=>{
 		const query={
@@ -98,8 +98,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads boolean false (0) filter parameters",()=>{
 		const query={
@@ -112,8 +112,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads topological order parameter",()=>{
 		const query={
@@ -122,8 +122,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['ends']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads tag order parameter",()=>{
 		const query={
@@ -132,8 +132,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads comma-separated order parameters",()=>{
 		const query={
@@ -142,8 +142,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['tag','name'],['ends']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads comma-separated order parameters with whitespace",()=>{
 		const query={
@@ -152,8 +152,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['tag','name'],['ends'],['tag','ref']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads empty lines",()=>{
 		const query={
@@ -162,8 +162,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads one filter line",()=>{
 		const query={
@@ -176,8 +176,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads two filter lines",()=>{
 		const query={
@@ -193,8 +193,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads two filter lines with empty lines",()=>{
 		const query={
@@ -212,8 +212,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads == operator line",()=>{
 		const query={
@@ -226,8 +226,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads >= operator line",()=>{
 		const query={
@@ -240,8 +240,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads < operator line",()=>{
 		const query={
@@ -254,8 +254,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads order line",()=>{
 		const query={
@@ -264,8 +264,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("overrides text with a parameter",()=>{
 		const query={
@@ -279,8 +279,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("overrides text line with a next line",()=>{
 		const query={
@@ -295,8 +295,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads whitespace around filter opetator",()=>{
 		const query={
@@ -309,8 +309,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads whitespace around order opetator",()=>{
 		const query={
@@ -319,8 +319,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads whitespace around filter statement",()=>{
 		const query={
@@ -333,8 +333,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads whitespace around order statement",()=>{
 		const query={
@@ -343,8 +343,8 @@ describe("Filter.constructor",()=>{
 		const expectedConditions={}
 		const expectedOrder=[['tag','name']]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads tag presence condition",()=>{
 		const query={
@@ -359,8 +359,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads tag absence condition",()=>{
 		const query={
@@ -375,8 +375,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads tag value condition",()=>{
 		const query={
@@ -391,8 +391,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 	it("reads tag value condition with whitespace",()=>{
 		const query={
@@ -407,8 +407,8 @@ describe("Filter.constructor",()=>{
 		}
 		const expectedOrder=[]
 		const filter=new Filter(query)
-		assert.deepStrictEqual(filter.conditions,expectedConditions)
-		assert.deepStrictEqual(filter.order,expectedOrder)
+		assert.deepEqual(filter.conditions,expectedConditions)
+		assert.deepEqual(filter.order,expectedOrder)
 	})
 })
 
@@ -417,7 +417,7 @@ describe("Filter.text",()=>{
 		const query={}
 		const expectedText=''
 		const filter=new Filter(query)
-		assert.strictEqual(filter.text,expectedText)
+		assert.equal(filter.text,expectedText)
 	})
 	it("returns one filter, no order",()=>{
 		const query={
@@ -426,7 +426,7 @@ describe("Filter.text",()=>{
 		const expectedText=
 			'v1.type=node'
 		const filter=new Filter(query)
-		assert.strictEqual(filter.text,expectedText)
+		assert.equal(filter.text,expectedText)
 	})
 	it("returns two filters, no order",()=>{
 		const query={
@@ -437,7 +437,7 @@ describe("Filter.text",()=>{
 			'v1.type=node\n'+
 			'vs.version=10'
 		const filter=new Filter(query)
-		assert.strictEqual(filter.text,expectedText)
+		assert.equal(filter.text,expectedText)
 	})
 	it("returns two filters, name order",()=>{
 		const query={
@@ -450,7 +450,7 @@ describe("Filter.text",()=>{
 			'vs.version=10\n'+
 			'order=[name]'
 		const filter=new Filter(query)
-		assert.strictEqual(filter.text,expectedText)
+		assert.equal(filter.text,expectedText)
 	})
 	it("repeats anything",()=>{
 		const query={
@@ -462,7 +462,7 @@ describe("Filter.text",()=>{
 			'qwerty\n'+
 			'asdfgh'
 		const filter=new Filter(query)
-		assert.strictEqual(filter.text,expectedText)
+		assert.equal(filter.text,expectedText)
 	})
 	it("repeats anything then adds filters and order",()=>{
 		const query={
@@ -480,7 +480,7 @@ describe("Filter.text",()=>{
 			'vs.version=10\n'+
 			'order=[name]'
 		const filter=new Filter(query)
-		assert.strictEqual(filter.text,expectedText)
+		assert.equal(filter.text,expectedText)
 	})
 })
 
@@ -511,7 +511,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result,[
+			assert.deepEqual(result,[
 				['node',100001],
 				['node',100002],
 				['node',100008],
@@ -523,7 +523,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),3
 			)]
-			assert.deepStrictEqual(result,[
+			assert.deepEqual(result,[
 				['node',100001,[3,4]],
 				['node',100002,[2]],
 				['node',100008,[7]],
@@ -573,7 +573,7 @@ describe("Filter.filterElements",()=>{
 			const result1=[...filter1.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result1,[
+			assert.deepEqual(result1,[
 				['node',100003],
 			])
 			const filter2=new Filter({
@@ -582,7 +582,7 @@ describe("Filter.filterElements",()=>{
 			const result2=[...filter2.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result2,[
+			assert.deepEqual(result2,[
 				['node',100001],
 			])
 			const filter3=new Filter({
@@ -591,7 +591,7 @@ describe("Filter.filterElements",()=>{
 			const result3=[...filter3.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result3,[
+			assert.deepEqual(result3,[
 				['node',100002],
 			])
 		})
@@ -602,7 +602,7 @@ describe("Filter.filterElements",()=>{
 			const result2plus=[...filter2plus.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result2plus,[
+			assert.deepEqual(result2plus,[
 				['node',100001],
 				['node',100002],
 			])
@@ -650,7 +650,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result,expected)
+			assert.deepEqual(result,expected)
 		}
 		test('vs[amenity]',[
 			['node',100002],
@@ -707,7 +707,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result,expected)
+			assert.deepEqual(result,expected)
 		}
 		test('vs[ref>=23]',[
 			['node',100001],
@@ -749,7 +749,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2
 			)]
-			assert.deepStrictEqual(result,expected)
+			assert.deepEqual(result,expected)
 		}
 		it("finds exact match",()=>test("vs[name=google]",[
 			['node',100001],
@@ -790,7 +790,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2,maxSeparatorLevel
 			)]
-			assert.deepStrictEqual(result,expected)
+			assert.deepEqual(result,expected)
 		}
 		it("orders by one tag",()=>test(0,"[a]",[
 			['node',100001],
@@ -874,7 +874,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2,maxSeparatorLevel
 			)]
-			assert.deepStrictEqual(result,expected)
+			assert.deepEqual(result,expected)
 		}
 		it("filters path a, orders by way ends",()=>test(0,`vs[a=1]\norder=ends`,[
 			['way',1001],
@@ -958,7 +958,7 @@ describe("Filter.filterElements",()=>{
 			const result=[...filter.filterElements(
 				project,gen(changesets),2,maxSeparatorLevel
 			)]
-			assert.deepStrictEqual(result,expected)
+			assert.deepEqual(result,expected)
 		}
 		it("orders by name",()=>test(0,`[name]`,[
 			['way',13],

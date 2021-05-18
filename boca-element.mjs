@@ -531,7 +531,7 @@ export class TagChangeTracker {
 		}
 	}
 	get action() {
-		if (this.versions.length==0) return undefined
+		if (this.versions.length==0) return null
 		if (this.clean) return 'hide'
 		if (this.isDelete) return 'delete'
 		return 'undo'

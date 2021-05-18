@@ -1,4 +1,4 @@
-import assert from 'assert'
+import {strict as assert} from 'assert'
 
 import {fetchTopVersions,fetchTopVisibleVersions} from '../osm-fetcher.mjs'
 
@@ -43,7 +43,7 @@ describe("osm fetcher common code",()=>{
 			throw new Error("called multifetch when not supposed to")
 		}
 		const result=await fetchTopVersions(multifetch,store,[])
-		assert.deepStrictEqual(result,[])
+		assert.deepEqual(result,[])
 	})
 })
 
@@ -137,26 +137,26 @@ describe("fetchTopVersions",()=>{
 	}
 	it("does nothing if nothing is requested",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[])
-		assert.deepStrictEqual(result,[])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(result,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("returns requested and already fetched node",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['node',1001],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1001,2],
 		])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("fetches requested node without top version",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['node',1002],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1002,3],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1002],
 		])
 	})
@@ -165,11 +165,11 @@ describe("fetchTopVersions",()=>{
 			['node',1002],
 			['node',1001],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1001,2],
 			['node',1002,3],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1002],
 		])
 	})
@@ -177,15 +177,15 @@ describe("fetchTopVersions",()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['node',1003],
 		])
-		assert.deepStrictEqual(result,[])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(result,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("fetches and returns nothing because requested node is deleted",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['node',1004],
 		])
-		assert.deepStrictEqual(result,[])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(result,[])
+		assert.deepEqual(multifetchLog,[
 			['node',1004],
 		])
 	})
@@ -193,50 +193,50 @@ describe("fetchTopVersions",()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['relation',11],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['relation',11,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("returns nothing b/c requested way is deleted",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',101],
 		])
-		assert.deepStrictEqual(result,[])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(result,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("returns already fetched way",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',102],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1101,1],
 			['node',1102,1],
 			['node',1103,1],
 			['node',1104,1],
 			['way',102,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("returns already fetched looped way",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',103],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1101,1],
 			['node',1102,1],
 			['node',1103,1],
 			['node',1104,1],
 			['way',103,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("returns already fetched intersecting ways",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',102],
 			['way',104],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1101,1],
 			['node',1102,1],
 			['node',1103,1],
@@ -246,18 +246,18 @@ describe("fetchTopVersions",()=>{
 			['way',102,1],
 			['way',104,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("fetches unfetched way nodes",async()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',111],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1111,1],
 			['node',1112,1],
 			['way',111,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1111],
 			['node',1112],
 		])
@@ -266,12 +266,12 @@ describe("fetchTopVersions",()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',113],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1113,1],
 			['node',1114,1],
 			['way',113,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['way',113],
 			['node',1113],
 			['node',1114],
@@ -281,13 +281,13 @@ describe("fetchTopVersions",()=>{
 		const result=await fetchTopVersions(multifetch,store,[
 			['way',121],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1201,2],
 			['node',1202,2],
 			['node',1203,2],
 			['way',121,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1201],
 			['node',1202],
 			['node',1203],
@@ -399,10 +399,10 @@ describe("fetchTopVisibleVersions",()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['node',1001],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1001,2],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1001],
 		])
 	})
@@ -410,10 +410,10 @@ describe("fetchTopVisibleVersions",()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['node',1002],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1002,4,3],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1002],
 			['node',1002,3],
 		])
@@ -422,12 +422,12 @@ describe("fetchTopVisibleVersions",()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['way',10],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1000,1],
 			['node',1001,2],
 			['way',10,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['way',10],
 			['node',1000],
 			['node',1001],
@@ -437,12 +437,12 @@ describe("fetchTopVisibleVersions",()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['way',11],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1000,1],
 			['node',1001,2],
 			['way',11,2,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['way',11],
 			['way',11,1],
 			['node',1000],
@@ -453,12 +453,12 @@ describe("fetchTopVisibleVersions",()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['way',12],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1002,4,3],
 			['node',1003,2,1],
 			['way',12,2,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['way',12],
 			['way',12,1],
 			['node',1002],
@@ -471,19 +471,19 @@ describe("fetchTopVisibleVersions",()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['node',1010],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1010,2,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[])
+		assert.deepEqual(multifetchLog,[])
 	})
 	it("fetches a doubly-deleted node",async()=>{
 		const result=await fetchTopVisibleVersions(multifetch,store,[
 			['node',1020],
 		])
-		assert.deepStrictEqual(result,[
+		assert.deepEqual(result,[
 			['node',1020,3,1],
 		])
-		assert.deepStrictEqual(multifetchLog,[
+		assert.deepEqual(multifetchLog,[
 			['node',1020],
 			['node',1020,2],
 			['node',1020,1],

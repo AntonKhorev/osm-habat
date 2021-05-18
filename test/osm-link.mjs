@@ -1,4 +1,4 @@
-import assert from 'assert'
+import {strict as assert} from 'assert'
 
 import * as osmLink from '../osm-link.mjs'
 
