@@ -11,7 +11,7 @@ if (process.argv[2]===undefined) {
 
 async function main(href) {
 	let match
-	if (match=href.match(new RegExp('#map=([0-9.]+)/([0-9.]+)/([0-9.]+)'))) {
+	if (match=href.match(new RegExp('#map=([0-9.]+)/(-?[0-9.]+)/(-?[0-9.]+)'))) {
 		const [,zoom,lat,lon]=match
 		open(`https://overpass-turbo.eu?C=${lat};${lon};${zoom}`) // https://github.com/tyrasd/overpass-turbo/blob/master/js/urlParameters.js
 	} else {
