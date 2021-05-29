@@ -48,8 +48,9 @@ TODO downloads from osm to .json for use with relation2.js. Probably going to be
 ### open-overpass-turbo.mjs
 
 Open a new browser window in a location specified by URL parameter.
-Currently works with OpenStreetMap #map URLs.
-Uses not very documented `https://overpass-turbo.eu?C=lat;lon;zoom` request.
+Currently works with OpenStreetMap URLs containing #map coordinates parameter and with note urls.
+Uses not very documented `https://overpass-turbo.eu?C=lat;lon;zoom` request to open the map at specified location.
+For note URLs uses `https://overpass-turbo.eu?Q=query` to put in basic query containing commented out key dates for historic queries.
 
 ### relation.js
 
