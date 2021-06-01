@@ -31,6 +31,19 @@ async function main(href) {
 		addDate('date_created',"note created")
 		addDate('closed_at',"note closed")
 	}
+	if (match=href.match(new RegExp('^'+e.escapeRegex('https://www.openstreetmap.org/changeset/')+'([0-9]+)'))) {
+		const [,changesetId]=match
+		const changeset=await fetchChangeset(changesetId)
+		if (lat==null && changeset.minlat!=null && changeset.maxlat!=null) lat=(changeset.minlat+changeset.maxlat)/2
+		if (lon==null && changeset.minlon!=null && changeset.maxlon!=null) lon=(changeset.minlon+changeset.maxlon)/2
+		const addDate=(prop,name)=>{
+			const date=changeset[prop]
+			if (date==null) return
+			dates.set(name,date)
+		}
+		addDate('created_at',"changeset created")
+		addDate('closed_at',"changeset closed")
+	}
 	if (zoom==null) zoom=18
 	if (lat==null || lon==null) throw new Error(`unknown format of url ${href}`)
 	let openUrl=e.u`https://overpass-turbo.eu?C=${lat};${lon};${zoom}`
@@ -52,6 +65,10 @@ async function main(href) {
 
 async function fetchNote(noteId) {
 	return fetchApiJson(e.u`/api/0.6/notes/${noteId}.json`)
+}
+
+async function fetchChangeset(changesetId) {
+	return (await fetchApiJson(e.u`/api/0.6/changeset/${changesetId}.json`)).elements[0]
 }
 
 async function fetchApiJson(call) {
