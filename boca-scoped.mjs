@@ -468,16 +468,16 @@ export function analyzeNameRedos(response,project,changesets,filter) {
 
 export function viewElements(response,project,changesets,filter) {
 	response.write(`<h2>Filtered elements list</h2>\n`)
-	let first=true
+	let elementCount=0
 	for (const [elementType,elementId,elementVersions] of filter.filterElements(project,changesets,3)) {
-		if (first) {
-			first=false
+		if (elementCount==0) {
 			response.write(`<table>\n`)
 			response.write(
 				`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>`+
 				`<th>known major tags<th>last state\n`
 			)
 		}
+		elementCount++
 		response.write(`<tr>`)
 		response.write(e.h`<td>${elementType[0]}${elementId}`)
 		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
@@ -502,13 +502,15 @@ export function viewElements(response,project,changesets,filter) {
 		}
 		response.write(`\n`)
 	}
-	if (first) {
+	if (elementCount==0) {
 		response.write(`<p>none found\n`)
 	} else {
 		response.write(`</table>\n`)
-		response.write(`<form method=post action=fetch-latest>\n`)
+		response.write(e.h`<p>found ${elementCount} elements\n`)
+		response.write(`<form method=post>\n`)
 		response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
-		response.write(`<button>Fetch a batch of latest versions from OSM</button>\n`)
+		response.write(`<button formaction=fetch-previous>Fetch a batch of previous versions from OSM</button>\n`)
+		response.write(`<button formaction=fetch-latest>Fetch a batch of latest versions from OSM</button>\n`)
 		response.write(`</form>\n`)
 	}
 }
