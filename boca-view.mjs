@@ -370,6 +370,19 @@ export class UserView extends FullView {
 		const editors={}
 		const sources={}
 		const changesetsWithComments=[]
+		const editorData={ // possible created_by values: https://wiki.openstreetmap.org/wiki/Key:created_by
+			iD             :"https://wiki.openstreetmap.org/wiki/ID",
+			JOSM           :"https://wiki.openstreetmap.org/wiki/JOSM",
+			Level0         :"https://wiki.openstreetmap.org/wiki/Level0",
+			'MAPS.ME'      :"https://wiki.openstreetmap.org/wiki/MAPS.ME",
+			OsmAnd         :"https://wiki.openstreetmap.org/wiki/OsmAnd",
+			'Osmose Editor':"https://wiki.openstreetmap.org/wiki/Osmose#Osmose_integrated_tags_editor",
+			osmtools       :"https://wiki.openstreetmap.org/wiki/Revert_scripts",
+			Potlatch       :"https://wiki.openstreetmap.org/wiki/Potlatch",
+			RapiD          :"https://wiki.openstreetmap.org/wiki/RapiD",
+			StreetComplete :"https://wiki.openstreetmap.org/wiki/StreetComplete",
+			Vespucci       :"https://wiki.openstreetmap.org/wiki/Vespucci",
+		}
 		for (let i=0;i<this.user.changesets.length;i++) {
 			const changeset=this.project.changeset[this.user.changesets[i]]
 			const date=new Date(changeset.created_at)
@@ -404,8 +417,8 @@ export class UserView extends FullView {
 				editors[group][item]++
 			}
 			let foundEditor=false
-			for (const editor of ['iD','JOSM','Level0','MAPS.ME','OsmAnd','osmtools','Potlatch','Vespucci']) { // possible created_by values: https://wiki.openstreetmap.org/wiki/Key:created_by
-				if (new RegExp(`^(reverter.*?;)?${editor}\\W`).test(changeset.tags.created_by)) {
+			for (const editor in editorData) {
+				if (new RegExp(`^(reverter.*?;)?${e.escapeRegex(editor)}(?:\\W|$)`).test(changeset.tags.created_by)) {
 					inc(editor,changeset.tags.created_by)
 					foundEditor=true
 					break
@@ -420,7 +433,7 @@ export class UserView extends FullView {
 		response.write(`<dl>\n`)
 		for (const [group,items] of Object.entries(editors)) {
 			const sum=Object.values(items).reduce((x,y)=>x+y)
-			response.write(e.h`<dt>${group} <dd>${sum} changesets`)
+			response.write(e.h`<dt><a href=${editorData[group]}>${group}</a> <dd>${sum} changesets`)
 			for (const [item,count] of Object.entries(items)) {
 				response.write(e.h` - <em>${item}</em> ${count}`)
 			}
