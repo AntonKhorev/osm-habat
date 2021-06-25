@@ -212,7 +212,11 @@ class FullView extends ElementaryView {
 		} else if (route=='formulas') {
 			this.serveByChangeset(response,route,scoped.analyzeFormulas)
 		} else if (route=='keys') {
-			this.serveByChangeset(response,route,scoped.analyzeKeys)
+			if (getQuery.key==null) {
+				this.serveByChangeset(response,route,scoped.analyzeKeys)
+			} else {
+				this.serveByChangeset(response,route,scoped.analyzeKeysKey,getQuery.key)
+			}
 		} else if (route=='deletes') {
 			this.serveByChangeset(response,route,scoped.analyzeDeletes)
 		} else if (route=='cpcpe') {
@@ -243,9 +247,9 @@ class FullView extends ElementaryView {
 		}
 		return true
 	}
-	serveByChangeset(response,route,insides) {
+	serveByChangeset(response,route,insides,extraArg=undefined) {
 		this.writeHead(response,route)
-		insides(response,this.project,this.getChangesets())
+		insides(response,this.project,this.getChangesets(),extraArg)
 		this.writeTail(response)
 	}
 	async serveFetchElements(response,insides,query,referer,errorMessage) {

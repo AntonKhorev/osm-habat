@@ -232,10 +232,38 @@ export function analyzeKeys(response,project,changesets) {
 				}
 				i++
 			}
-			response.write(`\n`)
+			const viewHref=e.u`keys?key=${key}`
+			response.write(e.h`<td><a href=${viewHref}>view</a>\n`)
 		}
 		response.write(`</table>\n`)
 	}
+}
+
+export function analyzeKeysKey(response,project,changesets,key) {
+	response.write(e.h`<h2>Changes in key <code>${key}</code></h2>\n`)
+	response.write(`<table>\n`)
+	response.write(`<tr><th>changeset<th>element<th>old value<th>new value\n`)
+	for (const [cid,changes] of changesets) {
+		for (const [,etype,eid,ev] of changes) {
+			const currentElement=project.store[etype][eid][ev]
+			const previousElement=project.store[etype][eid][ev-1]
+			const cv=currentElement?.tags[key]
+			const pv=previousElement?.tags[key]
+			if (cv==pv) continue
+			response.write(`<tr>`)
+			response.write(`<td>`+osmLink.changeset(cid).at(cid))
+			response.write(`<td>`+osmLink.element(etype,eid).at(`${etype} #${eid}`))
+			if (ev==1) {
+				response.write(`<td><em>new element</em>`)
+			} else if (previousElement==null) {
+				response.write(`<td><em>unknown</em>`)
+			} else {
+				response.write(e.h`<td>${pv}`)
+			}
+			response.write(e.h`<td>${cv}\n`)
+		}
+	}
+	response.write(`</table>\n`)
 }
 
 export function analyzeChangesPerChangesetPerElement(response,project,changesets) { // TODO handle incomplete data - w/o prev versions
