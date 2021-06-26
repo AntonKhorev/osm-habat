@@ -19,41 +19,60 @@ export default class Scope {
 		this.name=name
 		this.lines=lines
 		this.cids=new Set()
-		this.uids=new Set()
-		this.usernames=new Set()
+		this.uids=new Map()
+		this.usernames=new Map()
+		let lastRange=undefined
 		for (const line of lines) {
 			let match
 			if (match=line.match(/^\*(.*)$/)) {
 				const [,statusString]=match
 				this.status=statusString.trim()
+				lastRange=undefined
 				continue
 			}
 			try {
 				const cid=osmRef.changeset(line)
 				this.cids.add(cid)
+				lastRange=undefined
 				continue
 			} catch {}
 			try {
 				const [type,value]=osmRef.user(line)
+				const range=[null,null]
 				if (type=='id') {
-					this.uids.add(value)
+					this.uids.set(value,range)
+					lastRange=range
 				} else if (type=='name') {
-					this.usernames.add(value)
+					this.usernames.set(value,range)
+					lastRange=range
+				} else {
+					lastRange=undefined
 				}
 				continue
 			} catch {}
+			if (match=line.match(/^\s+\[\s*([0-9-]+)\s*$/)) {
+				const [,dateString]=match
+				const timestamp=Date.parse(dateString)
+				if (!Number.isInteger(timestamp)) continue
+				if (!lastRange) continue
+				lastRange[0]=timestamp
+			}
 		}
 	}
-	*getChangesets(store,userStore) {
-		const collectedUids=new Set(this.uids)
+	*getChangesets(store,userStore,changesetStore) {
+		const collectedUids=new Map(this.uids)
 		for (const [uid,userData] of Object.entries(userStore)) {
 			if (this.usernames.has(userData.displayName)) {
-				collectedUids.add(uid)
+				collectedUids.set(uid,this.usernames.get(displayName))
 			}
 		}
 		const collectedCids=new Set(this.cids)
-		for (const uid of collectedUids) {
+		for (const [uid,range] of collectedUids) {
 			for (const cid of userStore[uid]?.changesets??[]) {
+				if (range[0]!=null) {
+					if (!changesetStore[cid]) continue
+					if (changesetStore[cid].created_at<range[0]) continue
+				}
 				collectedCids.add(cid)
 			}
 		}
@@ -67,7 +86,8 @@ export default class Scope {
 <ul>
 <li><kbd>*</kbd> followed by a status indicator (currently any string) - used to mark which scopes were processed
 <li>changeset id or url - to include this changeset in the scope
-<li>user id or url - to include all of this user's changesets in the scope
+<li>user id or url - to include this user's changesets in the scope, all of them unless filtered by a range
+<li>whitespace followed by <kbd>[</kbd> followed by date (YYYY, YYYY-MM or YYYY-MM-DD) after user line - to set the range lower bound by month
 </ul>
 </details>
 `

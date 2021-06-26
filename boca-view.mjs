@@ -303,7 +303,7 @@ export class ScopeView extends FullView {
 		this.scope=scope
 	}
 	getChangesets() {
-		return this.scope.getChangesets(this.project.store,this.project.user)
+		return this.scope.getChangesets(this.project.store,this.project.user,this.project.changeset)
 	}
 	getTitle() {
 		return 'scope "'+this.scope.name+'"'
