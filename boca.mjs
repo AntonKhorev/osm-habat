@@ -624,7 +624,7 @@ async function serveFetchUserMetadata(response,project,user,referer) {
 
 async function serveFetchUserData(response,project,user,referer) {
 	let nDownloads=0
-	for (let i=0;i<user.changesets.length;i++) {
+	for (let i=user.changesets.length-1;i>=0;i--) { // download newest csets first as they are usually more important
 		if (nDownloads>=1000) break
 		const changesetId=user.changesets[i]
 		if (project.changeset[changesetId].changes_count==0) continue
