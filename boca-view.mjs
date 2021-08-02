@@ -380,6 +380,7 @@ export class UserView extends FullView {
 			Level0         :"https://wiki.openstreetmap.org/wiki/Level0",
 			'MAPS.ME'      :"https://wiki.openstreetmap.org/wiki/MAPS.ME",
 			OsmAnd         :"https://wiki.openstreetmap.org/wiki/OsmAnd",
+			OsmInEdit      :"https://wiki.openstreetmap.org/wiki/OsmInEdit",
 			'Osmose Editor':"https://wiki.openstreetmap.org/wiki/Osmose#Osmose_integrated_tags_editor",
 			osmtools       :"https://wiki.openstreetmap.org/wiki/Revert_scripts",
 			Potlatch       :"https://wiki.openstreetmap.org/wiki/Potlatch",
