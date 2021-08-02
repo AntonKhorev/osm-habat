@@ -325,7 +325,7 @@ async function getLastNoteId(uid) {
 
 async function getNoteCountLowerBound(uid,oldNoteCount) {
 	return new Promise(resolve=>osm.apiGet(`/api/0.6/notes/search?limit=${oldNoteCount+1}&closed=-1&user=${uid}`,res=>{
-		noteCount=0
+		let noteCount=0
 		res.pipe((new expat.Parser()).on('startElement',(name,attrs)=>{
 			if (name=='note') noteCount++
 		}).on('end',()=>{
