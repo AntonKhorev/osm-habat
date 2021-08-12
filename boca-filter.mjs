@@ -53,10 +53,10 @@ export default class Filter {
 			addTextLine(line)
 			const trline=line.trim()
 			let match
-			if (match=trline.match(/^(v[1pst])\.([a-zA-Z]+)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
+			if (match=trline.match(/^(v[1past])\.([a-zA-Z]+)\s*(==|=|!=|>=|>|<=|<)\s*(.*)$/)) {
 				const [,ver,key,op,val]=match
 				handleFilterEntry(ver,key,op,val)
-			} else if (match=trline.match(/^(v[1pst])\[(.*)\]$/)) {
+			} else if (match=trline.match(/^(v[1past])\[(.*)\]$/)) {
 				const [,ver,tagStatement]=match
 				const trTagStatement=tagStatement.trim()
 				if (match=trTagStatement.match(/^(!?)\s*([^=><!~]+)$/)) {
@@ -74,7 +74,7 @@ export default class Filter {
 		const additionalLines=[]
 		for (const [verKey,val] of Object.entries(query)) {
 			let match
-			if (match=verKey.match(/^(v[1pst])\.([a-zA-Z]+)$/)) {
+			if (match=verKey.match(/^(v[1past])\.([a-zA-Z]+)$/)) {
 				additionalLines.push(`${verKey}=${val}`)
 				const [,ver,key]=match
 				handleFilterEntry(ver,key,'=',val)
@@ -232,6 +232,7 @@ export default class Filter {
 			for (const [ekey,etype,eid] of iterateKeys(vsEntries)) {
 				if (conditions.v1 && !passOneVersion(conditions.v1,etype,eid,1)) continue
 				if (conditions.vt && !passOneVersion(conditions.vt,etype,eid,osm.topVersion(project.store[etype][eid]))) continue
+				if (conditions.va && !passAnyVersion(conditions.va,etype,eid,new Set(Object.keys(project.store[etype][eid])))) continue
 				if (conditions.vp && !passAnyVersion(conditions.vp,etype,eid,vpEntries.get(ekey))) continue
 				if (conditions.vs && !passAnyVersion(conditions.vs,etype,eid,vsEntries.get(ekey))) continue
 				const result=[etype,eid]
@@ -344,6 +345,7 @@ export default class Filter {
 	<dl>
 	<dt><kbd>v1</kbd> <dd>first version
 	<dt><kbd>vt</kbd> <dd>currently known top version
+	<dt><kbd>va</kbd> <dd>any fetched version
 	<dt><kbd>vs</kbd> <dd>any<sup>[1]</sup> of selected versions
 	<dt><kbd>vp</kbd> <dd>any<sup>[1]</sup> of previous versions<sup>[2]</sup>
 	<dt><sup>[1]</sup> <dd>unless it's an <strong>aggregate filter</strong>
