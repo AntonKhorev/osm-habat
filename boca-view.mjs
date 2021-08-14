@@ -486,6 +486,14 @@ export class ChangesetView extends FullView {
 		response.write(`<h1>Changeset #`+osmLink.changeset(this.cid).at(this.cid)+`</h1>\n`)
 	}
 	writeMain(response) {
+		response.write(`<h2>Metadata</h2>\n`)
+		const changesetMetadata=this.project.changeset[this.cid]
+		if (changesetMetadata) {
+			response.write(e.h`<pre><code>${JSON.stringify(changesetMetadata,null,2)}</code></pre>\n`)
+		} else {
+			response.write(`<p>Metadata not downloaded\n`)
+		}
+		response.write(`<h2>Tools</h2>\n`)
 		const href=osmLink.changeset(this.cid)
 		response.write(e.h`<ul>\n`)
 		response.write(e.h`<li><a href=map>changeset viewer</a>\n`)
