@@ -86,7 +86,7 @@ export default class Scope {
 <ul>
 <li><kbd>*</kbd> followed by a status indicator (currently any string) - used to mark which scopes were processed
 <li>changeset id or url - to include this changeset in the scope
-<li>user id or url - to include this user's changesets in the scope, all of them unless filtered by a range
+<li>user id (preceded by <kbd>uid</kbd> because otherwise it's interpreted as a changeset id) or url - to include this user's changesets in the scope, all of them unless filtered by a range
 <li>whitespace followed by <kbd>[</kbd> followed by date (YYYY, YYYY-MM or YYYY-MM-DD) after user line - to set the range lower bound by month
 </ul>
 </details>
