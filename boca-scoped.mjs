@@ -543,27 +543,56 @@ export function viewElements(response,project,changesets,filter) {
 	}
 }
 
-const NO_COMMENT=Symbol()
-
-export function analyzeChangesetComments(response,changesetStore,changesetIds) {
-	response.write(`<h2>Changeset comments</h2>\n`)
+export function analyzeChangesetComments(response,changesetStore,changesetIds,order) {
+	const orderData=[
+		['comment','comment lexicographically',(comment,cids)=>comment],
+		['length','comment length',(comment,cids)=>comment.length],
+		['number','number of changesets',(comment,cids)=>cids.length],
+		['earliest','earliest changeset',(comment,cids)=>cids[0]],
+		['latest','latest changeset',(comment,cids)=>cids[cids.legnth-1]],
+	]
+	response.write(`<h2>Order comments</h2>\n`)
+	response.write(`<ul>\n`)
+	let orderKeyFn
+	for (const [o,oName,oKeyFn] of orderData) {
+		const href='comments?order='+o
+		let w1='', w2=''
+		if (o==order) {
+			orderKeyFn=oKeyFn
+			w1=`<strong>`
+			w2=`</strong>`
+		}
+		response.write(`<li>${w1}`+e.h`<a href=${href}>by ${oName}</a>`+`${w2}\n`)
+	}
+	response.write(`</ul>\n`)
+	response.write(`<h2>Comments and corresponding changesets</h2>\n`)
 	const cidsByComment={}
 	for (const cid of changesetIds) {
 		const metadata=changesetStore[cid]
 		if (!metadata) continue
-		const comment=metadata.tags.comment??NO_COMMENT
+		const comment=metadata.tags.comment??''
 		if (!cidsByComment[comment]) cidsByComment[comment]=[]
 		cidsByComment[comment].push(cid)
 	}
 	response.write(`<dl>\n`)
-	for (const [comment,cids] of Object.entries(cidsByComment)) {
-		if (comment==NO_COMMENT) {
+	const comments=Object.keys(cidsByComment)
+	if (orderKeyFn) {
+		comments.sort((ca,cb)=>{
+			const ka=orderKeyFn(ca,cidsByComment[ca])
+			const kb=orderKeyFn(cb,cidsByComment[cb])
+			if (ka<kb) return -1
+			if (ka>kb) return +1
+			return 0
+		})
+	}
+	for (const comment of comments) {
+		if (comment=='') {
 			response.write(e.h`<dt><em>empty comment</em>\n`)
 		} else {
 			response.write(e.h`<dt>${comment}\n`)
 		}
 		response.write(e.h`<dd>`)
-		for (const cid of cids) response.write(' '+osmLink.changeset(cid).at(cid))
+		for (const cid of cidsByComment[comment]) response.write(' '+osmLink.changeset(cid).at(cid))
 		response.write(e.h`\n`)
 	}
 	response.write(`</dl>\n`)

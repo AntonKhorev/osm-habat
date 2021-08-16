@@ -235,7 +235,7 @@ class FullView extends ElementaryView {
 			this.serveByChangeset(response,route,scoped.analyzeNonatomicChangesets)
 		} else if (route=='comments') {
 			this.writeHead(response,route)
-			scoped.analyzeChangesetComments(response,this.project.changeset,this.listChangesetIds())
+			scoped.analyzeChangesetComments(response,this.project.changeset,this.listChangesetIds(),getQuery.order)
 			this.writeTail(response)
 		} else {
 			for (const [targetRoute,action,errorMessage,rewriteQuery] of [
