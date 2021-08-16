@@ -546,6 +546,7 @@ export function viewElements(response,project,changesets,filter) {
 export function analyzeChangesetComments(response,changesetStore,changesetIds,order) {
 	const orderData=[
 		['comment','comment lexicographically',(comment,cids)=>comment],
+		['alphabet','comment lexicographically case-insensitive',(comment,cids)=>comment.toLowerCase()],
 		['length','comment length',(comment,cids)=>comment.length],
 		['number','number of changesets',(comment,cids)=>cids.length],
 		['earliest','earliest changeset',(comment,cids)=>cids[0]],
