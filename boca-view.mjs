@@ -203,6 +203,16 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 }
 
 class FullView extends ElementaryView {
+	/**
+	 * Get a list of all changeset ids, including not downloaded ones.
+	 * Falls back to returning the ids of fully downloaded in-scope changesets.
+	 * To be reimplemented in child classes.
+	 */
+	*listChangesetIds() {
+		for (const [cid] of this.getChangesets()) {
+			yield cid
+		}
+	}
 	async serveRoute(response,route,getQuery,passPostQuery,referer) {
 		if (await super.serveRoute(response,route,getQuery,passPostQuery,referer)) {
 			return true
@@ -223,6 +233,10 @@ class FullView extends ElementaryView {
 			this.serveByChangeset(response,route,scoped.analyzeChangesPerChangesetPerElement)
 		} else if (route=='nonatomic') {
 			this.serveByChangeset(response,route,scoped.analyzeNonatomicChangesets)
+		} else if (route=='comments') {
+			this.writeHead(response,route)
+			scoped.analyzeChangesetComments(response,this.project.changeset,this.listChangesetIds())
+			this.writeTail(response)
 		} else {
 			for (const [targetRoute,action,errorMessage,rewriteQuery] of [
 				['fetch-previous',scoped.fetchPreviousVersions,`<p>cannot fetch previous versions of elements\n`], // TODO make it work with elementary views
@@ -278,6 +292,7 @@ class FullView extends ElementaryView {
 			['deletes','deletion distributions'],
 			['cpcpe','changes per changeset per element'],
 			['nonatomic','find nonatomic changesets'],
+			['comments','view changeset comments'],
 		]
 	}
 }
@@ -301,6 +316,9 @@ export class ScopeView extends FullView {
 	constructor(project,scope) {
 		super(project)
 		this.scope=scope
+	}
+	listChangesetIds() {
+		return this.scope.listChangesetIds(this.project.user,this.project.changeset)
 	}
 	getChangesets() {
 		return this.scope.getChangesets(this.project.store,this.project.user,this.project.changeset)
@@ -329,6 +347,9 @@ export class UserView extends FullView {
 	constructor(project,user) {
 		super(project)
 		this.user=user
+	}
+	listChangesetIds() {
+		return this.user.changesets
 	}
 	getChangesets() {
 		return this.project.getUserChangesets(this.user)

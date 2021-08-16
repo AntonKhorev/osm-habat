@@ -1,5 +1,8 @@
 import * as osmRef from './osm-ref.mjs'
 
+/**
+ * Set of changesets of interest described in scopes.txt file
+ */
 export default class Scope {
 	static collectLinesByScopes(lines) {
 		let scopeName
@@ -59,7 +62,10 @@ export default class Scope {
 			}
 		}
 	}
-	*getChangesets(store,userStore,changesetStore) {
+	/**
+	 * @returns ids of all changesets in scope, even if they are not downloaded
+	 */
+	listChangesetIds(userStore,changesetStore) {
 		const collectedUids=new Map(this.uids)
 		for (const [uid,userData] of Object.entries(userStore)) {
 			if (this.usernames.has(userData.displayName)) {
@@ -78,7 +84,13 @@ export default class Scope {
 		}
 		const sortedCids=[...collectedCids]
 		sortedCids.sort((x,y)=>(x-y))
-		for (const cid of sortedCids) {
+		return sortedCids
+	}
+	/**
+	 * @returns downloaded changesets
+	 */
+	*getChangesets(store,userStore,changesetStore) {
+		for (const cid of listChangesetIds(userStore,changesetStore)) {
 			if (cid in store.changeset) yield [cid,store.changeset[cid]]
 		}
 	}

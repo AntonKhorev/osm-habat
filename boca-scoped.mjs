@@ -543,6 +543,32 @@ export function viewElements(response,project,changesets,filter) {
 	}
 }
 
+const NO_COMMENT=Symbol()
+
+export function analyzeChangesetComments(response,changesetStore,changesetIds) {
+	response.write(`<h2>Changeset comments</h2>\n`)
+	const cidsByComment={}
+	for (const cid of changesetIds) {
+		const metadata=changesetStore[cid]
+		if (!metadata) continue
+		const comment=metadata.tags.comment??NO_COMMENT
+		if (!cidsByComment[comment]) cidsByComment[comment]=[]
+		cidsByComment[comment].push(cid)
+	}
+	response.write(`<dl>\n`)
+	for (const [comment,cids] of Object.entries(cidsByComment)) {
+		if (comment==NO_COMMENT) {
+			response.write(e.h`<dt><em>empty comment</em>\n`)
+		} else {
+			response.write(e.h`<dt>${comment}\n`)
+		}
+		response.write(e.h`<dd>`)
+		for (const cid of cids) response.write(e.h`${cid} `)
+		response.write(e.h`\n`)
+	}
+	response.write(`</dl>\n`)
+}
+
 export async function serveTopVersions(response,project,changesets,filter) {
 	let elements
 	try {
