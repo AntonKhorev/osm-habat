@@ -563,7 +563,7 @@ export function analyzeChangesetComments(response,changesetStore,changesetIds) {
 			response.write(e.h`<dt>${comment}\n`)
 		}
 		response.write(e.h`<dd>`)
-		for (const cid of cids) response.write(e.h`${cid} `)
+		for (const cid of cids) response.write(' '+osmLink.changeset(cid).at(cid))
 		response.write(e.h`\n`)
 	}
 	response.write(`</dl>\n`)
