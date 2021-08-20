@@ -199,13 +199,24 @@ export default class Filter {
 					filters.redacted
 				)) return false
 			}
-			if (filters.tagged!=null) {
-				if (!element || !compare(Object.keys(element.tags).length>0,filters.tagged)) return false
-			}
 			if (filters.tag!=null) {
 				if (!element) return false
+				const satisfyAtLeastOneTag=(vo)=>{
+					for (const v of Object.values(element.tags)) if (compare(v,vo)) return true
+					return false
+				}
 				for (const [k,vo] of Object.entries(filters.tag)) {
-					if (!compare(element.tags[k],vo)) return false
+					if (k=='*') {
+						if (vo[0]=='=*') {
+							if (Object.keys(element.tags).length==0) return false
+						} else if (vo[0]=='!=*') { // special case TODO rewrite to support general negation
+							if (Object.keys(element.tags).length>0) return false
+						} else {
+							if (!satisfyAtLeastOneTag(vo)) return false
+						}
+					} else {
+						if (!compare(element.tags[k],vo)) return false
+					}
 				}
 			}
 			return true
@@ -360,11 +371,12 @@ export default class Filter {
 	<dt><kbd>uid</kbd> <dd>the element version was created by a user with a given id
 	<dt><kbd>redacted</kbd> <dd><strong>boolean value:</strong> the element version was recorded as redacted;
 		this requires putting a redaction file into <code>redactions</code> directory inside a project directory
-	<dt><kbd>tagged</kbd> <dd><strong>boolean value:</strong> the element version has tags
 	<dt><kbd>visible</kbd> <dd><strong>boolean value:</strong> the element visibility (the state of being not deleted) matches a given value;
 		values <kbd>0</kbd>, <kbd>no</kbd> and <kbd>false</kbd> correspond to invisibility, other values correspond to visibility
 	<dt><kbd>count</kbd> <dd><strong>aggregate filter</strong>: the number of versions corresponding to this <em>version descriptor</em> is equal to a given value
 	</dl>
+<dt>${term('tag key')}
+<dd>Either actual osm <a href=https://wiki.openstreetmap.org/wiki/Tags#Keys_and_values>tag key</a> or <kbd>*</kbd> for any tag key. <kbd>*</kbd> means any tag is enough to satisfy presence/comparison check. However <kbd>!*</kbd> absence check is a special case, when absence of tags is chacked instead.
 <dt>${term('comparison operator')}
 <dd>One of: <kbd>= == ~= != > >= < <=</kbd>
 <dd><kbd>~=</kbd> is case-insensitive substring match, works only for tag values
@@ -384,6 +396,8 @@ export default class Filter {
 </dl>
 <p>Examples:</p>
 <dl class=examples>
+<dt>Any tagged elements in selected csets
+<dd><pre><code>vs[*]</code></pre>
 <dt>Elements edited more than once in selected csets
 <dd><pre><code>vs.count > 1</code></pre>
 <dt>Highways with name added in selected csets

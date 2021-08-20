@@ -608,7 +608,7 @@ describe("Filter.filterElements",()=>{
 			])
 		})
 	})
-	it("seeks tag presence",()=>{
+	context("when checking tag presence",()=>{
 		const node=(tags)=>({tags})
 		const project={
 			store:{
@@ -626,7 +626,7 @@ describe("Filter.filterElements",()=>{
 						7:node({amenity:'bench'}),
 					},
 					100004:{
-						6:node(),
+						6:node({}),
 					}
 				}
 			}
@@ -643,6 +643,7 @@ describe("Filter.filterElements",()=>{
 			]],
 			[103,[
 				['modify','node',100002,4],
+				['modify','node',100004,6],
 			]],
 		]
 		const test=(text,expected)=>{
@@ -652,21 +653,25 @@ describe("Filter.filterElements",()=>{
 			)]
 			assert.deepEqual(result,expected)
 		}
-		test('vs[amenity]',[
+		it("finds given tag presence",()=>test('vs[amenity]',[
 			['node',100002],
 			['node',100003],
-		])
-		test('vs[!amenity]',[
+		]))		
+		it("finds given tag absence",()=>test('vs[!amenity]',[
 			['node',100001],
-		])
-		test('vs[opening_hours]',[
+			['node',100004],
+		]))
+		it("finds given tag presence with non-alphabetic characters",()=>test('vs[opening_hours]',[
 			['node',100002],
-		])
-		test('vs.tagged=1',[
+		]))
+		it("finds any tag presence",()=>test('vs[*]',[
 			['node',100001],
 			['node',100002],
 			['node',100003],
-		])
+		]))
+		it("finds all tag absence",()=>test('vs[!*]',[
+			['node',100004],
+		]))
 	})
 	it("tests tag value with inequality operators",()=>{
 		const node=(ref)=>({tags:{ref}})
