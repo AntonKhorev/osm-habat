@@ -591,7 +591,7 @@ export function analyzeChangesetComments(response,changesetStore,changesetIds,or
 			response.write(e.h`<dt><em>empty comment</em>\n`)
 		} else {
 			const translateHref=e.u`https://translate.google.com/?op=translate&sl=auto&tl=en&text=${comment}`
-			response.write(e.h`<dt>${comment} <a href=${translateHref}>[translate]</a>\n`)
+			response.write(e.h`<dt><span class=comment>${comment}</span> <a href=${translateHref}>[translate]</a>\n`)
 		}
 		response.write(e.h`<dd>`)
 		for (const cid of cidsByComment[comment]) response.write(' '+osmLink.changeset(cid).at(cid))

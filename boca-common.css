@@ -176,3 +176,8 @@ button.wait {
 .examples .controls {
 	color: GrayText;
 }
+.comment {
+	border: dotted 1px gray;
+	white-space: pre-wrap;
+	font-family: monospace;
+}
