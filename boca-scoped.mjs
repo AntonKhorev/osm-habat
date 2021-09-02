@@ -468,6 +468,7 @@ export function analyzeTagRedos(response,project,changesets,filter,key='name',st
 		const inSet=new Set()
 		const trumpedSet=new Set()
 		let inChanges=0
+		let outChanges=0
 		let previousValue
 		for (const ev of osm.allVersions(estore)) {
 			const value=estore[ev].tags[key]??''
@@ -479,6 +480,7 @@ export function analyzeTagRedos(response,project,changesets,filter,key='name',st
 					if (previousValue!=null || ev==1) inSet.add(value)
 				}
 			} else {
+				if (trumpedSet.has(value)) outChanges++
 				if (!inSet.has(value)) {
 					outSet.add(value)
 				}
@@ -486,7 +488,7 @@ export function analyzeTagRedos(response,project,changesets,filter,key='name',st
 			if (previousValue!=null) trumpedSet.add(previousValue)
 			previousValue=value
 		}
-		if (inChanges<stubbornness) continue
+		if (inChanges+outChanges<stubbornness) continue // TODO separate in/out-stubbornness arg
 		if (firstRow) {
 			response.write(`<table>\n`)
 			response.write(`<tr><th>element<th>history<th>out-value<th><th>in-value<th>\n`)
