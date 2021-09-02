@@ -452,46 +452,7 @@ export function analyzeChangesPerElement(response,project,changesets,filter) {
 	}
 }
 
-export function analyzeTagRedos(response,project,changesetsTemp,filter,key='name',stubbornness=2) {
-	const changesets=[...changesetsTemp]
-	const legacyFn=()=>{
-		response.write(`<h2>LEGACY Name readditions outside of selected changesets</h2>\n`)
-		let first=true
-		const writeRow=(etype,eid,name,trumpName)=>{
-			if (first) {
-				response.write(`<table>\n`)
-				response.write(`<tr><th>element<th>history<th>reoccuring name<th>replaced name\n`)
-				first=false
-			}
-			const el=osmLink.element(etype,eid)
-			response.write(`<tr>`)
-			response.write(`<td>`+el.at(`${etype} #${eid}`))
-			response.write(`<td>`+el.history.at(`[oh]`)+` `+el.deepHistory.at(`[dh]`))
-			response.write(e.h`<td>${name}<td>${trumpName}\n`)
-		}
-		for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
-			const estore=project.store[etype][eid]
-			const selectedVersions=new Set(evs)
-			const trumpedNames=new Map()
-			let previousName
-			for (const ev of osm.allVersions(estore)) {
-				const name=estore[ev].tags.name??''
-				if (previousName!=null && name!=previousName) {
-					if (selectedVersions.has(ev) && trumpedNames.has(name) && name!='') {
-						writeRow(etype,eid,name,trumpedNames.get(name))
-					}
-					trumpedNames.set(previousName,name)
-				}
-				previousName=name
-			}
-		}
-		if (first) {
-			response.write(`<p>none found\n`)
-		} else {
-			response.write(`</table>\n`)
-		}
-	}
-	legacyFn()
+export function analyzeTagRedos(response,project,changesets,filter,key='name',stubbornness=1) {
 	response.write(e.h`<h2><code>${key}</code> tag editwars</h2>\n`)
 	response.write(`<form action=tagredos class=real>\n`)
 	response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
@@ -505,27 +466,30 @@ export function analyzeTagRedos(response,project,changesetsTemp,filter,key='name
 		const selectedVersions=new Set(evs)
 		const outSet=new Set()
 		const inSet=new Set()
+		const trumpedSet=new Set()
 		let inChanges=0
 		let previousValue
 		for (const ev of osm.allVersions(estore)) {
 			const value=estore[ev].tags[key]??''
 			if (previousValue==value) continue
 			if (selectedVersions.has(ev)) {
-				if (previousValue!=null && !outSet.has(value)) {
-					inSet.add(value)
-					if (outSet.has(previousValue)) inChanges++
+				if (trumpedSet.has(value)) inChanges++
+				if (!outSet.has(value)) {
+					// if (previousValue!=null && outSet.has(previousValue) && inSet.has(value)) inChanges++
+					if (previousValue!=null || ev==1) inSet.add(value)
 				}
 			} else {
 				if (!inSet.has(value)) {
 					outSet.add(value)
 				}
 			}
+			if (previousValue!=null) trumpedSet.add(previousValue)
 			previousValue=value
 		}
 		if (inChanges<stubbornness) continue
 		if (firstRow) {
 			response.write(`<table>\n`)
-			response.write(`<tr><th>element<th>history<th>out-value<th>in-value\n`)
+			response.write(`<tr><th>element<th>history<th>out-value<th><th>in-value<th>\n`)
 			firstRow=false
 		}
 		let firstSubRow=true
@@ -540,6 +504,9 @@ export function analyzeTagRedos(response,project,changesetsTemp,filter,key='name
 				response.write(`<tr><td><td>`)
 			}
 		}
+		const writeValue=(v)=>{
+			response.write(e.h`<td>${v}<td>`+(inSet.has(v)?'<em>(own)</em>':''))
+		}
 		previousValue=undefined
 		let lastWrittenValue
 		for (const ev of osm.allVersions(estore)) {
@@ -547,14 +514,17 @@ export function analyzeTagRedos(response,project,changesetsTemp,filter,key='name
 			if (previousValue==value) continue
 			if (selectedVersions.has(ev)) {
 				writeSubRowLead()
-				response.write(e.h`<td>${previousValue??''}<td>${value}\n`)
+				writeValue(previousValue??'')
+				writeValue(value)
+				response.write(`\n`)
 				lastWrittenValue=value
 			}
 			previousValue=value
 		}
 		if (lastWrittenValue!=previousValue) {
 			writeSubRowLead()
-			response.write(e.h`<td>${previousValue??''}\n`)
+			writeValue(previousValue??'')
+			response.write(`\n`)
 		}
 	}
 	if (firstRow) {
