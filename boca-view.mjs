@@ -37,8 +37,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			this.serveByElement(response,route,getQuery,scoped.viewElements)
 		} else if (route=='cpe') {
 			this.serveByElement(response,route,getQuery,scoped.analyzeChangesPerElement)
-		} else if (route=='nameredos') {
-			this.serveByElement(response,route,getQuery,scoped.analyzeNameRedos)
+		} else if (route=='tagredos') {
+			this.serveByElement(response,route,getQuery,scoped.analyzeTagRedos,getQuery.key,getQuery.stubbornness)
 		} else if (route=='top.osm') {
 			this.serveFile(response,route,getQuery,scoped.serveTopVersions)
 		} else if (route=='deleted.osm') {
@@ -129,10 +129,10 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 		this.writeMain(response)
 		this.writeTail(response)
 	}
-	serveByElement(response,route,query,insides) {
+	serveByElement(response,route,query,insides,...extraArgs) {
 		const filter=new Filter(query)
 		this.writeHead(response,route,filter)
-		const ecount=insides(response,this.project,this.getChangesets(),filter)
+		const ecount=insides(response,this.project,this.getChangesets(),filter,...extraArgs)
 		this.writeTail(response,ecount)
 	}
 	serveFile(response,route,query,insides) {
@@ -197,7 +197,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			['.','main view',CAN_HAVE_FILTER],
 			['elements','elements',CAN_HAVE_FILTER],
 			['cpe','changes per element',CAN_HAVE_FILTER],
-			['nameredos','find name readditions',CAN_HAVE_FILTER],
+			['tagredos','find tag value editwars',CAN_HAVE_FILTER],
 		]
 	}
 }
