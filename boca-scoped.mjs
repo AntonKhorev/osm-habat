@@ -490,7 +490,7 @@ export function analyzeTagRedos(response,project,changesets,filter,key='name',st
 		response.write(`<tr><th rowspan=2>changeset<th rowspan=2>versions<th colspan=${uidColumns.size}>users\n`)
 		response.write(`<tr>`)
 		for (const uid of uidColumns) {
-			response.write(e.h`<td>${uid}`)
+			response.write(`<td>`+project.getUserLink(uid))
 		}
 		response.write(`\n`)
 		previousValue=null // now null is going to be a deleted state
