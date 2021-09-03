@@ -460,80 +460,80 @@ export function analyzeTagRedos(response,project,changesets,filter,key='name',st
 	response.write(e.h`<label>Stubbornness: <input type=number min=1 name=stubbornness value=${stubbornness}></label>\n`)
 	response.write(`<button>Check this tag</button>\n`)
 	response.write(`</form>\n`)
-	let firstRow=true
+	let matchedElements=0
 	for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
 		const estore=project.store[etype][eid]
 		const selectedVersions=new Set(evs)
-		const outSet=new Set()
-		const inSet=new Set()
 		const trumpedSet=new Set()
+		const uidColumns=new Set()
 		let inChanges=0
 		let outChanges=0
 		let previousValue
 		for (const ev of osm.allVersions(estore)) {
 			const value=estore[ev].tags[key]??''
 			if (previousValue==value) continue
+			const uid=estore[ev].uid
+			if (!uidColumns.has(uid)) uidColumns.add(uid)
 			if (selectedVersions.has(ev)) {
 				if (trumpedSet.has(value)) inChanges++
-				if (!outSet.has(value)) {
-					// if (previousValue!=null && outSet.has(previousValue) && inSet.has(value)) inChanges++
-					if (previousValue!=null || ev==1) inSet.add(value)
-				}
 			} else {
 				if (trumpedSet.has(value)) outChanges++
-				if (!inSet.has(value)) {
-					outSet.add(value)
-				}
 			}
 			if (previousValue!=null) trumpedSet.add(previousValue)
 			previousValue=value
 		}
-		if (inChanges+outChanges<stubbornness) continue // TODO separate in/out-stubbornness arg
-		if (firstRow) {
-			response.write(`<table>\n`)
-			response.write(`<tr><th>element<th>history<th>out-value<th><th>in-value<th>\n`)
-			firstRow=false
+		if (inChanges+outChanges<stubbornness) continue // TODO separate in/out-stubbornness arg - or make a filter
+		matchedElements++
+		const el=osmLink.element(etype,eid)
+		response.write(`<h3>`+el.at(`${etype} #${eid}`)+` `+el.history.at(`[history]`)+` `+el.deepHistory.at(`[deep history]`)+`</h3>\n`)
+		response.write(`<table>\n`)
+		response.write(`<tr><th rowspan=2>changeset<th rowspan=2>versions<th colspan=${uidColumns.size}>users\n`)
+		response.write(`<tr>`)
+		for (const uid of uidColumns) {
+			response.write(e.h`<td>${uid}`)
 		}
-		let firstSubRow=true
-		const writeSubRowLead=()=>{
-			if (firstSubRow) {
-				const el=osmLink.element(etype,eid)
-				response.write(`<tr>`)
-				response.write(`<td>`+el.at(`${etype} #${eid}`))
-				response.write(`<td>`+el.history.at(`[oh]`)+` `+el.deepHistory.at(`[dh]`))
-				firstSubRow=false
-			} else {
-				response.write(`<tr><td><td>`)
+		response.write(`\n`)
+		previousValue=null // now null is going to be a deleted state
+		let preparedUid,preparedCid,preparedIn
+		let preparedVersions=[]
+		const writeRow=()=>{
+			if (preparedUid==null) return
+			response.write(`<tr><td>`+osmLink.changeset(preparedCid).at(preparedCid)+`<td>`+preparedVersions.join(' '))
+			for (const uid of uidColumns) {
+				response.write(`<td>`)
+				if (uid!=preparedUid) continue
+				if (preparedIn) response.write(`<strong>`)
+				if (previousValue!=null) {
+					response.write(e.h`${previousValue}`)
+				} else {
+					response.write(`<em>deleted</em>`)
+				}
+				if (preparedIn) response.write(`</strong>`)
 			}
+			response.write(`\n`)
+			preparedUid=preparedCid=preparedIn=undefined
+			preparedVersions=[]
 		}
-		const writeValue=(v)=>{
-			response.write(e.h`<td>${v}<td>`+(inSet.has(v)?'<em>(own)</em>':''))
-		}
-		previousValue=undefined
-		let lastWrittenValue
 		for (const ev of osm.allVersions(estore)) {
-			const value=estore[ev].tags[key]??''
-			if (previousValue==value) continue
-			if (selectedVersions.has(ev)) {
-				writeSubRowLead()
-				writeValue(previousValue??'')
-				writeValue(value)
-				response.write(`\n`)
-				lastWrittenValue=value
+			const value=(estore[ev].visible
+				? estore[ev].tags[key]??''
+				: null
+			)
+			if (previousValue==value) {
+				preparedVersions.push(ev)
+				continue
 			}
+			writeRow()
+			preparedUid=estore[ev].uid
+			preparedCid=estore[ev].changeset
+			preparedIn=selectedVersions.has(ev)
+			preparedVersions.push(ev)
 			previousValue=value
 		}
-		if (lastWrittenValue!=previousValue) {
-			writeSubRowLead()
-			writeValue(previousValue??'')
-			response.write(`\n`)
-		}
-	}
-	if (firstRow) {
-		response.write(`<p>none found\n`)
-	} else {
+		writeRow()
 		response.write(`</table>\n`)
 	}
+	response.write(`<p>${matchedElements} elements found\n`)
 	response.write(`<form method=post action=fetch-preceding>\n`)
 	response.write(e.h`<input type=hidden name=filter value=${filter.text}>\n`)
 	response.write(`<button>Fetch a batch of preceding versions from OSM</button>\n`)
