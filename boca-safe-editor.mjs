@@ -1,6 +1,8 @@
 /**
  * @param targetTags - object with keys = target tag keys and any values
  * @param safeTags - object with keys,values = safe tags and their required values
+ * @param evs - array of in-versions (versions that contain possibly compromising changes that may need to be undone)
+ * @returns null if no safe changes are required/possible, otherwise object with tags that the element should have
  */
 export function undoTagsIfSafe(targetTags,safeTags,store,etype,eid,evs,parent) {
 	if (evs.length!=1) return null // want only one in-version

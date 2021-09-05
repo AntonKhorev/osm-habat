@@ -6,10 +6,10 @@ import * as e from './escape.js'
  * Currently doesn't support writing deletes or deleted versions.
  *
  * @param {function(string)} write - called to output part of xml file
- * @param elements - Pre-sorted array of either
- *     [etype,eid,ev]
- *     or
- *     [etype,eid,ev,ev2] - for writing modifications from version ev to version ev2
+ * @param elements - Pre-sorted array of one of these:
+ *     [etype,eid,ev] - for writing existing version as unmodified
+ *     [etype,eid,ev,ev2] - for writing modifications (reverts) from existing version ev to existing version ev2
+ *     [etype,eid,ev,tags] - for writing modifications changing tags to the specified ones
  */
 export default function writeOsmFile(write,store,elements) {
 	const getDataForEdit=(estore,ev,edit)=>{
