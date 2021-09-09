@@ -6,6 +6,7 @@ import {createRequire} from 'module'
 const meow=createRequire(import.meta.url)('meow')
 
 import * as osm from './osm.js'
+import * as osmRef from './osm-ref.mjs'
 import * as osmLink from './osm-link.mjs'
 import User from './user.js'
 
@@ -52,16 +53,6 @@ async function main(inputFilename,outputFilename,flags) {
 }
 
 async function readSections(filename,callback) {
-	function parseElementString(elementString) {
-		let match
-		if (match=elementString.match(/(node|way|relation)[ /#]+(\d+)$/)) { // url
-			const [,type,id]=match
-			return [type,id]
-		} else if (match=elementString.match(/^([nwr])(\d+)$/)) { // n12345
-			const [,t,id]=match
-			return [{n:'node',w:'way',r:'relation'}[t],id]
-		}
-	}
 	function parseNoteString(elementString) {
 		let match
 		if (match=elementString.match(/note[ /#]+(\d+)$/)) { // url
@@ -115,10 +106,10 @@ async function readSections(filename,callback) {
 			add('noteCount',noteCountString)
 		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
 			const [,elementString]=match
-			add('elements',parseElementString(elementString))
+			add('elements',osmRef.element(elementString))
 		} else if (match=input.match(/^\*\s+((?:node|way|relation)\s+.*)$/)) {
 			const [,elementString]=match
-			add('elements',parseElementString(elementString))
+			add('elements',osmRef.element(elementString))
 		} else if (match=input.match(/^\*\s+version\s+(.*)$/)) {
 			const [,versionString]=match
 			add('versions',versionString)
@@ -128,7 +119,7 @@ async function readSections(filename,callback) {
 			currentSection.data.tags[k]=v
 		} else if (match=input.match(/^\*\s+should\s+contain\s+element\s+(.*)$/)) {
 			const [,elementString]=match
-			add('shouldContainElements',parseElementString(elementString))
+			add('shouldContainElements',osmRef.element(elementString))
 		} else if (match=input.match(/^\*\s+should\s+exist/)) {
 			currentSection.data.shouldExist=true
 		} else if (match=input.match(/^\*\s+note\s+(.*)$/)) {
