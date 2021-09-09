@@ -116,6 +116,9 @@ async function readSections(filename,callback) {
 		} else if (match=input.match(/^\*\s+element\s+(.*)$/)) {
 			const [,elementString]=match
 			add('elements',parseElementString(elementString))
+		} else if (match=input.match(/^\*\s+((?:node|way|relation)\s+.*)$/)) {
+			const [,elementString]=match
+			add('elements',parseElementString(elementString))
 		} else if (match=input.match(/^\*\s+version\s+(.*)$/)) {
 			const [,versionString]=match
 			add('versions',versionString)
