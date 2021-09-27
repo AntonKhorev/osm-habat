@@ -35,6 +35,8 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			this.serveMain(response,getQuery)
 		} else if (route=='elements') {
 			this.serveByElement(response,route,getQuery,scoped.viewElements)
+		} else if (route=='quickredaction') {
+			this.serveByElement(response,route,getQuery,scoped.getQuickRedactionFile)
 		} else if (route=='cpe') {
 			this.serveByElement(response,route,getQuery,scoped.analyzeChangesPerElement)
 		} else if (route=='tagredos') {
@@ -196,6 +198,7 @@ class ElementaryView { // doesn't need to provide real changesets/changes
 			['/','root'],
 			['.','main view',CAN_HAVE_FILTER],
 			['elements','elements',CAN_HAVE_FILTER],
+			['quickredaction','quick redaction file',CAN_HAVE_FILTER],
 			['cpe','changes per element',CAN_HAVE_FILTER],
 			['tagredos','find tag value editwars',CAN_HAVE_FILTER],
 		]

@@ -589,6 +589,17 @@ export function viewElements(response,project,changesets,filter) {
 	}
 }
 
+export function getQuickRedactionFile(response,project,changesets,filter) {
+	response.write(`<h2>Redaction file for changed elements</h2>\n`)
+	response.write(`<textarea readonly>`)
+	for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
+		for (const ev of evs) {
+			response.write(e.h`${etype}/${eid}/${ev}\n`)
+		}
+	}
+	response.write(`</textarea>\n`)
+}
+
 export function analyzeChangesetComments(response,changesetStore,changesetIds,order) {
 	const orderData=[
 		['comment','comment lexicographically',(comment,cids)=>comment],
