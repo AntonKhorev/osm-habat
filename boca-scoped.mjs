@@ -545,7 +545,7 @@ export function viewElements(response,project,changesets,filter) {
 	let elementCount=0
 	for (const [elementType,elementId,elementVersions] of filter.filterElements(project,changesets,3)) {
 		if (elementCount==0) {
-			response.write(`<table>\n`)
+			response.write(`<table class=element-list>\n`)
 			response.write(
 				`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>`+
 				`<th>known major tags<th>last state\n`

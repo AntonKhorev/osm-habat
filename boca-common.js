@@ -1,6 +1,7 @@
 const [elementContainerMap,elementContainerArray,$positionInput]=setupElementContainerSequence(document)
 setupElementListeners(document)
 setupExampleListeners(document)
+setupElementListControls(document)
 
 function setupElementContainerSequence($containerContainer) {
 	const elementContainerMap=new Map()
@@ -345,5 +346,24 @@ function setupExampleListeners($container) {
 			$controls.insertAdjacentHTML('beforeend',` to ${$exampleInput.name} input]`)
 			$exampleTitle.appendChild($controls)
 		}
+	}
+}
+
+function setupElementListControls($container) {
+	for (const $table of $container.querySelectorAll('.element-list')) {
+		const $button=document.createElement('button')
+		$button.textContent=`Make a list of element urls`
+		$button.onclick=()=>{
+			let t=''
+			for (const $tr of $table.rows) {
+				const $a=$tr.querySelector('td a')
+				if (!$a) continue
+				t+=$a.href+'\n'
+			}
+			const $textarea=document.createElement('textarea')
+			$textarea.value=t
+			$button.replaceWith($textarea)
+		}
+		$table.after($button)
 	}
 }
