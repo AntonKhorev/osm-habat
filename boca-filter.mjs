@@ -25,6 +25,9 @@ export default class Filter {
 			}
 		}
 		const handleTagEntry=(ver,key,op,val)=>{
+			if (val!=null && val[0]==`"`) {
+				val=val.slice(1,val.lastIndexOf(`"`))
+			}
 			if (!this.conditions[ver]) this.conditions[ver]={}
 			if (!this.conditions[ver].tag) this.conditions[ver].tag={}
 			if (op=='=' || op=='==') {
@@ -62,7 +65,7 @@ export default class Filter {
 				if (match=trTagStatement.match(/^(!?)\s*([^=><!~]+)$/)) {
 					const [,not,key]=match
 					handleTagEntry(ver,key,not?'!=*':'=*')
-				} else if (match=trTagStatement.match(/^([^=><!~]+?)\s*(==|=|~=|!=|>=|>|<=|<)\s*(.*)$/)) {
+				} else if (match=trTagStatement.match(/^([^=><!~]+?)\s*(==|=|~=|!=|!~=|>=|>|<=|<)\s*(.*)$/)) {
 					const [,key,op,val]=match
 					handleTagEntry(ver,key,op,val)
 				}
@@ -162,6 +165,9 @@ export default class Filter {
 			const [operator,value]=expected
 			if (operator=='~=') {
 				return !!(actual??'').match(new RegExp(e.escapeRegex(value),'i'))
+			} else if (operator=='!~=') {
+				return  actual &&
+				        !(actual??'').match(new RegExp(e.escapeRegex(value),'i'))
 			} else if (operator=='!=') {
 				return actual!=value
 			} else if (operator=='>') {
