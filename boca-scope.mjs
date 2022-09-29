@@ -90,7 +90,7 @@ export default class Scope {
 	 * @returns downloaded changesets
 	 */
 	*getChangesets(store,userStore,changesetStore) {
-		for (const cid of listChangesetIds(userStore,changesetStore)) {
+		for (const cid of this.listChangesetIds(userStore,changesetStore)) {
 			if (cid in store.changeset) yield [cid,store.changeset[cid]]
 		}
 	}
