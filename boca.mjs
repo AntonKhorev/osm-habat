@@ -99,6 +99,8 @@ function main(projectDirname) {
 				serveBbox(response,project,user)
 			} else if (subpath=='bbox-noscope.osm') {
 				serveBbox(response,project,user,true)
+			} else if (subpath=='bbox-trace.osm') {
+				serveBbox(response,project,user,false,true)
 			} else if (subpath=='fetch-metadata') {
 				await serveFetchUserMetadata(response,project,user,referer)
 			} else if (subpath=='fetch-data') {
@@ -532,7 +534,7 @@ async function serveRedactions(response,project,redactionChangeset) {
 	respond.tail(response)
 }
 
-function serveBbox(response,project,user,noscope=false) {
+function serveBbox(response,project,user,noscope=false,trace=false) {
 	response.writeHead(200,{
 		'Content-Type':'application/xml; charset=utf-8',
 		'Content-Disposition':'attachment; filename="bbox.osm"',
@@ -540,6 +542,7 @@ function serveBbox(response,project,user,noscope=false) {
 	response.write(`<?xml version="1.0" encoding="UTF-8"?>\n`)
 	response.write(`<osm version="0.6" generator="osm-habat" download="never" upload="never">\n`)
 	const skipCids=new Set()
+	const tracePoints=[]
 	if (noscope) {
 		for (const scope of project.scope.values()) {
 			for (const [cid] of scope.getChangesets(project.store,project.user)) {
@@ -558,6 +561,10 @@ function serveBbox(response,project,user,noscope=false) {
 		response.write(e.x`  <node id="-${k+3}" lat="${changeset.max_lat}" lon="${changeset.max_lon}" />\n`)
 		response.write(e.x`  <node id="-${k+4}" lat="${changeset.min_lat}" lon="${changeset.max_lon}" />\n`)
 		cids.push(cid)
+		tracePoints.push([
+			avg(changeset.min_lat,changeset.max_lat),
+			avg(changeset.min_lon,changeset.max_lon)
+		])
 	}
 	for (let i=0;i<cids.length;i++) {
 		response.write(e.x`  <way id="-${i+1}">\n`)
@@ -569,7 +576,22 @@ function serveBbox(response,project,user,noscope=false) {
 		}
 		response.write(e.x`  </way>\n`)
 	}
+	if (trace && tracePoints.length>1) {
+		const id=100000000
+		for (let i=0;i<tracePoints.length;i++) {
+			const [lat,lon]=tracePoints[i]
+			response.write(e.x`  <node id="-${id+i}" lat="${lat}" lon="${lon}" />\n`)
+		}
+		response.write(e.x`  <way id="-${id}">\n`)
+		for (let i=0;i<tracePoints.length;i++) {
+			response.write(e.x`    <nd ref="-${id+i}" />\n`)
+		}
+		response.write(e.x`  </way>\n`)
+	}
 	response.end(`</osm>\n`)
+	function avg(a,b) {
+		return (Number(a)+Number(b))/2
+	}
 }
 
 function serveStore(response,store) {
