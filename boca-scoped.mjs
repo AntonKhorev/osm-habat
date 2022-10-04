@@ -548,7 +548,7 @@ export function viewElements(response,project,changesets,filter) {
 			response.write(`<table class=element-list>\n`)
 			response.write(
 				`<tr><th>element<th>osm<th><abbr title='overpass turbo before change'>ov-</abbr><th><abbr title='osm deep history'>odh</abbr>`+
-				`<th>known major tags<th>last state\n`
+				`<th>known major tags<th>last state<th>is last version selected\n`
 			)
 		}
 		elementCount++
@@ -573,7 +573,10 @@ export function viewElements(response,project,changesets,filter) {
 		if (!elementStore[latestVersion].visible && elementType=='way') {
 			const href=`/undelete/w${elementId}.osm`
 			response.write(e.h`<td><a href=${href}>undelete.osm</a>`)
+		} else {
+			response.write(`<td>`)
 		}
+		response.write(e.h`<td>${elementVersion==latestVersion ? 'yes' : 'nooo!'}`)
 		response.write(`\n`)
 	}
 	if (elementCount==0) {

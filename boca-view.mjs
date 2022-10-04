@@ -338,11 +338,16 @@ export class ScopeView extends FullView {
 		response.write(`<ul>\n`)
 		response.write(`<li>external tools: `+osmLink.changesets(cids).osmcha.at('osmcha')+`\n`)
 		response.write(`</ul>\n`)
+		response.write(`<pre>\n`)
+		for (const cid of this.scope.listChangesetIds(this.project.user,this.project.changeset)) {
+			response.write(e.h`${cid} \n`)
+		}
+		response.write(`</pre>\n`)
 		response.write(`<textarea>\n`)
 		for (const line of this.scope.lines) {
 			response.write(e.h`${line}\n`)
 		}
-		response.write(`</textarea>`)
+		response.write(`</textarea>\n`)
 	}
 }
 
