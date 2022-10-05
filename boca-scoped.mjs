@@ -594,12 +594,35 @@ export function viewElements(response,project,changesets,filter) {
 }
 
 export function getQuickRedactionFile(response,project,changesets,filter) {
+	const data=[...filter.filterElements(project,changesets,3)]
 	response.write(`<h2>Redaction file for changed elements</h2>\n`)
 	response.write(`<textarea readonly>`)
-	for (const [etype,eid,evs] of filter.filterElements(project,changesets,3)) {
+	for (const [etype,eid,evs] of data) {
 		for (const ev of evs) {
 			response.write(e.h`${etype}/${eid}/${ev}\n`)
 		}
+	}
+	response.write(`</textarea>\n`)
+	response.write(`<h2>Redaction file for versions after changes (unless deleted)</h2>\n`)
+	response.write(`<textarea readonly>`)
+	for (const [etype,eid,evs] of data) {
+		if (evs.length==0) continue
+		const afterVersions=new Set()
+		const elementStore=project.store[etype][eid]
+		for (const k in elementStore) {
+			const n=Number(k)
+			if (!n) continue
+			if (n<=evs[0]) continue
+			if (!elementStore[k].visible) continue
+			afterVersions.add(n)
+		}
+		for (const ev of evs) {
+			afterVersions.delete(ev)
+		}
+		for (const ev of afterVersions) {
+			response.write(e.h`${etype}/${eid}/${ev}\n`)
+		}
+
 	}
 	response.write(`</textarea>\n`)
 }
