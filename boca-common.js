@@ -351,19 +351,38 @@ function setupExampleListeners($container) {
 
 function setupElementListControls($container) {
 	for (const $table of $container.querySelectorAll('.element-list')) {
-		const $button=document.createElement('button')
-		$button.textContent=`Make a list of element urls`
-		$button.onclick=()=>{
-			let t=''
-			for (const $tr of $table.rows) {
-				const $a=$tr.querySelector('td a')
-				if (!$a) continue
-				t+=$a.href+'\n'
+		{
+			const $button=document.createElement('button')
+			$button.textContent=`Make a list of element urls`
+			$button.onclick=()=>{
+				let t=''
+				for (const $tr of $table.rows) {
+					const $a=$tr.querySelector('td a')
+					if (!$a) continue
+					t+=$a.href+'\n'
+				}
+				const $textarea=document.createElement('textarea')
+				$textarea.value=t
+				$button.replaceWith($textarea)
 			}
-			const $textarea=document.createElement('textarea')
-			$textarea.value=t
-			$button.replaceWith($textarea)
+			$table.after($button)
+		}{
+			const tids=[]
+			for (const $row of $table.rows) {
+				if ($row.dataset.selectedVersion!=$row.dataset.topVersion) {
+					tids.push($row.dataset.tid)
+				}
+			}
+			const $button=document.createElement('button')
+			$button.textContent=`RC select ${tids.length} non-top-version selected elements`
+			if (tids.length==0) {
+				$button.disabled=true
+			}
+			$button.onclick=()=>{
+				const href='http://127.0.0.1:8111/load_object?objects='+tids.join(',')
+				fetch(href)
+			}
+			$table.after($button)
 		}
-		$table.after($button)
 	}
 }

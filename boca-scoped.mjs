@@ -552,12 +552,14 @@ export function viewElements(response,project,changesets,filter) {
 			)
 		}
 		elementCount++
-		response.write(`<tr>`)
-		response.write(e.h`<td>${elementType[0]}${elementId}`)
-		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
 		const elementStore=project.store[elementType][elementId]
 		const elementVersion=elementVersions[elementVersions.length-1]
 		const elementTimestamp=elementStore[elementVersion].timestamp
+		const latestVersion=osm.topVersion(elementStore)
+		const tid=`${elementType[0]}${elementId}`
+		response.write(e.h`<tr data-tid=${tid} data-selected-version=${elementVersion} data-top-version=${latestVersion}>`)
+		response.write(e.h`<td>${tid}`)
+		response.write(e.h`<td><a href=${'https://www.openstreetmap.org/'+elementType+'/'+elementId}>osm</a>`)
 		response.write('<td>'+osmLink.elementTimestamp(elementType,elementId,elementTimestamp).overpassTurboBefore.at('ov-'))
 		response.write('<td>'+osmLink.element(elementType,elementId).deepHistory.at('odh'))
 		const majorTags={}
@@ -568,7 +570,6 @@ export function viewElements(response,project,changesets,filter) {
 			}
 		}
 		response.write(e.h`<td>${Object.entries(majorTags).map(([k,v])=>k+'='+v).join(' ')}`)
-		const latestVersion=osm.topVersion(elementStore)
 		response.write('<td>'+(elementStore[latestVersion].visible?'visible':'deleted'))
 		if (!elementStore[latestVersion].visible && elementType=='way') {
 			const href=`/undelete/w${elementId}.osm`
