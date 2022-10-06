@@ -684,6 +684,60 @@ export function analyzeChangesetComments(response,changesetStore,changesetIds,or
 	response.write(`</dl>\n`)
 }
 
+export function analyzeDependentChangesets(response,project,changesets) {
+	response.write(`<h2>Dependent changeset sets</h2>\n`)
+	// disjoint-set forest
+	const union=(x,y)=>link(find(x),find(y))
+	const link=(x,y)=>{
+		if (x.rank>y.rank) {
+			y.parent=x
+		} else {
+			x.parent=y
+			if (x.rank==y.rank) y.rank++
+		}
+	}
+	const find=(x)=>{
+		if (x!=x.parent) x.parent=find(x.parent)
+		return x.parent
+	}
+	const csetsById=new Map()
+	const elementPrevCid={node:{},way:{},relation:{}}
+	for (const [cid,changes] of changesets) {
+		const x={
+			cid,
+			rank: 0,
+		}
+		x.parent=x
+		csetsById.set(cid,x)
+		for (const [,etype,eid] of changes) {
+			if (elementPrevCid[etype][eid]!=null) {
+				union(
+					csetsById.get(cid),
+					csetsById.get(elementPrevCid[etype][eid])
+				)
+			}
+			elementPrevCid[etype][eid]=cid
+		}
+	}
+	const disjointSets=new Map()
+	for (const [cid,x] of csetsById) {
+		const pid=find(x).cid
+		if (!disjointSets.has(pid)) {
+			disjointSets.set(pid,new Set())
+		}
+		disjointSets.get(pid).add(cid)
+	}
+	response.write(`<ul>\n`)
+	for (const cids of disjointSets.values()) {
+		response.write(`<li>`)
+		for (const cid of cids) {
+			response.write(osmLink.changeset(cid).at(cid)+` `)
+		}
+		response.write(`\n`)
+	}
+	response.write(`</ul>\n`)
+}
+
 export async function serveTopVersions(response,project,changesets,filter) {
 	let elements
 	try {

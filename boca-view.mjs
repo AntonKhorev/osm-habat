@@ -240,6 +240,8 @@ class FullView extends ElementaryView {
 			this.writeHead(response,route)
 			scoped.analyzeChangesetComments(response,this.project.changeset,this.listChangesetIds(),getQuery.order)
 			this.writeTail(response)
+		} else if (route=='dependent') {
+			this.serveByChangeset(response,route,scoped.analyzeDependentChangesets)
 		} else {
 			for (const [targetRoute,action,errorMessage,rewriteQuery] of [
 				['fetch-previous',scoped.fetchPreviousVersions,`<p>cannot fetch previous versions of elements\n`], // TODO make it work with elementary views
@@ -296,6 +298,7 @@ class FullView extends ElementaryView {
 			['cpcpe','changes per changeset per element'],
 			['nonatomic','find nonatomic changesets'],
 			['comments','view changeset comments'],
+			['dependent','find dependent changesets'],
 		]
 	}
 }
