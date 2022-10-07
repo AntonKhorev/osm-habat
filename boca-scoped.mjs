@@ -685,7 +685,15 @@ export function analyzeChangesetComments(response,changesetStore,changesetIds,or
 }
 
 export function analyzeDependentChangesets(response,project,changesets) {
+	const scopeCids=new Set()
+	for (const scope of project.scope.values()) {
+		for (const [cid] of scope.getChangesets(project.store,project.user)) {
+			scopeCids.add(cid)
+		}
+	}
 	response.write(`<h2>Dependent changeset sets</h2>\n`)
+	response.write(`<p>123 = unscoped cset\n`)
+	response.write(`<p><em>123</em> = scoped cset\n`)
 	// disjoint-set forest
 	const union=(x,y)=>link(find(x),find(y))
 	const link=(x,y)=>{
@@ -731,7 +739,9 @@ export function analyzeDependentChangesets(response,project,changesets) {
 	for (const cids of disjointSets.values()) {
 		response.write(`<li>`)
 		for (const cid of cids) {
+			if (scopeCids.has(cid)) response.write(`<em>`)
 			response.write(osmLink.changeset(cid).at(cid)+` `)
+			if (scopeCids.has(cid)) response.write(`</em>`)
 		}
 		response.write(`\n`)
 	}
