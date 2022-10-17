@@ -817,8 +817,17 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 					outArcs.delete(aid)
 				}
 			}
-			if (outArcs.size>0) {
-				span=+Infinity
+			{
+				let nNewOutArcs=outArcs.size
+				for (const [i,aid] of arcsRow.entries()) {
+					if (aid) continue
+					if (nNewOutArcs==0) break
+					nNewOutArcs--
+					if (span<i) span=i
+				}
+				if (nNewOutArcs>0) {
+					span=+Infinity
+				}
 			}
 			for (const [i,aid] of arcsRow.entries()) {
 				if (dag.get(cid).has(aid)) {
@@ -833,6 +842,15 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 					} else {
 						writeCell(` | `)
 					}
+				} else if (outArcs.size>0) {
+					const [naid]=outArcs
+					outArcs.delete(naid)
+					arcsRow[i]=naid
+					if (i<span) {
+						writeCell(`-,-`)
+					} else {
+						writeCell(`-, `)
+					}
 				} else {
 					if (i<span) {
 						writeCell(`---`)
@@ -845,7 +863,7 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 				arcsRow.push(aid)
 				outArcs.delete(aid)
 				if (outArcs.size>0) {
-					writeCell(`-+-`)
+					writeCell(`-,-`)
 				} else {
 					writeCell(`-, `)
 				}
