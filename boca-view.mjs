@@ -242,6 +242,8 @@ class FullView extends ElementaryView {
 			this.writeTail(response)
 		} else if (route=='dependent') {
 			this.serveByChangeset(response,route,scoped.analyzeDependentChangesets)
+		} else if (route=='dependentdag') {
+			this.serveByChangeset(response,route,scoped.analyzeDependentChangesetsDag)
 		} else {
 			for (const [targetRoute,action,errorMessage,rewriteQuery] of [
 				['fetch-previous',scoped.fetchPreviousVersions,`<p>cannot fetch previous versions of elements\n`], // TODO make it work with elementary views
@@ -299,6 +301,7 @@ class FullView extends ElementaryView {
 			['nonatomic','find nonatomic changesets'],
 			['comments','view changeset comments'],
 			['dependent','find dependent changesets'],
+			['dependentdag','view dependent changesets graph'],
 		]
 	}
 }

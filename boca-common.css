@@ -181,3 +181,8 @@ button.wait {
 	white-space: pre-wrap;
 	font-family: monospace;
 }
+td.dag-arc {
+	font-size: .7rem;
+	font-family: monospace;
+	white-space: pre;
+}
