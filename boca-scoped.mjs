@@ -710,37 +710,45 @@ function getDependentChangesetsSetsAndDag(changesets) {
 		return x.parent
 	}
 	// } disjoint-set forest
-	const csetsById=new Map()
+	const dsfItemsById=new Map()
 	const elementPrevCid={node:{},way:{},relation:{}}
 	const dag=new Map()
+	const nCsetChanges=new Map()
 	for (const [cid,changes] of changesets) {
 		const x={
 			cid,
 			rank: 0,
 		}
 		x.parent=x
-		csetsById.set(cid,x)
+		dsfItemsById.set(cid,x)
 		dag.set(cid,new Map())
+		let nChanges=0
 		for (const [,etype,eid] of changes) {
+			nChanges++
 			const pid=elementPrevCid[etype][eid]
 			if (pid!=null) {
-				union(csetsById.get(cid),csetsById.get(pid))
+				// { disjoint-set forest
+				union(dsfItemsById.get(cid),dsfItemsById.get(pid))
+				// } disjoint-set forest
+				// { dag
 				const node=dag.get(pid)
 				if (!node.has(cid)) node.set(cid,0)
 				node.set(cid,node.get(cid)+1)
+				// } dag
 			}
 			elementPrevCid[etype][eid]=cid
 		}
+		nCsetChanges.set(cid,nChanges)
 	}
 	const disjointSets=new Map()
-	for (const [cid,x] of csetsById) {
+	for (const [cid,x] of dsfItemsById) {
 		const pid=find(x).cid
 		if (!disjointSets.has(pid)) {
 			disjointSets.set(pid,new Set())
 		}
 		disjointSets.get(pid).add(cid)
 	}
-	return [disjointSets,dag]
+	return [disjointSets,dag,nCsetChanges]
 }
 
 export function analyzeDependentChangesets(response,project,changesets) {
@@ -767,7 +775,7 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 	response.write(`<p>123 = unscoped cset\n`)
 	response.write(`<p><em>123</em> = scoped cset\n`)
 	const scopeCids=getScopeCids(project)
-	const [disjointSets,dag]=getDependentChangesetsSetsAndDag(changesets)
+	const [disjointSets,dag,nCsetChanges]=getDependentChangesetsSetsAndDag(changesets)
 	for (const cids of disjointSets.values()) {
 		// writeComponent(sort(cids,dag))
 		writeComponent(cids)
@@ -795,6 +803,7 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 			if (scopeCids.has(cid)) response.write(`<em>`)
 			response.write(osmLink.changeset(cid).at(cid))
 			if (scopeCids.has(cid)) response.write(`</em>`)
+			response.write(e.h`<td rowspan=2 class=dag-arc>${nCsetChanges.get(cid)}`)
 			{
 				let span=-1
 				for (const [i,aid] of arcsRow.entries()) {
