@@ -684,17 +684,18 @@ export function analyzeChangesetComments(response,changesetStore,changesetIds,or
 	response.write(`</dl>\n`)
 }
 
-export function analyzeDependentChangesets(response,project,changesets) {
+function getScopeCids(project) {
 	const scopeCids=new Set()
 	for (const scope of project.scope.values()) {
 		for (const [cid] of scope.getChangesets(project.store,project.user)) {
 			scopeCids.add(cid)
 		}
 	}
-	response.write(`<h2>Dependent changeset sets</h2>\n`)
-	response.write(`<p>123 = unscoped cset\n`)
-	response.write(`<p><em>123</em> = scoped cset\n`)
-	// disjoint-set forest
+	return scopeCids
+}
+
+function getDependentChangesetsSetsAndDag(changesets) {
+	// { disjoint-set forest
 	const union=(x,y)=>link(find(x),find(y))
 	const link=(x,y)=>{
 		if (x.rank>y.rank) {
@@ -708,8 +709,10 @@ export function analyzeDependentChangesets(response,project,changesets) {
 		if (x!=x.parent) x.parent=find(x.parent)
 		return x.parent
 	}
+	// } disjoint-set forest
 	const csetsById=new Map()
 	const elementPrevCid={node:{},way:{},relation:{}}
+	const dag=new Map()
 	for (const [cid,changes] of changesets) {
 		const x={
 			cid,
@@ -717,9 +720,13 @@ export function analyzeDependentChangesets(response,project,changesets) {
 		}
 		x.parent=x
 		csetsById.set(cid,x)
+		dag.set(cid,new Set())
 		for (const [,etype,eid] of changes) {
 			const pid=elementPrevCid[etype][eid]
-			if (pid!=null) union(csetsById.get(cid),csetsById.get(pid))
+			if (pid!=null) {
+				union(csetsById.get(cid),csetsById.get(pid))
+				dag.get(pid).add(cid)
+			}
 			elementPrevCid[etype][eid]=cid
 		}
 	}
@@ -731,6 +738,15 @@ export function analyzeDependentChangesets(response,project,changesets) {
 		}
 		disjointSets.get(pid).add(cid)
 	}
+	return [disjointSets,dag]
+}
+
+export function analyzeDependentChangesets(response,project,changesets) {
+	response.write(`<h2>Dependent changeset sets</h2>\n`)
+	response.write(`<p>123 = unscoped cset\n`)
+	response.write(`<p><em>123</em> = scoped cset\n`)
+	const scopeCids=getScopeCids(project)
+	const [disjointSets]=getDependentChangesetsSetsAndDag(changesets)
 	response.write(`<ul>\n`)
 	for (const cids of disjointSets.values()) {
 		response.write(`<li>`)
@@ -745,135 +761,17 @@ export function analyzeDependentChangesets(response,project,changesets) {
 }
 
 export function analyzeDependentChangesetsDag(response,project,changesets) {
-	const scopeCids=new Set()
-	for (const scope of project.scope.values()) {
-		for (const [cid] of scope.getChangesets(project.store,project.user)) {
-			scopeCids.add(cid)
-		}
-	}
 	response.write(`<h2>Dependent changeset graph</h2>\n`)
 	response.write(`<p>123 = unscoped cset\n`)
 	response.write(`<p><em>123</em> = scoped cset\n`)
-	const elementPrevCid={node:{},way:{},relation:{}}
-	const dag=new Map()
-	for (const [cid,changes] of changesets) {
-		dag.set(cid,new Set())
-		for (const [,etype,eid] of changes) {
-			const pid=elementPrevCid[etype][eid]
-			if (pid!=null) dag.get(pid).add(cid)
-			elementPrevCid[etype][eid]=cid
-		}
+	const scopeCids=getScopeCids(project)
+	const [disjointSets,dag]=getDependentChangesetsSetsAndDag(changesets)
+	for (const cids of disjointSets.values()) {
+		// writeComponent(sort(cids,dag))
+		writeComponent(cids)
 	}
-	const seq=sort(dag)
-	const arcsRow=[]
-	response.write(`<table>\n`)
-	for (const cid of seq) {
-		response.write(`<tr>`)
-		response.write(`<td rowspan=2>`)
-		if (scopeCids.has(cid)) response.write(`<em>`)
-		response.write(osmLink.changeset(cid).at(cid))
-		if (scopeCids.has(cid)) response.write(`</em>`)
-		{
-			let span=-1
-			for (const [i,aid] of arcsRow.entries()) {
-				if (aid==cid) span=i
-			}
-			for (const [i,aid] of arcsRow.entries()) {
-				const tip=i==0?`<`:`-`
-				if (aid==cid) {
-					arcsRow[i]=null
-					if (i<span) {
-						writeCell(tip+`'-`)
-					} else {
-						writeCell(tip+`' `)
-					}
-				} else if (aid) {
-					if (i<span) {
-						writeCell(tip+`|-`)
-					} else {
-						writeCell(` | `)
-					}
-				} else {
-					if (i<span) {
-						writeCell(tip+`--`)
-					} else {
-						writeCell(`   `)
-					}
-				}
-			}
-			while (arcsRow.length>0) {
-				if (arcsRow[arcsRow.length-1]) break
-				arcsRow.pop()
-			}
-		}
-		response.write(`</tr>`)
-		response.write(`<tr>`)
-		{
-			const outArcs=new Set(dag.get(cid))
-			let span=-1
-			for (const [i,aid] of arcsRow.entries()) {
-				if (outArcs.has(aid)) {
-					span=i
-					outArcs.delete(aid)
-				}
-			}
-			{
-				let nNewOutArcs=outArcs.size
-				for (const [i,aid] of arcsRow.entries()) {
-					if (aid) continue
-					if (nNewOutArcs==0) break
-					nNewOutArcs--
-					if (span<i) span=i
-				}
-				if (nNewOutArcs>0) {
-					span=+Infinity
-				}
-			}
-			for (const [i,aid] of arcsRow.entries()) {
-				if (dag.get(cid).has(aid)) {
-					if (i<span) {
-						writeCell(`-+-`)
-					} else {
-						writeCell(`-+ `)
-					}
-				} else if (aid) {
-					if (i<span) {
-						writeCell(`-|-`)
-					} else {
-						writeCell(` | `)
-					}
-				} else if (outArcs.size>0) {
-					const [naid]=outArcs
-					outArcs.delete(naid)
-					arcsRow[i]=naid
-					if (i<span) {
-						writeCell(`-,-`)
-					} else {
-						writeCell(`-, `)
-					}
-				} else {
-					if (i<span) {
-						writeCell(`---`)
-					} else {
-						writeCell(`   `)
-					}
-				}
-			}
-			for (const aid of outArcs) {
-				arcsRow.push(aid)
-				outArcs.delete(aid)
-				if (outArcs.size>0) {
-					writeCell(`-,-`)
-				} else {
-					writeCell(`-, `)
-				}
-			}
-		}
-		response.write(`</tr>\n`)
-	}
-	response.write(`</table>\n`)
 
-	function sort(dag) {
+	function sort(cids,dag) {
 		const seq=[]
 		const visited=new Set()
 		const rec=(id)=>{
@@ -882,9 +780,120 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 			for (const cid of dag.get(id)) rec(cid)
 			seq.unshift(id)
 		}
-		for (const id of dag.keys()) rec(id)
+		for (const id of cids) rec(id)
 		return seq
 	}
+
+	function writeComponent(cids) {
+		const arcsRow=[]
+		response.write(`<table>\n`)
+		for (const cid of cids) {
+			response.write(`<tr>`)
+			response.write(`<td rowspan=2>`)
+			if (scopeCids.has(cid)) response.write(`<em>`)
+			response.write(osmLink.changeset(cid).at(cid))
+			if (scopeCids.has(cid)) response.write(`</em>`)
+			{
+				let span=-1
+				for (const [i,aid] of arcsRow.entries()) {
+					if (aid==cid) span=i
+				}
+				for (const [i,aid] of arcsRow.entries()) {
+					const tip=i==0?`<`:`-`
+					if (aid==cid) {
+						arcsRow[i]=null
+						if (i<span) {
+							writeCell(tip+`'-`)
+						} else {
+							writeCell(tip+`' `)
+						}
+					} else if (aid) {
+						if (i<span) {
+							writeCell(tip+`|-`)
+						} else {
+							writeCell(` | `)
+						}
+					} else {
+						if (i<span) {
+							writeCell(tip+`--`)
+						} else {
+							writeCell(`   `)
+						}
+					}
+				}
+				while (arcsRow.length>0) {
+					if (arcsRow[arcsRow.length-1]) break
+					arcsRow.pop()
+				}
+			}
+			response.write(`</tr>`)
+			response.write(`<tr>`)
+			{
+				const outArcs=new Set(dag.get(cid))
+				let span=-1
+				for (const [i,aid] of arcsRow.entries()) {
+					if (outArcs.has(aid)) {
+						span=i
+						outArcs.delete(aid)
+					}
+				}
+				{
+					let nNewOutArcs=outArcs.size
+					for (const [i,aid] of arcsRow.entries()) {
+						if (aid) continue
+						if (nNewOutArcs==0) break
+						nNewOutArcs--
+						if (span<i) span=i
+					}
+					if (nNewOutArcs>0) {
+						span=+Infinity
+					}
+				}
+				for (const [i,aid] of arcsRow.entries()) {
+					if (dag.get(cid).has(aid)) {
+						if (i<span) {
+							writeCell(`-+-`)
+						} else {
+							writeCell(`-+ `)
+						}
+					} else if (aid) {
+						if (i<span) {
+							writeCell(`-|-`)
+						} else {
+							writeCell(` | `)
+						}
+					} else if (outArcs.size>0) {
+						const [naid]=outArcs
+						outArcs.delete(naid)
+						arcsRow[i]=naid
+						if (i<span) {
+							writeCell(`-,-`)
+						} else {
+							writeCell(`-, `)
+						}
+					} else {
+						if (i<span) {
+							writeCell(`---`)
+						} else {
+							writeCell(`   `)
+						}
+					}
+				}
+				for (const aid of outArcs) {
+					arcsRow.push(aid)
+					outArcs.delete(aid)
+					if (outArcs.size>0) {
+						writeCell(`-,-`)
+					} else {
+						writeCell(`-, `)
+					}
+				}
+			}
+			response.write(`</tr>\n`)
+		}
+		response.write(`</table>\n`)
+	}
+
 	function writeCell(code) {
 		response.write(e.h`<td class=dag-arc>${code}`)
 	}
