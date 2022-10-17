@@ -720,12 +720,14 @@ function getDependentChangesetsSetsAndDag(changesets) {
 		}
 		x.parent=x
 		csetsById.set(cid,x)
-		dag.set(cid,new Set())
+		dag.set(cid,new Map())
 		for (const [,etype,eid] of changes) {
 			const pid=elementPrevCid[etype][eid]
 			if (pid!=null) {
 				union(csetsById.get(cid),csetsById.get(pid))
-				dag.get(pid).add(cid)
+				const node=dag.get(pid)
+				if (!node.has(cid)) node.set(cid,0)
+				node.set(cid,node.get(cid)+1)
 			}
 			elementPrevCid[etype][eid]=cid
 		}
@@ -777,7 +779,7 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 		const rec=(id)=>{
 			if (visited.has(id)) return
 			visited.add(id)
-			for (const cid of dag.get(id)) rec(cid)
+			for (const cid of dag.get(id).keys()) rec(cid)
 			seq.unshift(id)
 		}
 		for (const id of cids) rec(id)
@@ -798,24 +800,24 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 				for (const [i,aid] of arcsRow.entries()) {
 					if (aid==cid) span=i
 				}
+				writeCell(`<`)
 				for (const [i,aid] of arcsRow.entries()) {
-					const tip=i==0?`<`:`-`
 					if (aid==cid) {
 						arcsRow[i]=null
 						if (i<span) {
-							writeCell(tip+`'-`)
+							writeCell(`-'-`)
 						} else {
-							writeCell(tip+`' `)
+							writeCell(`-' `)
 						}
 					} else if (aid) {
 						if (i<span) {
-							writeCell(tip+`|-`)
+							writeCell(`-|-`)
 						} else {
 							writeCell(` | `)
 						}
 					} else {
 						if (i<span) {
-							writeCell(tip+`--`)
+							writeCell(`---`)
 						} else {
 							writeCell(`   `)
 						}
@@ -829,7 +831,10 @@ export function analyzeDependentChangesetsDag(response,project,changesets) {
 			response.write(`</tr>`)
 			response.write(`<tr>`)
 			{
-				const outArcs=new Set(dag.get(cid))
+				let degree=0
+				for (const d of dag.get(cid).values()) degree+=d
+				writeCell(degree+`>`)
+				const outArcs=new Set(dag.get(cid).keys())
 				let span=-1
 				for (const [i,aid] of arcsRow.entries()) {
 					if (outArcs.has(aid)) {
